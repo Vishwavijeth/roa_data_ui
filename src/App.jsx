@@ -3,6 +3,79 @@ import Papa from 'papaparse';
 import { utils, writeFile } from 'xlsx';
 import './App.css';
 
+function LoginPage({ onLogin }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const validEmail = import.meta.env.VITE_USER_EMAIL || 'dev@roaworld.com';
+    const validPassword = import.meta.env.VITE_USER_PASSWORD || 'Wecandoit@2026';
+    if (email.trim() === validEmail.trim() && password === validPassword) {
+      setError('');
+      onLogin();
+    } else {
+      setError('Invalid email or password. Please try again.');
+    }
+  };
+
+  return (
+    <div className="login-container">
+      <div className="login-box">
+        <div className="login-logo">
+          <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="40" height="40" rx="10" fill="#2563eb"/>
+            <path d="M10 20 L20 10 L30 20 L20 30 Z" fill="white" opacity="0.9"/>
+            <circle cx="20" cy="20" r="5" fill="white"/>
+          </svg>
+        </div>
+        <h1 className="login-heading">Data Hub Portal</h1>
+        <p className="login-subheading">Sign in to access the reconciliation dashboard</p>
+        <form onSubmit={handleSubmit} className="login-form">
+          <div className="form-group">
+            <label htmlFor="email">Email Address</label>
+            <input
+              id="email"
+              type="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              autoComplete="email"
+            />
+          </div>
+          <div className="form-group">
+            <label htmlFor="password">Password</label>
+            <div className="password-wrapper">
+              <input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                autoComplete="current-password"
+              />
+              <button
+                type="button"
+                className="show-password-btn"
+                onClick={() => setShowPassword(!showPassword)}
+                aria-label="Toggle password visibility"
+              >
+                {showPassword ? '🙈' : '👁️'}
+              </button>
+            </div>
+          </div>
+          {error && <p className="login-error">{error}</p>}
+          <button type="submit" className="login-btn">Sign In</button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 const PARAMETERS = [
   { id: 'saleprice', label: 'Sale Price' },
   { id: 'close_date', label: 'Close Date' },
@@ -14,6 +87,7 @@ const PARAMETERS = [
 ];
 
 function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeParam, setActiveParam] = useState(PARAMETERS[0]);
@@ -43,30 +117,20 @@ function App() {
 
   const stats = useMemo(() => {
     if (!data.length) return { total: 0, matchPct: 0, mismatchPct: 0 };
-
     let totalFields = 0;
     let matchFields = 0;
-
     data.forEach(row => {
       PARAMETERS.forEach(p => {
         const resultKey = `${p.id}_result`;
         if (row[resultKey]) {
           totalFields++;
-          if (row[resultKey].toLowerCase() === 'match') {
-            matchFields++;
-          }
+          if (row[resultKey].toLowerCase() === 'match') matchFields++;
         }
       });
     });
-
     const matchPct = totalFields ? ((matchFields / totalFields) * 100).toFixed(1) : 0;
     const mismatchPct = totalFields ? (((totalFields - matchFields) / totalFields) * 100).toFixed(1) : 0;
-
-    return {
-      total: data.length,
-      matchPct,
-      mismatchPct
-    };
+    return { total: data.length, matchPct, mismatchPct };
   }, [data]);
 
   const getRowKeys = (param) => {
@@ -93,10 +157,8 @@ function App() {
   }, [data, showOnlyMismatches, currentKeys]);
 
   const mismatchCount = useMemo(() => {
-    return data.filter((row) => {
-      const resultVal = row[currentKeys.result]
-        ? row[currentKeys.result].toLowerCase()
-        : '';
+    return data.filter(row => {
+      const resultVal = row[currentKeys.result] ? row[currentKeys.result].toLowerCase() : '';
       return resultVal === 'mismatch';
     }).length;
   }, [data, currentKeys]);
@@ -108,6 +170,18 @@ function App() {
 
   const totalPages = Math.ceil(filteredData.length / rowsPerPage);
 
+  const handleDownload = () => {
+    const worksheet = utils.json_to_sheet(data);
+    const workbook = utils.book_new();
+    utils.book_append_sheet(workbook, worksheet, "Master Report");
+    writeFile(workbook, `ROA master report.xlsx`);
+  };
+
+  // All hooks done — now safe to do early conditional returns
+  if (!isAuthenticated) {
+    return <LoginPage onLogin={() => setIsAuthenticated(true)} />;
+  }
+
   if (loading) {
     return (
       <div className="loading">
@@ -117,28 +191,27 @@ function App() {
     );
   }
 
-  const handleDownload = () => {
-    const worksheet = utils.json_to_sheet(data);
-    const workbook = utils.book_new();
-    utils.book_append_sheet(workbook, worksheet, "Master Report");
-
-    const fileName = `ROA master report.xlsx`;
-    writeFile(workbook, fileName);
-  };
-
   return (
     <div className="dashboard">
       <header className="header-actions">
         <div>
-          <h1>ROA</h1>
+          <h1>Data Hub Portal</h1>
           <p>Transaction reconciliation overview across Brokerage Engine and SkySlope.</p>
         </div>
-        <button className="export-btn" onClick={handleDownload}>
-          <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-          </svg>
-          Download Master Report
-        </button>
+        <div className="header-buttons">
+          <button className="export-btn" onClick={handleDownload}>
+            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Download Master Report
+          </button>
+          <button className="logout-btn" onClick={() => setIsAuthenticated(false)}>
+            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+            Logout
+          </button>
+        </div>
       </header>
 
       <div className="metrics-container">
@@ -163,10 +236,7 @@ function App() {
             <button
               key={param.id}
               className={`chip ${activeParam.id === param.id ? 'active' : ''}`}
-              onClick={() => {
-                setActiveParam(param);
-                setPage(1);
-              }}
+              onClick={() => { setActiveParam(param); setPage(1); }}
             >
               {param.label}
             </button>
@@ -178,22 +248,19 @@ function App() {
         <div className="table-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             <h2>{activeParam.label} Comparison</h2>
-
             <div className="mismatch-toggle-group">
               <button
                 className={`toggle-btn ${showOnlyMismatches ? 'active' : ''}`}
-                onClick={() => {
-                  setShowOnlyMismatches(!showOnlyMismatches);
-                  setPage(1);
-                }}
+                onClick={() => { setShowOnlyMismatches(!showOnlyMismatches); setPage(1); }}
               >
                 Show Only Mismatches
               </button>
-
               <span className="mismatch-count-badge">{mismatchCount}</span>
             </div>
           </div>
-          <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>Showing page {page} of {totalPages || 1}</span>
+          <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+            Showing page {page} of {totalPages || 1}
+          </span>
         </div>
         <div className="table-responsive">
           <table>
@@ -210,7 +277,6 @@ function App() {
               {paginatedData.map((row, i) => {
                 const resultVal = row[currentKeys.result] ? row[currentKeys.result].toLowerCase() : '';
                 const isMismatch = resultVal === 'mismatch';
-
                 return (
                   <tr key={i} className={isMismatch ? 'mismatch' : ''}>
                     <td>{row.saleGuid || '-'}</td>
@@ -219,9 +285,7 @@ function App() {
                     <td>{row[currentKeys.be] || 'null'}</td>
                     <td>
                       {resultVal ? (
-                        <span className={`badge ${resultVal}`}>
-                          {resultVal}
-                        </span>
+                        <span className={`badge ${resultVal}`}>{resultVal}</span>
                       ) : '-'}
                     </td>
                   </tr>
@@ -238,17 +302,11 @@ function App() {
 
         {totalPages > 1 && (
           <div className="pagination">
-            <button
-              onClick={() => setPage(p => Math.max(1, p - 1))}
-              disabled={page === 1}
-            >
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>
               Previous
             </button>
             <span style={{ fontSize: '0.875rem' }}>Page {page} of {totalPages}</span>
-            <button
-              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages}
-            >
+            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
               Next
             </button>
           </div>
