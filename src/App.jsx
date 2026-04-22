@@ -89,7 +89,9 @@ const PARAMETERS = [
 ];
 
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(
+    () => sessionStorage.getItem('roa_auth') === 'true'
+  );
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeParam, setActiveParam] = useState(PARAMETERS[0]);
@@ -183,7 +185,7 @@ function App() {
 
   // All hooks done — now safe to do early conditional returns
   if (!isAuthenticated) {
-    return <LoginPage onLogin={() => setIsAuthenticated(true)} />;
+    return <LoginPage onLogin={() => { sessionStorage.setItem('roa_auth', 'true'); setIsAuthenticated(true); }} />;
   }
 
   if (loading) {
@@ -209,7 +211,7 @@ function App() {
             </svg>
             Download Master Report
           </button>
-          <button className="logout-btn" onClick={() => setIsAuthenticated(false)}>
+          <button className="logout-btn" onClick={() => { sessionStorage.removeItem('roa_auth'); setIsAuthenticated(false); }}>
             <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
             </svg>
