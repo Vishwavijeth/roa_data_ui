@@ -85,7 +85,8 @@ const PARAMETERS = [
   { id: 'buyer_name', label: 'Buyer Name' },
   { id: 'seller_name', label: 'Seller Name' },
   { id: 'buying_agent_name', label: 'Buying Agent Name' },
-  { id: 'gross_commission', label: 'Gross Commission' }
+  { id: 'gross_commission', label: 'Gross Commission' },
+  { id: 'reviewer_specialist', label: 'Reviewer & Specialist' },
 ];
 
 function App() {
@@ -97,6 +98,9 @@ function App() {
   const [activeParam, setActiveParam] = useState(PARAMETERS[0]);
   const [page, setPage] = useState(1);
   const [showOnlyMismatches, setShowOnlyMismatches] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [specialistFilter, setSpecialistFilter] = useState('');
+  const [reviewerFilter, setReviewerFilter] = useState('');
 
   const rowsPerPage = 50;
 
@@ -148,19 +152,53 @@ function App() {
       case 'seller_name': return { skyslope: 'skyslope_seller_name', be: 'be_seller_name', result: 'seller_name_result' };
       case 'buying_agent_name': return { skyslope: 'skyslope_buying_agent_name', be: 'be_buying_agent_name', result: 'buying_agent_name_result' };
       case 'gross_commission': return { skyslope: 'skyslope_gross_commission', be: 'be_gross_commission', result: 'gross_commission_result' };
+      case 'reviewer_specialist': return { skyslope: 'skyslope_reviewer_name', be: 'be_transaction_specialist', result: '' };
       default: return { skyslope: '', be: '', result: '' };
     }
   };
 
   const currentKeys = getRowKeys(activeParam);
 
+  // Unique options for specialist & reviewer dropdowns
+  const uniqueSpecialists = useMemo(() => {
+    const vals = new Set(data.map(r => r.be_transaction_specialist).filter(Boolean));
+    return [...vals].sort();
+  }, [data]);
+
+  const uniqueReviewers = useMemo(() => {
+    const vals = new Set(data.map(r => r.skyslope_reviewer_name).filter(Boolean));
+    return [...vals].sort();
+  }, [data]);
+
   const filteredData = useMemo(() => {
-    if (!showOnlyMismatches) return data;
-    return data.filter(row => {
-      const resultVal = row[currentKeys.result] ? row[currentKeys.result].toLowerCase() : '';
-      return resultVal === 'mismatch';
-    });
-  }, [data, showOnlyMismatches, currentKeys]);
+    let result = data;
+
+    if (showOnlyMismatches) {
+      result = result.filter(row => {
+        const resultVal = row[currentKeys.result] ? row[currentKeys.result].toLowerCase() : '';
+        return resultVal === 'mismatch';
+      });
+    }
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      result = result.filter(row =>
+        (row.transactionId || '').toLowerCase().includes(q) ||
+        (row.saleGuid || '').toLowerCase().includes(q) ||
+        (row.property_address || '').toLowerCase().includes(q)
+      );
+    }
+
+    if (specialistFilter) {
+      result = result.filter(row => row.be_transaction_specialist === specialistFilter);
+    }
+
+    if (reviewerFilter) {
+      result = result.filter(row => row.skyslope_reviewer_name === reviewerFilter);
+    }
+
+    return result;
+  }, [data, showOnlyMismatches, currentKeys, searchQuery, specialistFilter, reviewerFilter]);
 
   const mismatchCount = useMemo(() => {
     return data.filter(row => {
@@ -268,15 +306,78 @@ function App() {
             Showing page {page} of {totalPages || 1}
           </span>
         </div>
+
+        {/* ── Search & Filter Bar (inside table card) ── */}
+        <div className="search-filter-bar">
+          <div className="search-input-wrapper">
+            <svg className="search-icon" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+            </svg>
+            <input
+              id="table-search"
+              type="text"
+              className="search-input"
+              placeholder="Search by Transaction ID, Sale Guid, or Property Address…"
+              value={searchQuery}
+              onChange={e => { setSearchQuery(e.target.value); setPage(1); }}
+            />
+            {searchQuery && (
+              <button className="search-clear-btn" onClick={() => { setSearchQuery(''); setPage(1); }} aria-label="Clear search">✕</button>
+            )}
+          </div>
+
+          <div className="filter-group">
+            <label htmlFor="specialist-filter" className="filter-label">Transaction Specialist</label>
+            <select
+              id="specialist-filter"
+              className="filter-select"
+              value={specialistFilter}
+              onChange={e => { setSpecialistFilter(e.target.value); setPage(1); }}
+            >
+              <option value="">All Specialists</option>
+              {uniqueSpecialists.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+
+          <div className="filter-group">
+            <label htmlFor="reviewer-filter" className="filter-label">Reviewer</label>
+            <select
+              id="reviewer-filter"
+              className="filter-select"
+              value={reviewerFilter}
+              onChange={e => { setReviewerFilter(e.target.value); setPage(1); }}
+            >
+              <option value="">All Reviewers</option>
+              {uniqueReviewers.map(r => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </div>
+
+          {(searchQuery || specialistFilter || reviewerFilter) && (
+            <button className="clear-all-btn" onClick={() => { setSearchQuery(''); setSpecialistFilter(''); setReviewerFilter(''); setPage(1); }}>
+              Clear All
+            </button>
+          )}
+        </div>
+
         <div className="table-responsive">
           <table>
             <thead>
               <tr>
                 <th>Sale Guid</th>
                 <th>Transaction ID</th>
-                <th>SkySlope {activeParam.label}</th>
-                <th>BE {activeParam.label}</th>
-                <th>Result</th>
+                <th>Property Address</th>
+                {activeParam.id === 'reviewer_specialist' ? (
+                  <>
+                    <th>SkySlope Reviewer</th>
+                    <th>BE Transaction Specialist</th>
+                  </>
+                ) : (
+                  <>
+                    <th>SkySlope {activeParam.label}</th>
+                    <th>BE {activeParam.label}</th>
+                    <th>Result</th>
+                  </>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -285,21 +386,31 @@ function App() {
                 const isMismatch = resultVal === 'mismatch';
                 return (
                   <tr key={i} className={isMismatch ? 'mismatch' : ''}>
-                    <td>{row.saleGuid || '-'}</td>
-                    <td>{row.transactionId || '-'}</td>
-                    <td>{row[currentKeys.skyslope] || 'null'}</td>
-                    <td>{row[currentKeys.be] || 'null'}</td>
-                    <td>
-                      {resultVal ? (
-                        <span className={`badge ${resultVal}`}>{resultVal}</span>
-                      ) : '-'}
-                    </td>
+                    <td className="cell-guid">{row.saleGuid || '-'}</td>
+                    <td className="cell-guid">{row.transactionId || '-'}</td>
+                    <td className="cell-address">{row.property_address || '-'}</td>
+                    {activeParam.id === 'reviewer_specialist' ? (
+                      <>
+                        <td className="cell-person">{row[currentKeys.skyslope] || '-'}</td>
+                        <td className="cell-person">{row[currentKeys.be] || '-'}</td>
+                      </>
+                    ) : (
+                      <>
+                        <td>{row[currentKeys.skyslope] || 'null'}</td>
+                        <td>{row[currentKeys.be] || 'null'}</td>
+                        <td>
+                          {resultVal ? (
+                            <span className={`badge ${resultVal}`}>{resultVal}</span>
+                          ) : '-'}
+                        </td>
+                      </>
+                    )}
                   </tr>
                 );
               })}
               {paginatedData.length === 0 && (
                 <tr>
-                  <td colSpan="5" style={{ textAlign: 'center', padding: '2rem' }}>No data available</td>
+                  <td colSpan={activeParam.id === 'reviewer_specialist' ? 5 : 6} style={{ textAlign: 'center', padding: '2rem' }}>No data available</td>
                 </tr>
               )}
             </tbody>

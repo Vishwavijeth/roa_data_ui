@@ -492,6 +492,151 @@ tbody tr.mismatch:hover {
   box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
 }
 
+/* ── Search & Filter Bar ─────────────────────────────────── */
+.search-filter-bar {
+  display: flex;
+  align-items: flex-end;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+  background: #f8fafc;
+}
+
+.search-input-wrapper {
+  position: relative;
+  flex: 1;
+  min-width: 280px;
+}
+
+.search-icon {
+  position: absolute;
+  left: 0.875rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.search-input {
+  width: 100%;
+  padding: 0.65rem 2.5rem 0.65rem 2.5rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--text-main);
+  background: #f8fafc;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  box-sizing: border-box;
+}
+
+.search-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  background: #fff;
+}
+
+.search-clear-btn {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.9rem;
+  line-height: 1;
+  padding: 0.15rem 0.3rem;
+  border-radius: 999px;
+  transition: color 0.2s ease, background 0.2s ease;
+}
+.search-clear-btn:hover {
+  color: var(--danger);
+  background: #fee2e2;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 180px;
+}
+
+.filter-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.filter-select {
+  padding: 0.65rem 2rem 0.65rem 0.875rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--text-main);
+  background: #f8fafc url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 0.75rem center;
+  appearance: none;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.filter-select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  background-color: #fff;
+}
+
+.clear-all-btn {
+  align-self: flex-end;
+  padding: 0.65rem 1.25rem;
+  background: #f1f5f9;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+.clear-all-btn:hover {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: var(--danger);
+}
+
+/* ── Table cell overrides ─────────────────────────────────── */
+.cell-guid {
+  font-family: 'Courier New', monospace;
+  font-size: 0.78rem !important;
+  color: var(--text-muted);
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cell-address {
+  font-size: 0.875rem;
+  white-space: normal;
+  min-width: 200px;
+  max-width: 280px;
+  line-height: 1.4;
+}
+
+.cell-person {
+  font-size: 0.875rem;
+  white-space: normal;
+  min-width: 140px;
+  max-width: 200px;
+  line-height: 1.4;
+  color: var(--text-main);
+}
+
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
