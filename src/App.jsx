@@ -83,7 +83,9 @@ const PARAMETERS = [
   { id: 'contract_date', label: 'Contract Date' },
   { id: 'listingguid', label: 'Listing Guid' },
   { id: 'buyer_name', label: 'Buyer Name' },
-  { id: 'seller_name', label: 'Seller Name' }
+  { id: 'seller_name', label: 'Seller Name' },
+  { id: 'buying_agent_name', label: 'Buying Agent Name' },
+  { id: 'gross_commission', label: 'Gross Commission' }
 ];
 
 function App() {
@@ -142,6 +144,8 @@ function App() {
       case 'listingguid': return { skyslope: 'skyslope_listingguid', be: 'be_listingguid', result: 'listingguid_result' };
       case 'buyer_name': return { skyslope: 'skyslope_buyer_name', be: 'be_buyer_name', result: 'buyer_name_result' };
       case 'seller_name': return { skyslope: 'skyslope_seller_name', be: 'be_seller_name', result: 'seller_name_result' };
+      case 'buying_agent_name': return { skyslope: 'skyslope_buying_agent_name', be: 'be_buying_agent_name', result: 'buying_agent_name_result' };
+      case 'gross_commission': return { skyslope: 'skyslope_gross_commission', be: 'be_gross_commission', result: 'gross_commission_result' };
       default: return { skyslope: '', be: '', result: '' };
     }
   };
