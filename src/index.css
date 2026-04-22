@@ -1,0 +1,53 @@
+:root {
+  font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: light;
+  --bg-main: #f0f4f8; /* Light blue-gray for main background */
+  --bg-secondary: #ffffff; /* White for cards */
+  --text-main: #1e293b; /* Dark slate for text */
+  --text-muted: #64748b; /* Muted gray for secondary text */
+  --accent: #2563eb; /* Vibrant enterprise blue */
+  --accent-hover: #1d4ed8; /* Darker blue on hover */
+  --border: #e2e8f0; /* Light gray for borders */
+  --success: #059669; /* Green for matches */
+  --danger: #dc2626; /* Red for mismatches */
+  --mismatch-bg: #fef2f2; /* Light red background for mismatched rows */
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  display: flex;
+  min-width: 320px;
+  min-height: 100vh;
+  background-color: var(--bg-main);
+  color: var(--text-main);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-main);
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
