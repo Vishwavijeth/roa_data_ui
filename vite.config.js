@@ -6,6 +6,18 @@ export default defineConfig({
   server: {
     allowedHosts: [
       'predicatively-magnesian-pansy.ngrok-free.dev'
-    ]
+    ],
+    proxy: {
+      '/comparison': {
+        target: 'https://roa-data-backend-neon.vercel.app',
+        changeOrigin: true,
+        secure: true,
+      },
+      '/brokerage_engine': {
+        target: 'https://roa-data-backend-neon.vercel.app',
+        changeOrigin: true,
+        secure: true,
+      }
+    }
   }
 })
