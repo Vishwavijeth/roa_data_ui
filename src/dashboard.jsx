@@ -230,11 +230,58 @@ function ReconciliationView() {
         return filteredData.slice(start, start + ROWS_PER_PAGE);
     }, [filteredData, page]);
 
-    const handleDownload = () => {
-        const ws = utils.json_to_sheet(data);
-        const wb = utils.book_new();
-        utils.book_append_sheet(wb, ws, activeParam.label);
-        writeFile(wb, `ROA_${activeParam.label.replace(/\s+/g, '_')}_report.xlsx`);
+    const [downloading, setDownloading] = useState(false);
+
+    const handleDownload = async () => {
+        setDownloading(true);
+        try {
+            // Fetch all parameter data in parallel
+            const results = await Promise.all(
+                PARAMETERS.map(async (param) => {
+                    try {
+                        const res = await fetch(`${param.apiBase || API_BASE}/${param.endpoint}`);
+                        if (!res.ok) return { param, data: [] };
+                        const json = await res.json();
+                        const rows = json && Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : []);
+                        return { param, data: rows };
+                    } catch {
+                        return { param, data: [] };
+                    }
+                })
+            );
+
+            // Build a map keyed by saleguid, merging all parameter columns
+            const mergedMap = new Map();
+            results.forEach(({ param, data: rows }) => {
+                rows.forEach(row => {
+                    const key = row.saleguid || row.transactionId || row.transactionid || '';
+                    if (!key) return;
+                    if (!mergedMap.has(key)) {
+                        mergedMap.set(key, {
+                            saleguid: row.saleguid || '',
+                            transactionId: row.transactionId || row.transactionid || '',
+                            propertyaddress: row.propertyaddress || '',
+                        });
+                    }
+                    const entry = mergedMap.get(key);
+                    // Use the property address from any row that has it
+                    if (!entry.propertyaddress && row.propertyaddress) entry.propertyaddress = row.propertyaddress;
+                    entry[`SS_${param.label}`] = row[param.skyslopeKey] != null ? String(row[param.skyslopeKey]) : '';
+                    entry[`BE_${param.label}`] = row[param.beKey] != null ? String(row[param.beKey]) : '';
+                    entry[`Result_${param.label}`] = row.match_result || '';
+                });
+            });
+
+            const exportData = Array.from(mergedMap.values());
+            const ws = utils.json_to_sheet(exportData);
+            const wb = utils.book_new();
+            utils.book_append_sheet(wb, ws, 'Reconciliation Report');
+            writeFile(wb, 'ROA_Full_Reconciliation_Report.xlsx');
+        } catch (err) {
+            console.error('Download failed:', err);
+        } finally {
+            setDownloading(false);
+        }
     };
 
     return (
@@ -245,8 +292,8 @@ function ReconciliationView() {
                     <h1>Transaction Reconciliation</h1>
                     <p>Compare transaction data across Brokerage Engine and SkySlope.</p>
                 </div>
-                <button className="export-btn" onClick={handleDownload} disabled={!data.length}>
-                    <IconDownload /> Download Report
+                <button className="export-btn" onClick={handleDownload} disabled={downloading}>
+                    <IconDownload /> {downloading ? 'Generating Report…' : 'Download Report'}
                 </button>
             </div>
 
