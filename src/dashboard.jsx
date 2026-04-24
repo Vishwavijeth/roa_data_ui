@@ -1518,26 +1518,6 @@ function TransactionSpecialistDashView() {
                 </button>
             </div>
 
-            {/* Summary metric cards */}
-            <div className="metrics-container">
-                <div className="metric-card">
-                    <h3>Total Specialists</h3>
-                    <p className="value">{totals.specialists}</p>
-                </div>
-                <div className="metric-card">
-                    <h3>Total Transactions</h3>
-                    <p className="value">{totals.total.toLocaleString()}</p>
-                </div>
-                <div className="metric-card">
-                    <h3>Outstanding</h3>
-                    <p className="value warning">{totals.outstanding.toLocaleString()}</p>
-                </div>
-                <div className="metric-card">
-                    <h3>Closed</h3>
-                    <p className="value success">{totals.closed.toLocaleString()}</p>
-                </div>
-            </div>
-
             <div className="table-container">
                 <div className="table-header">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -1708,26 +1688,6 @@ function ReviewerDashView() {
                 <button className="export-btn" onClick={handleDownload} disabled={!data.length}>
                     <IconDownload /> Download Report
                 </button>
-            </div>
-
-            {/* Summary metric cards */}
-            <div className="metrics-container">
-                <div className="metric-card">
-                    <h3>Total Reviewers</h3>
-                    <p className="value">{totals.reviewers}</p>
-                </div>
-                <div className="metric-card">
-                    <h3>Total Transactions</h3>
-                    <p className="value">{totals.total.toLocaleString()}</p>
-                </div>
-                <div className="metric-card">
-                    <h3>Outstanding</h3>
-                    <p className="value warning">{totals.outstanding.toLocaleString()}</p>
-                </div>
-                <div className="metric-card">
-                    <h3>Closed</h3>
-                    <p className="value success">{totals.closed.toLocaleString()}</p>
-                </div>
             </div>
 
             <div className="table-container">
