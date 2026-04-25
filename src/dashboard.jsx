@@ -698,15 +698,15 @@ function ComingSoonPage({ title, description, icon }) {
 // ── Helper: extract US state abbreviation from address ────────────────────────
 function extractState(address) {
     if (!address) return '';
-    // Match 2-letter state code before a zip code like ", TX 76111"
-    const match = address.match(/,\s*([A-Z]{2})\s+\d{5}/);
+    // Match 2-letter state code before a zip code like ", TX 76111" or ", TX, 76111"
+    const match = address.match(/,\s*([A-Z]{2})\s*,?\s*\d{5}/);
     return match ? match[1] : '';
 }
 
 // ── Transaction Specialist View ───────────────────────────────────────────────
-const TXN_SPECIALIST_API = 'https://roa-data-backend-neon.vercel.app/compare/transaction_specialist_dashboard';
+const TXN_SPECIALIST_API = 'https://roa-data-backend-neon.vercel.app/transaction_specialist_listing';
 
-function TransactionSpecialistView() {
+function TransactionSpecialistListingView() {
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -717,7 +717,7 @@ function TransactionSpecialistView() {
     const [dateFrom, setDateFrom] = useState('');
     const [dateTo, setDateTo] = useState('');
     const [stateFilter, setStateFilter] = useState('');
-    const [ssStatusFilter, setSsStatusFilter] = useState('');
+    const [workflowStatusFilter, setWorkflowStatusFilter] = useState('');
     const [specialistFilter, setSpecialistFilter] = useState('');
 
     useEffect(() => {
@@ -739,8 +739,8 @@ function TransactionSpecialistView() {
         return [...new Set(states)].sort();
     }, [data]);
 
-    const uniqueSsStatuses = useMemo(() => {
-        return [...new Set(data.map(r => r.ss_status).filter(Boolean))].sort();
+    const uniqueWorkflowStatuses = useMemo(() => {
+        return [...new Set(data.map(r => r.be_workflow_status).filter(Boolean))].sort();
     }, [data]);
 
     const uniqueSpecialists = useMemo(() => {
@@ -764,14 +764,18 @@ function TransactionSpecialistView() {
             result = result.filter(r => extractState(r.propertyaddress) === stateFilter);
         }
 
-        // SS Status filter
-        if (ssStatusFilter) {
-            result = result.filter(r => r.ss_status === ssStatusFilter);
+        // Workflow Status filter
+        if (workflowStatusFilter) {
+            result = result.filter(r => r.be_workflow_status === workflowStatusFilter);
         }
 
         // Transaction specialist filter
         if (specialistFilter) {
-            result = result.filter(r => r.transaction_specialist === specialistFilter);
+            if (specialistFilter === 'UNASSIGNED') {
+                result = result.filter(r => !r.transaction_specialist);
+            } else {
+                result = result.filter(r => r.transaction_specialist === specialistFilter);
+            }
         }
 
         // Search
@@ -780,12 +784,12 @@ function TransactionSpecialistView() {
             result = result.filter(r =>
                 (r.transactionid || '').toLowerCase().includes(q) ||
                 (r.propertyaddress || '').toLowerCase().includes(q) ||
-                (r.saleguid || '').toLowerCase().includes(q)
+                (r.skyslopefileid || '').toLowerCase().includes(q)
             );
         }
 
         return result;
-    }, [data, dateFrom, dateTo, stateFilter, ssStatusFilter, specialistFilter, searchQuery]);
+    }, [data, dateFrom, dateTo, stateFilter, workflowStatusFilter, specialistFilter, searchQuery]);
 
     const totalPages = Math.ceil(filteredData.length / ROWS_PER_PAGE);
     const paginatedData = useMemo(() => {
@@ -800,14 +804,14 @@ function TransactionSpecialistView() {
         writeFile(wb, 'Transaction_Specialist_report.xlsx');
     };
 
-    const hasActiveFilters = searchQuery || dateFrom || dateTo || stateFilter || ssStatusFilter || specialistFilter;
+    const hasActiveFilters = searchQuery || dateFrom || dateTo || stateFilter || workflowStatusFilter || specialistFilter;
 
     const clearAllFilters = () => {
         setSearchQuery('');
         setDateFrom('');
         setDateTo('');
         setStateFilter('');
-        setSsStatusFilter('');
+        setWorkflowStatusFilter('');
         setSpecialistFilter('');
         setPage(1);
     };
@@ -817,7 +821,7 @@ function TransactionSpecialistView() {
             {/* Page header */}
             <div className="page-header">
                 <div>
-                    <h1>Transaction Specialist</h1>
+                    <h1>Transaction Specialist Listing</h1>
                     <p>View and filter transaction specialist assignments and statuses.</p>
                 </div>
                 <button className="export-btn" onClick={handleDownload} disabled={!data.length}>
@@ -892,14 +896,14 @@ function TransactionSpecialistView() {
                     </div>
 
                     <div className="filter-group">
-                        <label htmlFor="txn-ss-status-filter" className="filter-label">SS Status</label>
+                        <label htmlFor="txn-workflow-status-filter" className="filter-label">BE Status</label>
                         <select
-                            id="txn-ss-status-filter" className="filter-select"
-                            value={ssStatusFilter}
-                            onChange={e => { setSsStatusFilter(e.target.value); setPage(1); }}
+                            id="txn-workflow-status-filter" className="filter-select"
+                            value={workflowStatusFilter}
+                            onChange={e => { setWorkflowStatusFilter(e.target.value); setPage(1); }}
                         >
                             <option value="">All Statuses</option>
-                            {uniqueSsStatuses.map(s => <option key={s} value={s}>{s}</option>)}
+                            {uniqueWorkflowStatuses.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
                     </div>
 
@@ -911,6 +915,7 @@ function TransactionSpecialistView() {
                             onChange={e => { setSpecialistFilter(e.target.value); setPage(1); }}
                         >
                             <option value="">All Specialists</option>
+                            <option value="UNASSIGNED">Unassigned</option>
                             {uniqueSpecialists.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
                     </div>
@@ -936,13 +941,13 @@ function TransactionSpecialistView() {
                                     <tr>
                                         <th>Transaction ID</th>
                                         <th>Property Address</th>
+                                        <th>Transaction Specialist</th>
                                         <th>State</th>
                                         <th>Sale Price</th>
                                         <th>Listing Price</th>
                                         <th>Close Date</th>
-                                        <th>SS Status</th>
-                                        <th>Workflow Status</th>
-                                        <th>Transaction Specialist</th>
+                                        <th>BE Status</th>
+                                        <th>Skyslope FileID</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -950,25 +955,21 @@ function TransactionSpecialistView() {
                                         <tr key={i}>
                                             <td className="cell-guid">{row.transactionid || '-'}</td>
                                             <td className="cell-address">{row.propertyaddress || '-'}</td>
+                                            <td>{row.transaction_specialist || '-'}</td>
                                             <td>{extractState(row.propertyaddress) || '-'}</td>
                                             <td>{row.be_sale_price != null ? `$${Number(row.be_sale_price).toLocaleString()}` : '-'}</td>
                                             <td>{row.listing_price != null ? `$${Number(row.listing_price).toLocaleString()}` : '-'}</td>
                                             <td>{row.be_closed_date || '-'}</td>
                                             <td>
-                                                {row.ss_status
-                                                    ? <span className={`badge ${row.ss_status.toLowerCase().replace(/[^a-z]/g, '-')}`}>{row.ss_status}</span>
-                                                    : '-'}
-                                            </td>
-                                            <td>
                                                 {row.be_workflow_status
                                                     ? <span className={`badge ${row.be_workflow_status.toLowerCase().replace(/[^a-z]/g, '-')}`}>{row.be_workflow_status}</span>
                                                     : '-'}
                                             </td>
-                                            <td>{row.transaction_specialist || '-'}</td>
+                                            <td>{row.skyslopefileid || '-'}</td>
                                         </tr>
                                     ))}
                                     {paginatedData.length === 0 && (
-                                        <tr><td colSpan={9} style={{ textAlign: 'center', padding: '2rem' }}>No data available</td></tr>
+                                        <tr><td colSpan={8} style={{ textAlign: 'center', padding: '2rem' }}>No data available</td></tr>
                                     )}
                                 </tbody>
                             </table>
@@ -988,9 +989,9 @@ function TransactionSpecialistView() {
 }
 
 // ── Reviewer Dashboard View ───────────────────────────────────────────────────
-const REVIEWER_API = 'https://roa-data-backend-neon.vercel.app/compare/reviewer_dashboard';
+const REVIEWER_API = 'https://roa-data-backend-neon.vercel.app/reviewer_listing';
 
-function ReviewerDashboardView() {
+function ReviewerListingView() {
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -1048,12 +1049,16 @@ function ReviewerDashboardView() {
             result = result.filter(r => r.ss_status === ssStatusFilter);
         }
         if (reviewerFilter) {
-            result = result.filter(r => r.reviewer_name === reviewerFilter);
+            if (reviewerFilter === 'UNASSIGNED') {
+                result = result.filter(r => !r.reviewer_name);
+            } else {
+                result = result.filter(r => r.reviewer_name === reviewerFilter);
+            }
         }
         if (searchQuery.trim()) {
             const q = searchQuery.trim().toLowerCase();
             result = result.filter(r =>
-                (r.transactionid || '').toLowerCase().includes(q) ||
+                (r.saleguid || '').toLowerCase().includes(q) ||
                 (r.propertyaddress || '').toLowerCase().includes(q)
             );
         }
@@ -1090,7 +1095,7 @@ function ReviewerDashboardView() {
         <div className="dashboard">
             <div className="page-header">
                 <div>
-                    <h1>Reviewer Dashboard</h1>
+                    <h1>Reviewer Listing</h1>
                     <p>View and filter reviewer assignments and transaction statuses.</p>
                 </div>
                 <button className="export-btn" onClick={handleDownload} disabled={!data.length}>
@@ -1119,7 +1124,7 @@ function ReviewerDashboardView() {
                         </svg>
                         <input
                             id="rev-search" type="text" className="search-input"
-                            placeholder="Search by Transaction ID or Property Address…"
+                            placeholder="Search by Sale GUID or Property Address…"
                             value={searchQuery}
                             onChange={e => { setSearchQuery(e.target.value); setPage(1); }}
                         />
@@ -1183,6 +1188,7 @@ function ReviewerDashboardView() {
                             onChange={e => { setReviewerFilter(e.target.value); setPage(1); }}
                         >
                             <option value="">All Reviewers</option>
+                            <option value="UNASSIGNED">Unassigned</option>
                             {uniqueReviewers.map(r => <option key={r} value={r}>{r}</option>)}
                         </select>
                     </div>
@@ -1206,22 +1212,22 @@ function ReviewerDashboardView() {
                             <table>
                                 <thead>
                                     <tr>
-                                        <th>Transaction ID</th>
+                                        <th>Sale GUID</th>
                                         <th>Property Address</th>
+                                        <th>Reviewer</th>
                                         <th>State</th>
                                         <th>Sale Price</th>
                                         <th>Listing Price</th>
                                         <th>Escrow Close Date</th>
                                         <th>SS Status</th>
-                                        <th>Workflow Status</th>
-                                        <th>Reviewer</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {paginatedData.map((row, i) => (
                                         <tr key={i}>
-                                            <td className="cell-guid">{row.transactionid || '-'}</td>
+                                            <td className="cell-guid">{row.saleguid || '-'}</td>
                                             <td className="cell-address">{row.propertyaddress || '-'}</td>
+                                            <td>{row.reviewer_name || '-'}</td>
                                             <td>{extractState(row.propertyaddress) || '-'}</td>
                                             <td>{row.sale_price != null ? `$${Number(row.sale_price).toLocaleString()}` : '-'}</td>
                                             <td>{row.listing_price != null ? `$${Number(row.listing_price).toLocaleString()}` : '-'}</td>
@@ -1231,16 +1237,10 @@ function ReviewerDashboardView() {
                                                     ? <span className={`badge ${row.ss_status.toLowerCase().replace(/[^a-z]/g, '-')}`}>{row.ss_status}</span>
                                                     : '-'}
                                             </td>
-                                            <td>
-                                                {row.be_workflow_status
-                                                    ? <span className={`badge ${row.be_workflow_status.toLowerCase().replace(/[^a-z]/g, '-')}`}>{row.be_workflow_status}</span>
-                                                    : '-'}
-                                            </td>
-                                            <td>{row.reviewer_name || '-'}</td>
                                         </tr>
                                     ))}
                                     {paginatedData.length === 0 && (
-                                        <tr><td colSpan={9} style={{ textAlign: 'center', padding: '2rem' }}>No data available</td></tr>
+                                        <tr><td colSpan={8} style={{ textAlign: 'center', padding: '2rem' }}>No data available</td></tr>
                                     )}
                                 </tbody>
                             </table>
@@ -1461,9 +1461,10 @@ function SkySlopeView() {
 }
 
 // ── Transaction Specialist Dashboard View ─────────────────────────────────────
-const TXN_SPECIALIST_SUMMARY_API = 'https://roa-data-backend-neon.vercel.app/compare/transaction_specialist_summary';
+const TXN_SPECIALIST_SUMMARY_API = 'https://roa-data-backend-neon.vercel.app/transaction_specialist_dashboard';
 
-function TransactionSpecialistDashView() {
+
+function TransactionSpecialistDashboardView() {
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -1638,9 +1639,10 @@ function TransactionSpecialistDashView() {
 }
 
 // ── Reviewer Dashboard View ───────────────────────────────────────────────────
-const REVIEWER_SUMMARY_API = 'https://roa-data-backend-neon.vercel.app/compare/reviewer_summary';
+const REVIEWER_SUMMARY_API = 'https://roa-data-backend-neon.vercel.app/reviewer_dashboard';
 
-function ReviewerDashView() {
+
+function ReviewerDashboardView() {
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -1827,13 +1829,13 @@ function Dashboard({ setIsAuthenticated }) {
             case 'skyslope':
                 return <SkySlopeView />;
             case 'txn_specialist':
-                return <TransactionSpecialistView />;
+                return <TransactionSpecialistListingView />;
             case 'reviewer':
-                return <ReviewerDashboardView />;
+                return <ReviewerListingView />;
             case 'txn_specialist_dash':
-                return <TransactionSpecialistDashView />;
+                return <TransactionSpecialistDashboardView />;
             case 'reviewer_dash':
-                return <ReviewerDashView />;
+                return <ReviewerDashboardView />;
             default:
                 return <ReconciliationView />;
         }
