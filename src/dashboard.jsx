@@ -1296,6 +1296,7 @@ function SkySlopeView() {
             const q = searchQuery.trim().toLowerCase();
             result = result.filter(r =>
                 (r.saleguid || '').toLowerCase().includes(q) ||
+                (r.propertyaddress || '').toLowerCase().includes(q) ||
                 (r.buyer_name || '').toLowerCase().includes(q) ||
                 (r.buyer_agent_name || '').toLowerCase().includes(q)
             );
@@ -1349,7 +1350,7 @@ function SkySlopeView() {
                         </svg>
                         <input
                             id="ss-search" type="text" className="search-input"
-                            placeholder="Search by Sale GUID, Buyer Name, or Buyer Agent…"
+                            placeholder="Search by Sale GUID, Property Address, Buyer Name, or Buyer Agent…"
                             value={searchQuery}
                             onChange={e => { setSearchQuery(e.target.value); setPage(1); }}
                         />
@@ -1416,6 +1417,7 @@ function SkySlopeView() {
                                 <thead>
                                     <tr>
                                         <th>Sale GUID</th>
+                                        <th>Property Address</th>
                                         <th>Buyer Name</th>
                                         <th>Buyer Agent</th>
                                         <th>Contract Date</th>
@@ -1428,6 +1430,7 @@ function SkySlopeView() {
                                     {paginatedData.map((row, i) => (
                                         <tr key={i}>
                                             <td className="cell-guid">{row.saleguid || '-'}</td>
+                                            <td>{row.propertyaddress || '-'}</td>
                                             <td>{row.buyer_name || '-'}</td>
                                             <td>{row.buyer_agent_name || '-'}</td>
                                             <td>{row.contract_date || '-'}</td>
