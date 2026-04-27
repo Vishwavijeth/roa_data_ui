@@ -517,7 +517,8 @@ function BrokerageView() {
             result = result.filter(r =>
                 (r.transactionid || '').toLowerCase().includes(q) ||
                 (r.property_address || '').toLowerCase().includes(q) ||
-                (r.buying_agent_name || '').toLowerCase().includes(q)
+                (r.buying_agent_name || '').toLowerCase().includes(q) ||
+                (r.skyslopefileid || '').toLowerCase().includes(q)
             );
         }
         return result;
@@ -644,6 +645,7 @@ function BrokerageView() {
                                         <th>Close Date</th>
                                         <th>Transaction Specialist</th>
                                         <th>Status</th>
+                                        <th>Skyslope FileID</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -661,6 +663,7 @@ function BrokerageView() {
                                                     ? <span className={`badge ${row.status.toLowerCase()}`}>{row.status}</span>
                                                     : '-'}
                                             </td>
+                                            <td>{row.skyslopefileid || '-'}</td>
                                         </tr>
                                     ))}
                                     {paginatedData.length === 0 && (
