@@ -1475,11 +1475,22 @@ function TransactionSpecialistDashboardView() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
+    const [dateFrom, setDateFrom] = useState('');
+    const [dateTo, setDateTo] = useState('');
 
     useEffect(() => {
         setLoading(true);
         setError(null);
-        fetch(TXN_SPECIALIST_SUMMARY_API)
+        let url = TXN_SPECIALIST_SUMMARY_API;
+        const params = new URLSearchParams();
+        if (dateFrom) params.append('from_date', dateFrom);
+        if (dateTo) params.append('to_date', dateTo);
+        const queryString = params.toString();
+        if (queryString) {
+            url += `?${queryString}`;
+        }
+
+        fetch(url)
             .then(res => { if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`); return res.json(); })
             .then(json => {
                 const rows = json && Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : []);
@@ -1487,7 +1498,7 @@ function TransactionSpecialistDashboardView() {
                 setLoading(false);
             })
             .catch(err => { console.error(err); setError(err.message); setLoading(false); });
-    }, []);
+    }, [dateFrom, dateTo]);
 
     const filteredData = useMemo(() => {
         if (!searchQuery.trim()) return data;
@@ -1551,6 +1562,35 @@ function TransactionSpecialistDashboardView() {
                             <button className="search-clear-btn" onClick={() => setSearchQuery('')} aria-label="Clear search">✕</button>
                         )}
                     </div>
+                </div>
+
+                {/* Filters */}
+                <div className="txn-filters-grid">
+                    <div className="filter-group">
+                        <label htmlFor="txn-dash-date-from" className="filter-label">Close Date From</label>
+                        <input
+                            id="txn-dash-date-from" type="date" className="filter-select"
+                            value={dateFrom}
+                            onChange={e => setDateFrom(e.target.value)}
+                            style={{ backgroundImage: 'none' }}
+                        />
+                    </div>
+
+                    <div className="filter-group">
+                        <label htmlFor="txn-dash-date-to" className="filter-label">Close Date To</label>
+                        <input
+                            id="txn-dash-date-to" type="date" className="filter-select"
+                            value={dateTo}
+                            onChange={e => setDateTo(e.target.value)}
+                            style={{ backgroundImage: 'none' }}
+                        />
+                    </div>
+
+                    {(dateFrom || dateTo) && (
+                        <div className="filter-group" style={{ justifyContent: 'flex-end' }}>
+                            <button className="clear-all-btn" onClick={() => { setDateFrom(''); setDateTo(''); }}>Clear Dates</button>
+                        </div>
+                    )}
                 </div>
 
                 {loading ? (
@@ -1653,11 +1693,22 @@ function ReviewerDashboardView() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
+    const [dateFrom, setDateFrom] = useState('');
+    const [dateTo, setDateTo] = useState('');
 
     useEffect(() => {
         setLoading(true);
         setError(null);
-        fetch(REVIEWER_SUMMARY_API)
+        let url = REVIEWER_SUMMARY_API;
+        const params = new URLSearchParams();
+        if (dateFrom) params.append('from_date', dateFrom);
+        if (dateTo) params.append('to_date', dateTo);
+        const queryString = params.toString();
+        if (queryString) {
+            url += `?${queryString}`;
+        }
+
+        fetch(url)
             .then(res => { if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`); return res.json(); })
             .then(json => {
                 const rows = json && Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : []);
@@ -1665,7 +1716,7 @@ function ReviewerDashboardView() {
                 setLoading(false);
             })
             .catch(err => { console.error(err); setError(err.message); setLoading(false); });
-    }, []);
+    }, [dateFrom, dateTo]);
 
     const filteredData = useMemo(() => {
         if (!searchQuery.trim()) return data;
@@ -1724,6 +1775,35 @@ function ReviewerDashboardView() {
                             <button className="search-clear-btn" onClick={() => setSearchQuery('')} aria-label="Clear search">✕</button>
                         )}
                     </div>
+                </div>
+
+                {/* Filters */}
+                <div className="txn-filters-grid">
+                    <div className="filter-group">
+                        <label htmlFor="rev-dash-date-from" className="filter-label">Escrow Close Date From</label>
+                        <input
+                            id="rev-dash-date-from" type="date" className="filter-select"
+                            value={dateFrom}
+                            onChange={e => setDateFrom(e.target.value)}
+                            style={{ backgroundImage: 'none' }}
+                        />
+                    </div>
+
+                    <div className="filter-group">
+                        <label htmlFor="rev-dash-date-to" className="filter-label">Escrow Close Date To</label>
+                        <input
+                            id="rev-dash-date-to" type="date" className="filter-select"
+                            value={dateTo}
+                            onChange={e => setDateTo(e.target.value)}
+                            style={{ backgroundImage: 'none' }}
+                        />
+                    </div>
+
+                    {(dateFrom || dateTo) && (
+                        <div className="filter-group" style={{ justifyContent: 'flex-end' }}>
+                            <button className="clear-all-btn" onClick={() => { setDateFrom(''); setDateTo(''); }}>Clear Dates</button>
+                        </div>
+                    )}
                 </div>
 
                 {loading ? (
