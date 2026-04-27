@@ -472,6 +472,7 @@ function ReconciliationView() {
 
 // ── Brokerage Engine View ─────────────────────────────────────────────────────
 const BE_API = 'https://roa-data-backend-neon.vercel.app/brokerage_engine';
+const SKYSLOPE_API = 'https://roa-data-backend-neon.vercel.app/skyslope_api';
 
 function BrokerageView() {
     const [data, setData] = useState([]);
@@ -484,6 +485,29 @@ function BrokerageView() {
     const [closeDateTo, setCloseDateTo] = useState('');
     const [contractDateFrom, setContractDateFrom] = useState('');
     const [contractDateTo, setContractDateTo] = useState('');
+
+    const [selectedRecord, setSelectedRecord] = useState(null);
+    const [detailTab, setDetailTab] = useState('details'); // 'details' | 'skyslope'
+    const [detailData, setDetailData] = useState(null);
+    const [loadingDetail, setLoadingDetail] = useState(false);
+
+    useEffect(() => {
+        if (selectedRecord) {
+            setLoadingDetail(true);
+            setDetailData(null);
+            fetch(`https://roa-data-backend-neon.vercel.app/brokerage_engine/detail?transactionid=${selectedRecord.transactionid}`)
+                .then(res => { if (!res.ok) throw new Error(`API error: ${res.status}`); return res.json(); })
+                .then(json => {
+                    setDetailData(json);
+                    setLoadingDetail(false);
+                })
+                .catch(err => {
+                    console.error(err);
+                    setDetailData({ _error: err.message });
+                    setLoadingDetail(false);
+                });
+        }
+    }, [selectedRecord]);
 
     useEffect(() => {
         setLoading(true);
@@ -536,6 +560,143 @@ function BrokerageView() {
         utils.book_append_sheet(wb, ws, 'Brokerage Engine');
         writeFile(wb, 'Brokerage_Engine_report.xlsx');
     };
+
+    if (selectedRecord) {
+        return (
+            <div className="dashboard detail-view">
+                <div className="page-header" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', marginBottom: '2rem' }}>
+                    <button
+                        className="back-btn"
+                        onClick={() => setSelectedRecord(null)}
+                        style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--primary)',
+                            cursor: 'pointer',
+                            fontWeight: 500,
+                            padding: 0,
+                            marginBottom: '1.5rem',
+                            fontSize: '0.9rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            transition: 'color 0.2s'
+                        }}
+                    >
+                        ← Back to brokerage engine
+                    </button>
+                    <div style={{ width: '100%', padding: '1.5rem', background: 'linear-gradient(to right, rgba(14, 165, 233, 0.05), transparent)', borderLeft: '4px solid var(--primary)', borderRadius: '0 8px 8px 0' }}>
+                        <h1 style={{ margin: '0 0 0.5rem 0', fontSize: '1.75rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                            {selectedRecord.property_address || 'No Address Provided'}
+                        </h1>
+                        <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Transaction ID:</span> {selectedRecord.transactionid || 'Unknown'}
+                        </p>
+                    </div>
+                </div>
+
+                <div className="detail-card" style={{ background: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border)', overflow: 'hidden', boxShadow: '0 8px 16px -4px rgba(0, 0, 0, 0.1), 0 4px 8px -4px rgba(0, 0, 0, 0.06)' }}>
+                    <div className="tabs-container" style={{ display: 'flex', borderBottom: '1px solid var(--border)', background: 'var(--bg-primary)' }}>
+                        <button
+                            className={`tab-btn ${detailTab === 'details' ? 'active' : ''}`}
+                            onClick={() => setDetailTab('details')}
+                            style={{
+                                flex: 1,
+                                padding: '1.25rem 1.5rem',
+                                background: detailTab === 'details' ? 'var(--bg-secondary)' : 'transparent',
+                                border: 'none',
+                                borderBottom: detailTab === 'details' ? '3px solid var(--primary)' : '3px solid transparent',
+                                color: detailTab === 'details' ? 'var(--primary)' : 'var(--text-muted)',
+                                cursor: 'pointer',
+                                fontWeight: detailTab === 'details' ? 600 : 500,
+                                fontSize: '1rem',
+                                transition: 'all 0.2s ease',
+                                outline: 'none'
+                            }}
+                        >
+                            Details
+                        </button>
+                        <button
+                            className={`tab-btn ${detailTab === 'skyslope' ? 'active' : ''}`}
+                            onClick={() => setDetailTab('skyslope')}
+                            style={{
+                                flex: 1,
+                                padding: '1.25rem 1.5rem',
+                                background: detailTab === 'skyslope' ? 'var(--bg-secondary)' : 'transparent',
+                                border: 'none',
+                                borderBottom: detailTab === 'skyslope' ? '3px solid var(--primary)' : '3px solid transparent',
+                                color: detailTab === 'skyslope' ? 'var(--primary)' : 'var(--text-muted)',
+                                cursor: 'pointer',
+                                fontWeight: detailTab === 'skyslope' ? 600 : 500,
+                                fontSize: '1rem',
+                                transition: 'all 0.2s ease',
+                                outline: 'none'
+                            }}
+                        >
+                            Related Skyslope Record
+                        </button>
+                    </div>
+
+                    <div className="detail-content" style={{ padding: '2.5rem', minHeight: '400px', display: 'flex', flexDirection: 'column', alignItems: loadingDetail || (detailData && detailData._error) ? 'center' : 'stretch', justifyContent: loadingDetail || (detailData && detailData._error) ? 'center' : 'flex-start' }}>
+                        {loadingDetail ? (
+                            <div className="loading" style={{ margin: '0 auto' }}><div className="spinner"></div><p style={{ marginTop: '1rem', color: 'var(--text-muted)' }}>Fetching transaction details…</p></div>
+                        ) : detailData && detailData._error ? (
+                            <div style={{ textAlign: 'center', color: 'var(--danger)', background: 'rgba(239, 68, 68, 0.1)', padding: '2rem', borderRadius: '8px' }}>
+                                <p style={{ fontWeight: 600, fontSize: '1.1rem' }}>Failed to load details</p>
+                                <p style={{ fontSize: '0.9rem' }}>{detailData._error}</p>
+                            </div>
+                        ) : detailData ? (
+                            <div style={{ width: '100%', animation: 'fadeIn 0.3s ease-in-out' }}>
+                                {detailTab === 'details' && (
+                                    detailData.brokerage_engine ? (
+                                        <div className="details-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
+                                            {Object.entries(detailData.brokerage_engine).map(([key, value]) => (
+                                                <div key={key} className="detail-item" style={{ background: 'var(--bg-primary)', padding: '1.25rem', borderRadius: '8px', border: '1px solid var(--border)', transition: 'transform 0.2s, box-shadow 0.2s' }} onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1)'; }} onMouseLeave={(e) => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; }}>
+                                                    <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--primary)', opacity: 0.5 }}></div>
+                                                        {key.replace(/_/g, ' ')}
+                                                    </div>
+                                                    <div style={{ fontWeight: 600, fontSize: '1.05rem', wordBreak: 'break-word', color: 'var(--text-primary)', lineHeight: 1.4 }}>
+                                                        {value !== null && value !== '' ? String(value) : <span style={{ color: 'var(--text-muted)', fontStyle: 'italic', fontWeight: 400 }}>Not provided</span>}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '3rem' }}>
+                                            <p style={{ fontSize: '1.1rem' }}>No Brokerage Engine details found.</p>
+                                        </div>
+                                    )
+                                )}
+                                
+                                {detailTab === 'skyslope' && (
+                                    detailData.skyslope ? (
+                                        <div className="details-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
+                                            {Object.entries(detailData.skyslope).map(([key, value]) => (
+                                                <div key={key} className="detail-item" style={{ background: 'var(--bg-primary)', padding: '1.25rem', borderRadius: '8px', border: '1px solid var(--border)', transition: 'transform 0.2s, box-shadow 0.2s' }} onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1)'; }} onMouseLeave={(e) => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; }}>
+                                                    <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--danger)', opacity: 0.5 }}></div>
+                                                        {key.replace(/_/g, ' ')}
+                                                    </div>
+                                                    <div style={{ fontWeight: 600, fontSize: '1.05rem', wordBreak: 'break-word', color: 'var(--text-primary)', lineHeight: 1.4 }}>
+                                                        {value !== null && value !== '' ? String(value) : <span style={{ color: 'var(--text-muted)', fontStyle: 'italic', fontWeight: 400 }}>Not provided</span>}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '3rem' }}>
+                                            <p style={{ fontSize: '1.1rem' }}>No related Skyslope record found for this transaction.</p>
+                                        </div>
+                                    )
+                                )}
+                            </div>
+                        ) : null}
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="dashboard">
@@ -650,7 +811,7 @@ function BrokerageView() {
                                 </thead>
                                 <tbody>
                                     {paginatedData.map((row, i) => (
-                                        <tr key={i}>
+                                        <tr key={i} onClick={() => { setSelectedRecord(row); setDetailTab('details'); setSkyslopeData(null); }} style={{ cursor: 'pointer' }} className="clickable-row">
                                             <td className="cell-guid">{row.transactionid || '-'}</td>
                                             <td className="cell-address">{row.property_address || '-'}</td>
                                             <td>{row.buying_agent_name || '-'}</td>
