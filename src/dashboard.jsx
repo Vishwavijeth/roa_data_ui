@@ -1477,6 +1477,19 @@ function TransactionSpecialistDashboardView() {
     const [searchQuery, setSearchQuery] = useState('');
     const [dateFrom, setDateFrom] = useState('');
     const [dateTo, setDateTo] = useState('');
+    const [stateFilter, setStateFilter] = useState('');
+    const [uniqueStates, setUniqueStates] = useState([]);
+
+    useEffect(() => {
+        const STATE_API = TXN_SPECIALIST_SUMMARY_API.replace('/transaction_specialist_dashboard', '/transaction_specialist/state');
+        fetch(STATE_API)
+            .then(res => res.json())
+            .then(json => {
+                const states = Array.isArray(json) ? json : (json.data || []);
+                setUniqueStates(states);
+            })
+            .catch(err => console.error('Failed to fetch states', err));
+    }, []);
 
     useEffect(() => {
         setLoading(true);
@@ -1485,6 +1498,7 @@ function TransactionSpecialistDashboardView() {
         const params = new URLSearchParams();
         if (dateFrom) params.append('from_date', dateFrom);
         if (dateTo) params.append('to_date', dateTo);
+        if (stateFilter) params.append('state', stateFilter);
         const queryString = params.toString();
         if (queryString) {
             url += `?${queryString}`;
@@ -1498,7 +1512,7 @@ function TransactionSpecialistDashboardView() {
                 setLoading(false);
             })
             .catch(err => { console.error(err); setError(err.message); setLoading(false); });
-    }, [dateFrom, dateTo]);
+    }, [dateFrom, dateTo, stateFilter]);
 
     const filteredData = useMemo(() => {
         if (!searchQuery.trim()) return data;
@@ -1586,9 +1600,21 @@ function TransactionSpecialistDashboardView() {
                         />
                     </div>
 
-                    {(dateFrom || dateTo) && (
+                    <div className="filter-group">
+                        <label htmlFor="txn-dash-state-filter" className="filter-label">State</label>
+                        <select
+                            id="txn-dash-state-filter" className="filter-select"
+                            value={stateFilter}
+                            onChange={e => setStateFilter(e.target.value)}
+                        >
+                            <option value="">All States</option>
+                            {uniqueStates.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                    </div>
+
+                    {(dateFrom || dateTo || stateFilter) && (
                         <div className="filter-group" style={{ justifyContent: 'flex-end' }}>
-                            <button className="clear-all-btn" onClick={() => { setDateFrom(''); setDateTo(''); }}>Clear Dates</button>
+                            <button className="clear-all-btn" onClick={() => { setDateFrom(''); setDateTo(''); setStateFilter(''); }}>Clear Filters</button>
                         </div>
                     )}
                 </div>
@@ -1695,6 +1721,18 @@ function ReviewerDashboardView() {
     const [searchQuery, setSearchQuery] = useState('');
     const [dateFrom, setDateFrom] = useState('');
     const [dateTo, setDateTo] = useState('');
+    const [stateFilter, setStateFilter] = useState('');
+    const [uniqueStates, setUniqueStates] = useState([]);
+
+    useEffect(() => {
+        fetch(`${REVIEWER_SUMMARY_API}/state`)
+            .then(res => res.json())
+            .then(json => {
+                const states = Array.isArray(json) ? json : (json.data || []);
+                setUniqueStates(states);
+            })
+            .catch(err => console.error('Failed to fetch states', err));
+    }, []);
 
     useEffect(() => {
         setLoading(true);
@@ -1703,6 +1741,7 @@ function ReviewerDashboardView() {
         const params = new URLSearchParams();
         if (dateFrom) params.append('from_date', dateFrom);
         if (dateTo) params.append('to_date', dateTo);
+        if (stateFilter) params.append('state', stateFilter);
         const queryString = params.toString();
         if (queryString) {
             url += `?${queryString}`;
@@ -1716,7 +1755,7 @@ function ReviewerDashboardView() {
                 setLoading(false);
             })
             .catch(err => { console.error(err); setError(err.message); setLoading(false); });
-    }, [dateFrom, dateTo]);
+    }, [dateFrom, dateTo, stateFilter]);
 
     const filteredData = useMemo(() => {
         if (!searchQuery.trim()) return data;
@@ -1799,9 +1838,21 @@ function ReviewerDashboardView() {
                         />
                     </div>
 
-                    {(dateFrom || dateTo) && (
+                    <div className="filter-group">
+                        <label htmlFor="rev-dash-state-filter" className="filter-label">State</label>
+                        <select
+                            id="rev-dash-state-filter" className="filter-select"
+                            value={stateFilter}
+                            onChange={e => setStateFilter(e.target.value)}
+                        >
+                            <option value="">All States</option>
+                            {uniqueStates.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                    </div>
+
+                    {(dateFrom || dateTo || stateFilter) && (
                         <div className="filter-group" style={{ justifyContent: 'flex-end' }}>
-                            <button className="clear-all-btn" onClick={() => { setDateFrom(''); setDateTo(''); }}>Clear Dates</button>
+                            <button className="clear-all-btn" onClick={() => { setDateFrom(''); setDateTo(''); setStateFilter(''); }}>Clear Filters</button>
                         </div>
                     )}
                 </div>
