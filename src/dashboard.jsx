@@ -1050,8 +1050,7 @@ function TransactionSpecialistListingView() {
             const q = searchQuery.trim().toLowerCase();
             result = result.filter(r =>
                 (r.transactionid || '').toLowerCase().includes(q) ||
-                (r.propertyaddress || '').toLowerCase().includes(q) ||
-                (r.skyslopefileid || '').toLowerCase().includes(q)
+                (r.propertyaddress || '').toLowerCase().includes(q)
             );
         }
 
@@ -1118,7 +1117,7 @@ function TransactionSpecialistListingView() {
                         </svg>
                         <input
                             id="txn-search" type="text" className="search-input"
-                            placeholder="Search by Transaction ID, Address, or Sale GUID…"
+                            placeholder="Search by Transaction ID, Property Address"
                             value={searchQuery}
                             onChange={e => { setSearchQuery(e.target.value); setPage(1); }}
                         />
@@ -1214,7 +1213,6 @@ function TransactionSpecialistListingView() {
                                         <th>Listing Price</th>
                                         <th>Close Date</th>
                                         <th>BE Status</th>
-                                        <th>Skyslope FileID</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -1232,7 +1230,6 @@ function TransactionSpecialistListingView() {
                                                     ? <span className={`badge ${row.be_workflow_status.toLowerCase().replace(/[^a-z]/g, '-')}`}>{row.be_workflow_status}</span>
                                                     : '-'}
                                             </td>
-                                            <td>{row.skyslopefileid || '-'}</td>
                                         </tr>
                                     ))}
                                     {paginatedData.length === 0 && (
