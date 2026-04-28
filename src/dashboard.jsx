@@ -132,9 +132,9 @@ function Sidebar({ activePage, setActivePage, onLogout }) {
             {/* Logo */}
             <div className="sidebar-logo">
                 <img
-                    src="https://dataportal.realtyofamerica.com/roa-logo.png"
+                    src="roa_logo.png"
                     alt="ROA Logo"
-                    style={{ height: '36px', objectFit: 'contain' }}
+                    style={{ height: '50px', objectFit: 'contain' }}
                 />
             </div>
 
