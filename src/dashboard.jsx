@@ -4,19 +4,19 @@ import { utils, writeFile } from 'xlsx';
 // ── Parameter definitions ─────────────────────────────────────────────────────
 const PARAMETERS = [
     { id: 'saleprice', label: 'Sale Price', endpoint: 'sale_price', skyslopeKey: 'skyslope_sale_price', beKey: 'be_sale_price' },
-    { id: 'status', label: 'Status', endpoint: 'status', apiBase: 'https://roa-data-backend-neon.vercel.app/comparison', skyslopeKey: 'skyslope_status', beKey: 'be_status' },
+    { id: 'status', label: 'Status', endpoint: 'status', apiBase: 'https://roa-data-backend.vercel.app/comparison', skyslopeKey: 'skyslope_status', beKey: 'be_status' },
     { id: 'close_date', label: 'Close Date', endpoint: 'close_date', skyslopeKey: 'skyslope_close_date', beKey: 'be_close_date' },
     { id: 'listingprice', label: 'Listing Price', endpoint: 'listing_price', skyslopeKey: 'skyslope_listing_price', beKey: 'be_listing_price' },
     { id: 'contract_date', label: 'Contract Date', endpoint: 'contract_date', skyslopeKey: 'skyslope_contract_date', beKey: 'be_contract_date' },
-    { id: 'buyer_name', label: 'Buyer Name', endpoint: 'buyer_name', apiBase: 'https://roa-data-backend-neon.vercel.app/comparison', skyslopeKey: 'skyslope_buyer_name', beKey: 'be_buyer_name' },
-    { id: 'seller_name', label: 'Seller Name', endpoint: 'seller_name', apiBase: 'https://roa-data-backend-neon.vercel.app/comparison', skyslopeKey: 'skyslope_seller_name', beKey: 'be_seller_name' },
-    { id: 'buying_agent_name', label: 'Buying Agent Name', endpoint: 'buying_agent_name', apiBase: 'https://roa-data-backend-neon.vercel.app/comparison', skyslopeKey: 'skyslope_buying_agent_name', beKey: 'be_buying_agent_name' },
+    { id: 'buyer_name', label: 'Buyer Name', endpoint: 'buyer_name', apiBase: 'https://roa-data-backend.vercel.app/comparison', skyslopeKey: 'skyslope_buyer_name', beKey: 'be_buyer_name' },
+    { id: 'seller_name', label: 'Seller Name', endpoint: 'seller_name', apiBase: 'https://roa-data-backend.vercel.app/comparison', skyslopeKey: 'skyslope_seller_name', beKey: 'be_seller_name' },
+    { id: 'buying_agent_name', label: 'Buying Agent Name', endpoint: 'buying_agent_name', apiBase: 'https://roa-data-backend.vercel.app/comparison', skyslopeKey: 'skyslope_buying_agent_name', beKey: 'be_buying_agent_name' },
     { id: 'gross_commission', label: 'Gross Commission', endpoint: 'gross_commission', skyslopeKey: 'skyslope_gross_commission', beKey: 'be_gross_commission' },
     { id: 'reviewer_specialist', label: 'Reviewer & Specialist', endpoint: 'transaction_reviewer_mapping', skyslopeKey: 'skyslope_reviewer_name', beKey: 'be_transaction_specialist' },
-    { id: 'title_company', label: 'Title Company', endpoint: 'title_company', apiBase: 'https://roa-data-backend-neon.vercel.app/comparison', skyslopeKey: 'skyslope_title_company', beKey: 'be_title_company' }
+    { id: 'title_company', label: 'Title Company', endpoint: 'title_company', apiBase: 'https://roa-data-backend.vercel.app/comparison', skyslopeKey: 'skyslope_title_company', beKey: 'be_title_company' }
 ];
 
-const API_BASE = 'https://roa-data-backend-neon.vercel.app/compare';
+const API_BASE = 'https://roa-data-backend.vercel.app/compare';
 const ROWS_PER_PAGE = 50;
 
 const getResult = (row) => {
@@ -571,8 +571,8 @@ function SectionedDetailView({ data }) {
 }
 
 // ── Brokerage Engine View ─────────────────────────────────────────────────────
-const BE_API = 'https://roa-data-backend-neon.vercel.app/brokerage_engine';
-const SKYSLOPE_API = 'https://roa-data-backend-neon.vercel.app/skyslope_api';
+const BE_API = 'https://roa-data-backend.vercel.app/brokerage_engine';
+const SKYSLOPE_API = 'https://roa-data-backend.vercel.app/skyslope_api';
 
 function BrokerageView() {
     const [data, setData] = useState([]);
@@ -595,7 +595,7 @@ function BrokerageView() {
         if (selectedRecord) {
             setLoadingDetail(true);
             setDetailData(null);
-            fetch(`https://roa-data-backend-neon.vercel.app/brokerage_engine/detail?transactionid=${selectedRecord.transactionid}`)
+            fetch(`https://roa-data-backend.vercel.app/brokerage_engine/detail?transactionid=${selectedRecord.transactionid}`)
                 .then(res => { if (!res.ok) throw new Error(`API error: ${res.status}`); return res.json(); })
                 .then(json => {
                     setDetailData(json);
@@ -971,7 +971,7 @@ function extractState(address) {
 }
 
 // ── Transaction Specialist View ───────────────────────────────────────────────
-const TXN_SPECIALIST_API = 'https://roa-data-backend-neon.vercel.app/transaction_specialist_listing';
+const TXN_SPECIALIST_API = 'https://roa-data-backend.vercel.app/transaction_specialist_listing';
 
 function TransactionSpecialistListingView() {
     const [data, setData] = useState([]);
@@ -1256,7 +1256,7 @@ function TransactionSpecialistListingView() {
 }
 
 // ── Reviewer Dashboard View ───────────────────────────────────────────────────
-const REVIEWER_API = 'https://roa-data-backend-neon.vercel.app/reviewer_listing';
+const REVIEWER_API = 'https://roa-data-backend.vercel.app/reviewer_listing';
 
 function ReviewerListingView() {
     const [data, setData] = useState([]);
@@ -1527,7 +1527,7 @@ function ReviewerListingView() {
 }
 
 // ── SkySlope Data View ────────────────────────────────────────────────────────
-const SS_API = 'https://roa-data-backend-neon.vercel.app/skyslope_api';
+const SS_API = 'https://roa-data-backend.vercel.app/skyslope_api';
 
 function SkySlopeView() {
     const [data, setData] = useState([]);
@@ -1550,7 +1550,7 @@ function SkySlopeView() {
         if (selectedRecord) {
             setLoadingDetail(true);
             setDetailData(null);
-            fetch(`https://roa-data-backend-neon.vercel.app/skyslope/detail?saleguid=${selectedRecord.saleguid}`)
+            fetch(`https://roa-data-backend.vercel.app/skyslope/detail?saleguid=${selectedRecord.saleguid}`)
                 .then(res => { if (!res.ok) throw new Error(`API error: ${res.status}`); return res.json(); })
                 .then(json => {
                     setDetailData(json);
@@ -1905,7 +1905,7 @@ function SkySlopeView() {
 }
 
 // ── Transaction Specialist Dashboard View ─────────────────────────────────────
-const TXN_SPECIALIST_SUMMARY_API = 'https://roa-data-backend-neon.vercel.app/transaction_specialist_dashboard';
+const TXN_SPECIALIST_SUMMARY_API = 'https://roa-data-backend.vercel.app/transaction_specialist_dashboard';
 
 
 function TransactionSpecialistDashboardView() {
@@ -2149,7 +2149,7 @@ function TransactionSpecialistDashboardView() {
 }
 
 // ── Reviewer Dashboard View ───────────────────────────────────────────────────
-const REVIEWER_SUMMARY_API = 'https://roa-data-backend-neon.vercel.app/reviewer_dashboard';
+const REVIEWER_SUMMARY_API = 'https://roa-data-backend.vercel.app/reviewer_dashboard';
 
 
 function ReviewerDashboardView() {
