@@ -82,6 +82,11 @@ const IconSpecialistDash = () => (
             d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
     </svg>
 );
+const IconArrowLeft = () => (
+    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" d="M19 12H5M12 5l-7 7 7 7" />
+    </svg>
+);
 const IconReviewerDash = () => (
     <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
@@ -471,6 +476,100 @@ function ReconciliationView() {
     );
 }
 
+// ── Detail Section Map & Renderer ────────────────────────────────────────────
+const DETAIL_SECTION_MAP = [
+    {
+        title: 'Property',
+        color: '#0ea5e9',
+        keys: ['property_address', 'propertyaddress', 'address', 'property_type', 'type', 'mls_area'],
+    },
+    {
+        title: 'Financials',
+        color: '#10b981',
+        keys: ['sale_price', 'listing_price', 'gross_commission', 'mls_number', 'mlsnumber', 'commission', 'price', 'list_price', 'sales_price', 'listing_amount'],
+    },
+    {
+        title: 'Parties',
+        color: '#8b5cf6',
+        keys: ['buyer', 'seller', 'buyer_name', 'seller_name', 'buyer_agent_name', 'buyer_agent_email', 'buying_agent_name', 'buying_agent_email', 'selling_agent_name', 'selling_agent_email', 'reviewer', 'reviewer_name', 'transaction_specialist'],
+    },
+    {
+        title: 'Dates',
+        color: '#f59e0b',
+        keys: [
+            'close_date', 'closed_date', 'closeddate',
+            'contract_date', 'contractacceptancedate', 'contract_acceptance_date',
+            'escrow_close_date', 'escrowclose_date', 'escrowclosingdate', 'escrow_closing_date',
+            'cancel_date', 'canceldate', 'cancellation_date',
+            'listing_date', 'expiration_date', 'created_date', 'updated_date', 'closing_date', 'be_closed_date',
+        ],
+    },
+    {
+        title: 'Status / Tags',
+        color: '#900ba7ff',
+        keys: ['status', 'tags', 'tag', 'workflow_status', 'be_workflow_status', 'ss_status', 'match_result', 'state'],
+    },
+    {
+        title: 'Identifiers',
+        color: '#ef4444',
+        keys: ['saleguid', 'sale_guid', 'skyslopefileid', 'skyslope_file_id', 'transactionid', 'transaction_id', 'id', 'listing_id'],
+    },
+];
+
+function SectionedDetailView({ data }) {
+    if (!data || typeof data !== 'object') return null;
+    const entries = Object.entries(data);
+    const assigned = new Set();
+
+    const sections = DETAIL_SECTION_MAP.map(section => {
+        const items = entries.filter(([key]) => {
+            if (assigned.has(key)) return false;
+            const k = key.toLowerCase();
+            return section.keys.some(sk => k === sk || k.includes(sk));
+        });
+        items.forEach(([key]) => assigned.add(key));
+        return { ...section, items };
+    }).filter(s => s.items.length > 0);
+
+    const allSections = sections;
+
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%' }}>
+            {allSections.map(section => (
+                <div key={section.title}>
+                    <div style={{
+                        display: 'flex', alignItems: 'center', gap: '0.6rem',
+                        marginBottom: '0.75rem', paddingBottom: '0.5rem',
+                        borderBottom: `1px solid ${section.color}30`
+                    }}>
+                        <div style={{ width: '3px', height: '1.1rem', borderRadius: '2px', background: section.color, flexShrink: 0 }} />
+                        <h3 style={{ margin: 0, fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: section.color }}>
+                            {section.title}
+                        </h3>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '0.5rem' }}>
+                        {section.items.map(([key, value]) => (
+                            <div key={key}
+                                style={{ background: 'var(--bg-primary)', padding: '0.65rem 0.9rem', borderRadius: '8px', border: '1px solid var(--border)', transition: 'transform 0.2s, box-shadow 0.2s' }}
+                                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0,0,0,0.1)'; }}
+                                onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; }}
+                            >
+                                <div style={{ fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '0.3rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                    <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: section.color, opacity: 0.6, flexShrink: 0 }} />
+                                    {key.replace(/_/g, ' ')}
+                                </div>
+                                <div style={{ fontWeight: 600, fontSize: '0.9rem', wordBreak: 'break-word', color: 'var(--text-primary)', lineHeight: 1.4 }}>
+                                    {value !== null && value !== '' ? String(value) : <span style={{ color: 'var(--text-muted)', fontStyle: 'italic', fontWeight: 400 }}>Not provided</span>}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+}
+
 // ── Brokerage Engine View ─────────────────────────────────────────────────────
 const BE_API = 'https://roa-data-backend-neon.vercel.app/brokerage_engine';
 const SKYSLOPE_API = 'https://roa-data-backend-neon.vercel.app/skyslope_api';
@@ -507,6 +606,16 @@ function BrokerageView() {
                     setDetailData({ _error: err.message });
                     setLoadingDetail(false);
                 });
+        }
+    }, [selectedRecord]);
+
+    // Browser back-button support
+    useEffect(() => {
+        if (selectedRecord) {
+            window.history.pushState({ detail: true }, '');
+            const handlePopState = () => setSelectedRecord(null);
+            window.addEventListener('popstate', handlePopState);
+            return () => window.removeEventListener('popstate', handlePopState);
         }
     }, [selectedRecord]);
 
@@ -584,7 +693,7 @@ function BrokerageView() {
                             transition: 'color 0.2s'
                         }}
                     >
-                        ← Back to brokerage engine
+                        <IconArrowLeft /> Back to brokerage engine
                     </button>
                     <div style={{ width: '100%', padding: '1.5rem', background: 'linear-gradient(to right, rgba(14, 165, 233, 0.05), transparent)', borderLeft: '4px solid var(--primary)', borderRadius: '0 8px 8px 0' }}>
                         <h1 style={{ margin: '0 0 0.5rem 0', fontSize: '1.75rem', fontWeight: 700, color: 'var(--text-primary)' }}>
@@ -593,6 +702,31 @@ function BrokerageView() {
                         <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                             <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Transaction ID:</span> {selectedRecord.transactionid || 'Unknown'}
                         </p>
+                        <div style={{ marginTop: '0.75rem' }}>
+                            {(loadingDetail ? !!selectedRecord.skyslopefileid : detailData?.skyslope?.match !== false) ? (
+                                <span style={{
+                                    display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
+                                    padding: '0.3rem 0.75rem', borderRadius: '999px',
+                                    fontSize: '0.78rem', fontWeight: 600,
+                                    background: 'rgba(16, 185, 129, 0.12)', color: '#10b981',
+                                    border: '1px solid rgba(16, 185, 129, 0.3)'
+                                }}>
+                                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', display: 'inline-block' }} />
+                                    Matched with SkySlope data
+                                </span>
+                            ) : (
+                                <span style={{
+                                    display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
+                                    padding: '0.3rem 0.75rem', borderRadius: '999px',
+                                    fontSize: '0.78rem', fontWeight: 600,
+                                    background: 'rgba(239, 68, 68, 0.12)', color: '#ef4444',
+                                    border: '1px solid rgba(239, 68, 68, 0.3)'
+                                }}>
+                                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444', display: 'inline-block' }} />
+                                    No related SkySlope data
+                                </span>
+                            )}
+                        </div>
                     </div>
                 </div>
 
@@ -649,47 +783,15 @@ function BrokerageView() {
                         ) : detailData ? (
                             <div style={{ width: '100%', animation: 'fadeIn 0.3s ease-in-out' }}>
                                 {detailTab === 'details' && (
-                                    detailData.brokerage_engine ? (
-                                        <div className="details-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '1rem' }}>
-                                            {Object.entries(detailData.brokerage_engine).map(([key, value]) => (
-                                                <div key={key} className="detail-item" style={{ background: 'var(--bg-primary)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border)', transition: 'transform 0.2s, box-shadow 0.2s' }} onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1)'; }} onMouseLeave={(e) => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; }}>
-                                                    <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--primary)', opacity: 0.5 }}></div>
-                                                        {key.replace(/_/g, ' ')}
-                                                    </div>
-                                                    <div style={{ fontWeight: 600, fontSize: '1rem', wordBreak: 'break-word', color: 'var(--text-primary)', lineHeight: 1.4 }}>
-                                                        {value !== null && value !== '' ? String(value) : <span style={{ color: 'var(--text-muted)', fontStyle: 'italic', fontWeight: 400 }}>Not provided</span>}
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '3rem' }}>
-                                            <p style={{ fontSize: '1.1rem' }}>No Brokerage Engine details found.</p>
-                                        </div>
-                                    )
+                                    detailData.brokerage_engine
+                                        ? <SectionedDetailView data={detailData.brokerage_engine} />
+                                        : <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '3rem' }}><p style={{ fontSize: '1.1rem' }}>No Brokerage Engine details found.</p></div>
                                 )}
 
                                 {detailTab === 'skyslope' && (
-                                    detailData.skyslope ? (
-                                        <div className="details-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '1rem' }}>
-                                            {Object.entries(detailData.skyslope).map(([key, value]) => (
-                                                <div key={key} className="detail-item" style={{ background: 'var(--bg-primary)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border)', transition: 'transform 0.2s, box-shadow 0.2s' }} onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1)'; }} onMouseLeave={(e) => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; }}>
-                                                    <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--danger)', opacity: 0.5 }}></div>
-                                                        {key.replace(/_/g, ' ')}
-                                                    </div>
-                                                    <div style={{ fontWeight: 600, fontSize: '1rem', wordBreak: 'break-word', color: 'var(--text-primary)', lineHeight: 1.4 }}>
-                                                        {value !== null && value !== '' ? String(value) : <span style={{ color: 'var(--text-muted)', fontStyle: 'italic', fontWeight: 400 }}>Not provided</span>}
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '3rem' }}>
-                                            <p style={{ fontSize: '1.1rem' }}>No related Skyslope record found for this transaction.</p>
-                                        </div>
-                                    )
+                                    detailData.skyslope && detailData.skyslope.match !== false
+                                        ? <SectionedDetailView data={detailData.skyslope} />
+                                        : <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '3rem' }}><p style={{ fontSize: '1.1rem' }}>No related SkySlope record found for this transaction.</p></div>
                                 )}
                             </div>
                         ) : null}
@@ -1456,9 +1558,20 @@ function SkySlopeView() {
                 })
                 .catch(err => {
                     console.error(err);
-                    setDetailData({ _error: err.message });
+                    // If no linked BE record, still show skyslope data from the row itself
+                    setDetailData({ skyslope: selectedRecord });
                     setLoadingDetail(false);
                 });
+        }
+    }, [selectedRecord]);
+
+    // Browser back-button support
+    useEffect(() => {
+        if (selectedRecord) {
+            window.history.pushState({ detail: true }, '');
+            const handlePopState = () => setSelectedRecord(null);
+            window.addEventListener('popstate', handlePopState);
+            return () => window.removeEventListener('popstate', handlePopState);
         }
     }, [selectedRecord]);
 
@@ -1485,8 +1598,7 @@ function SkySlopeView() {
             result = result.filter(r =>
                 (r.saleguid || '').toLowerCase().includes(q) ||
                 (r.propertyaddress || '').toLowerCase().includes(q) ||
-                (r.buyer_name || '').toLowerCase().includes(q) ||
-                (r.buyer_agent_name || '').toLowerCase().includes(q)
+                (r.transaction_id || '').toLowerCase().includes(q)
             );
         }
         return result;
@@ -1527,7 +1639,7 @@ function SkySlopeView() {
                             transition: 'color 0.2s'
                         }}
                     >
-                        ← Back to SkySlope data
+                        <IconArrowLeft /> Back to SkySlope data
                     </button>
                     <div style={{ width: '100%', padding: '1.5rem', background: 'linear-gradient(to right, rgba(14, 165, 233, 0.05), transparent)', borderLeft: '4px solid var(--primary)', borderRadius: '0 8px 8px 0' }}>
                         <h1 style={{ margin: '0 0 0.5rem 0', fontSize: '1.75rem', fontWeight: 700, color: 'var(--text-primary)' }}>
@@ -1536,6 +1648,31 @@ function SkySlopeView() {
                         <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                             <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Sale GUID:</span> {selectedRecord.saleguid || 'Unknown'}
                         </p>
+                        <div style={{ marginTop: '0.75rem' }}>
+                            {selectedRecord.transaction_id ? (
+                                <span style={{
+                                    display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
+                                    padding: '0.3rem 0.75rem', borderRadius: '999px',
+                                    fontSize: '0.78rem', fontWeight: 600,
+                                    background: 'rgba(16, 185, 129, 0.12)', color: '#10b981',
+                                    border: '1px solid rgba(16, 185, 129, 0.3)'
+                                }}>
+                                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', display: 'inline-block' }} />
+                                    Matched with Brokerage Engine data
+                                </span>
+                            ) : (
+                                <span style={{
+                                    display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
+                                    padding: '0.3rem 0.75rem', borderRadius: '999px',
+                                    fontSize: '0.78rem', fontWeight: 600,
+                                    background: 'rgba(239, 68, 68, 0.12)', color: '#ef4444',
+                                    border: '1px solid rgba(239, 68, 68, 0.3)'
+                                }}>
+                                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444', display: 'inline-block' }} />
+                                    No related Brokerage Engine data
+                                </span>
+                            )}
+                        </div>
                     </div>
                 </div>
 
@@ -1592,47 +1729,15 @@ function SkySlopeView() {
                         ) : detailData ? (
                             <div style={{ width: '100%', animation: 'fadeIn 0.3s ease-in-out' }}>
                                 {detailTab === 'skyslope' && (
-                                    detailData.skyslope ? (
-                                        <div className="details-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '1rem' }}>
-                                            {Object.entries(detailData.skyslope).map(([key, value]) => (
-                                                <div key={key} className="detail-item" style={{ background: 'var(--bg-primary)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border)', transition: 'transform 0.2s, box-shadow 0.2s' }} onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1)'; }} onMouseLeave={(e) => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; }}>
-                                                    <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--primary)', opacity: 0.5 }}></div>
-                                                        {key.replace(/_/g, ' ')}
-                                                    </div>
-                                                    <div style={{ fontWeight: 600, fontSize: '1rem', wordBreak: 'break-word', color: 'var(--text-primary)', lineHeight: 1.4 }}>
-                                                        {value !== null && value !== '' ? String(value) : <span style={{ color: 'var(--text-muted)', fontStyle: 'italic', fontWeight: 400 }}>Not provided</span>}
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '3rem' }}>
-                                            <p style={{ fontSize: '1.1rem' }}>No SkySlope details found.</p>
-                                        </div>
-                                    )
+                                    detailData.skyslope
+                                        ? <SectionedDetailView data={detailData.skyslope} />
+                                        : <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '3rem' }}><p style={{ fontSize: '1.1rem' }}>No SkySlope details found.</p></div>
                                 )}
 
                                 {detailTab === 'details' && (
-                                    detailData.brokerage_engine ? (
-                                        <div className="details-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '1rem' }}>
-                                            {Object.entries(detailData.brokerage_engine).map(([key, value]) => (
-                                                <div key={key} className="detail-item" style={{ background: 'var(--bg-primary)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border)', transition: 'transform 0.2s, box-shadow 0.2s' }} onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1)'; }} onMouseLeave={(e) => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; }}>
-                                                    <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--primary)', opacity: 0.5 }}></div>
-                                                        {key.replace(/_/g, ' ')}
-                                                    </div>
-                                                    <div style={{ fontWeight: 600, fontSize: '1rem', wordBreak: 'break-word', color: 'var(--text-primary)', lineHeight: 1.4 }}>
-                                                        {value !== null && value !== '' ? String(value) : <span style={{ color: 'var(--text-muted)', fontStyle: 'italic', fontWeight: 400 }}>Not provided</span>}
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '3rem' }}>
-                                            <p style={{ fontSize: '1.1rem' }}>No related Brokerage Engine record found.</p>
-                                        </div>
-                                    )
+                                    detailData.brokerage_engine
+                                        ? <SectionedDetailView data={detailData.brokerage_engine} />
+                                        : <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '3rem' }}><p style={{ fontSize: '1.1rem' }}>No related Brokerage Engine record found.</p></div>
                                 )}
                             </div>
                         ) : null}
@@ -1675,7 +1780,7 @@ function SkySlopeView() {
                         </svg>
                         <input
                             id="ss-search" type="text" className="search-input"
-                            placeholder="Search by Sale GUID, Property Address, Buyer Name, or Buyer Agent…"
+                            placeholder="Search by Sale GUID, Property Address, Transaction ID"
                             value={searchQuery}
                             onChange={e => { setSearchQuery(e.target.value); setPage(1); }}
                         />
@@ -1742,6 +1847,7 @@ function SkySlopeView() {
                                 <thead>
                                     <tr>
                                         <th>Sale GUID</th>
+                                        <th>Transaction ID</th>
                                         <th>Property Address</th>
                                         <th>Buyer Name</th>
                                         <th>Buyer Agent</th>
@@ -1755,6 +1861,7 @@ function SkySlopeView() {
                                     {paginatedData.map((row, i) => (
                                         <tr key={i} onClick={() => { setSelectedRecord(row); setDetailTab('skyslope'); }} style={{ cursor: 'pointer' }} className="clickable-row">
                                             <td className="cell-guid">{row.saleguid || '-'}</td>
+                                            <td>{row.transaction_id || 'No related BE data'}</td>
                                             <td>
                                                 {row.propertyaddress ? (
                                                     row.propertyaddress.includes(',') ? (
