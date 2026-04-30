@@ -808,9 +808,26 @@ function BrokerageView() {
                     <h1>Brokerage Engine</h1>
                     <p>Transaction data sourced from Brokerage Engine.</p>
                 </div>
-                <button className="export-btn" onClick={handleDownload} disabled={!data.length}>
-                    <IconDownload /> Download Report
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <button
+                        id="sync-be-data-btn"
+                        className="export-btn"
+                        style={{
+                            background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+                            boxShadow: '0 4px 12px rgba(99, 102, 241, 0.35)',
+                            display: 'flex', alignItems: 'center', gap: '0.5rem'
+                        }}
+                    >
+                        <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                                d="M4 4v5h.582M20 20v-5h-.581M5.635 15A9 9 0 1 0 6 6.071" />
+                        </svg>
+                        Sync BE Data
+                    </button>
+                    <button className="export-btn" onClick={handleDownload} disabled={!data.length}>
+                        <IconDownload /> Download Report
+                    </button>
+                </div>
             </div>
 
             {/* Table card */}
@@ -1751,9 +1768,26 @@ function SkySlopeView() {
                     <h1>SkySlope Data</h1>
                     <p>Transaction data sourced from SkySlope.</p>
                 </div>
-                <button className="export-btn" onClick={handleDownload} disabled={!data.length}>
-                    <IconDownload /> Download Report
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <button
+                        id="sync-skyslope-data-btn"
+                        className="export-btn"
+                        style={{
+                            background: 'linear-gradient(135deg, #0ea5e9, #0284c7)',
+                            boxShadow: '0 4px 12px rgba(14, 165, 233, 0.35)',
+                            display: 'flex', alignItems: 'center', gap: '0.5rem'
+                        }}
+                    >
+                        <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                                d="M4 4v5h.582M20 20v-5h-.581M5.635 15A9 9 0 1 0 6 6.071" />
+                        </svg>
+                        Sync SkySlope Data
+                    </button>
+                    <button className="export-btn" onClick={handleDownload} disabled={!data.length}>
+                        <IconDownload /> Download Report
+                    </button>
+                </div>
             </div>
 
             <div className="table-container">
