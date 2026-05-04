@@ -591,6 +591,33 @@ function BrokerageView() {
     const [detailData, setDetailData] = useState(null);
     const [loadingDetail, setLoadingDetail] = useState(false);
 
+    // ── Sync BE Data state ───────────────────────────────────────────────────
+    const [syncingBE, setSyncingBE] = useState(false);
+    const [syncBEResult, setSyncBEResult] = useState(null); // { ok: bool, message: string }
+
+    const handleSyncBE = async () => {
+        setSyncingBE(true);
+        setSyncBEResult(null);
+        try {
+            const res = await fetch('https://roa-data-backend.vercel.app/sync/brokerage-engine', {
+                method: 'POST',
+            });
+            const json = await res.json().catch(() => ({}));
+            if (res.ok) {
+                setSyncBEResult({ ok: true, message: json.message || json.detail || 'Brokerage Engine data synced successfully.' });
+            } else {
+                // Silently swallow server errors — log to console only
+                console.warn('[Sync BE] Server error:', res.status, json);
+            }
+        } catch (err) {
+            // Silently swallow network/CORS errors — log to console only
+            console.warn('[Sync BE] Network error:', err.message);
+        } finally {
+            setSyncingBE(false);
+        }
+    };
+    // ────────────────────────────────────────────────────────────────────────
+
     useEffect(() => {
         if (selectedRecord) {
             setLoadingDetail(true);
@@ -812,23 +839,67 @@ function BrokerageView() {
                     <button
                         id="sync-be-data-btn"
                         className="export-btn"
+                        onClick={handleSyncBE}
+                        disabled={syncingBE}
                         style={{
-                            background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+                            background: syncingBE
+                                ? 'linear-gradient(135deg, #4b4d8f, #3b3880)'
+                                : 'linear-gradient(135deg, #6366f1, #4f46e5)',
                             boxShadow: '0 4px 12px rgba(99, 102, 241, 0.35)',
-                            display: 'flex', alignItems: 'center', gap: '0.5rem'
+                            display: 'flex', alignItems: 'center', gap: '0.5rem',
+                            opacity: syncingBE ? 0.75 : 1,
+                            cursor: syncingBE ? 'not-allowed' : 'pointer',
                         }}
                     >
-                        <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                                d="M4 4v5h.582M20 20v-5h-.581M5.635 15A9 9 0 1 0 6 6.071" />
-                        </svg>
-                        Sync BE Data
+                        {syncingBE ? (
+                            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                                style={{ animation: 'spin 1s linear infinite' }}>
+                                <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                                    d="M4 4v5h.582M20 20v-5h-.581M5.635 15A9 9 0 1 0 6 6.071" />
+                            </svg>
+                        ) : (
+                            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                                    d="M4 4v5h.582M20 20v-5h-.581M5.635 15A9 9 0 1 0 6 6.071" />
+                            </svg>
+                        )}
+                        {syncingBE ? 'Syncing…' : 'Sync BE Data'}
                     </button>
                     <button className="export-btn" onClick={handleDownload} disabled={!data.length}>
                         <IconDownload /> Download Report
                     </button>
                 </div>
             </div>
+
+            {/* Sync success banner — shown inline, no error displayed */}
+            {syncBEResult && syncBEResult.ok && (
+                <div style={{
+                    margin: '0 0 1.25rem 0',
+                    padding: '0.75rem 1.25rem',
+                    borderRadius: '10px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '1rem',
+                    background: 'rgba(16, 185, 129, 0.08)',
+                    border: '1px solid rgba(16,185,129,0.3)',
+                    color: '#10b981',
+                    fontWeight: 500,
+                    fontSize: '0.875rem',
+                    animation: 'fadeIn 0.3s ease-in-out',
+                }}
+                >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                        <span style={{ fontSize: '1rem' }}>✅</span>
+                        <span>{syncBEResult.message}</span>
+                    </div>
+                    <button
+                        onClick={() => setSyncBEResult(null)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', opacity: 0.55, fontSize: '1rem', padding: '0 0.25rem', lineHeight: 1 }}
+                        aria-label="Dismiss"
+                    >✕</button>
+                </div>
+            )}
 
             {/* Table card */}
             <div className="table-container">
