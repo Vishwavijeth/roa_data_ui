@@ -914,7 +914,6 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
                     borderRadius: '10px',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'space-between',
                     gap: '1rem',
                     background: 'rgba(16, 185, 129, 0.08)',
                     border: '1px solid rgba(16,185,129,0.3)',
@@ -924,15 +923,8 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
                     animation: 'fadeIn 0.3s ease-in-out',
                 }}
                 >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                        <span style={{ fontSize: '1rem' }}>✅</span>
-                        <span>{syncBEResult.message}</span>
-                    </div>
-                    <button
-                        onClick={() => setSyncBEResult(null)}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', opacity: 0.55, fontSize: '1rem', padding: '0 0.25rem', lineHeight: 1 }}
-                        aria-label="Dismiss"
-                    >✕</button>
+                    <span style={{ fontSize: '1rem' }}>✅</span>
+                    <span>{syncBEResult.message}</span>
                 </div>
             )}
 
@@ -1971,7 +1963,7 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
                 </div>
             )}
 
-            {/* Sync success banner */}
+            {/* Sync success banner — auto-dismissed after 5s */}
             {!syncingSS && syncSSResult && syncSSResult.ok && (
                 <div style={{
                     margin: '0 0 1.25rem 0',
@@ -1979,7 +1971,6 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
                     borderRadius: '10px',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'space-between',
                     gap: '1rem',
                     background: 'rgba(16, 185, 129, 0.08)',
                     border: '1px solid rgba(16,185,129,0.3)',
@@ -1989,15 +1980,8 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
                     animation: 'fadeIn 0.3s ease-in-out',
                 }}
                 >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                        <span style={{ fontSize: '1rem' }}>✅</span>
-                        <span>{syncSSResult.message}</span>
-                    </div>
-                    <button
-                        onClick={() => setSyncSSResult(null)}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', opacity: 0.55, fontSize: '1rem', padding: '0 0.25rem', lineHeight: 1 }}
-                        aria-label="Dismiss"
-                    >✕</button>
+                    <span style={{ fontSize: '1rem' }}>✅</span>
+                    <span>{syncSSResult.message}</span>
                 </div>
             )}
 
@@ -2652,29 +2636,33 @@ function Dashboard({ setIsAuthenticated }) {
             });
         }, 300);
 
+        // Always animate to 100% and wait before hiding, regardless of success/failure
+        const finishSync = (success, message) => {
+            clearInterval(progressInterval);
+            setSyncProgress(100);
+            if (success) {
+                setSyncBEResult({ ok: true, message });
+            }
+            setTimeout(() => {
+                setSyncingBE(false);
+                setSyncProgress(0);
+            }, 3000);
+        };
+
         try {
             const res = await fetch('https://roa-data-backend.vercel.app/sync/brokerage-engine', {
                 method: 'POST',
             });
             const json = await res.json().catch(() => ({}));
-            clearInterval(progressInterval);
             if (res.ok) {
-                setSyncProgress(100);
-                setSyncBEResult({ ok: true, message: json.message || json.detail || 'Brokerage Engine data synced successfully.' });
-                setTimeout(() => {
-                    setSyncingBE(false);
-                    setSyncProgress(0);
-                }, 1500);
+                finishSync(true, json.message || json.detail || 'Brokerage Engine data synced successfully.');
             } else {
                 console.warn('[Sync BE] Server error:', res.status, json);
-                setSyncingBE(false);
-                setSyncProgress(0);
+                finishSync(false);
             }
         } catch (err) {
-            clearInterval(progressInterval);
             console.warn('[Sync BE] Network error:', err.message);
-            setSyncingBE(false);
-            setSyncProgress(0);
+            finishSync(false);
         }
     };
 
@@ -2710,7 +2698,10 @@ function Dashboard({ setIsAuthenticated }) {
                 setTimeout(() => {
                     setSyncingSS(false);
                     setSyncSSProgress(0);
-                }, 1500);
+                }, 3000);
+                setTimeout(() => {
+                    setSyncSSResult(null);
+                }, 5000);
             } else {
                 console.warn('[Sync SS] Server error:', res.status, json);
                 setSyncingSS(false);
