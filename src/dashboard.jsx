@@ -1649,7 +1649,7 @@ function ReviewerListingView() {
 // ── SkySlope Data View ────────────────────────────────────────────────────────
 const SS_API = 'https://roa-data-backend.vercel.app/skyslope_api';
 
-function SkySlopeView() {
+function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, setSyncSSResult }) {
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -1878,23 +1878,128 @@ function SkySlopeView() {
                     <button
                         id="sync-skyslope-data-btn"
                         className="export-btn"
+                        onClick={handleSyncSS}
+                        disabled={syncingSS}
                         style={{
-                            background: 'linear-gradient(135deg, #0ea5e9, #0284c7)',
+                            background: syncingSS
+                                ? 'linear-gradient(135deg, #0369a1, #0284c7)'
+                                : 'linear-gradient(135deg, #0ea5e9, #0284c7)',
                             boxShadow: '0 4px 12px rgba(14, 165, 233, 0.35)',
-                            display: 'flex', alignItems: 'center', gap: '0.5rem'
+                            display: 'flex', alignItems: 'center', gap: '0.5rem',
+                            opacity: syncingSS ? 0.75 : 1,
+                            cursor: syncingSS ? 'not-allowed' : 'pointer',
                         }}
                     >
-                        <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                                d="M4 4v5h.582M20 20v-5h-.581M5.635 15A9 9 0 1 0 6 6.071" />
-                        </svg>
-                        Sync SkySlope Data
+                        {syncingSS ? (
+                            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                                style={{ animation: 'spin 1s linear infinite' }}>
+                                <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                                    d="M4 4v5h.582M20 20v-5h-.581M5.635 15A9 9 0 1 0 6 6.071" />
+                            </svg>
+                        ) : (
+                            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                                    d="M4 4v5h.582M20 20v-5h-.581M5.635 15A9 9 0 1 0 6 6.071" />
+                            </svg>
+                        )}
+                        {syncingSS ? 'Syncing…' : 'Sync SkySlope Data'}
                     </button>
                     <button className="export-btn" onClick={handleDownload} disabled={!data.length}>
                         <IconDownload /> Download Report
                     </button>
                 </div>
             </div>
+
+            {/* Sync progress indicator */}
+            {syncingSS && (
+                <div style={{
+                    margin: '0 0 1.25rem 0',
+                    padding: '1.25rem 1.5rem',
+                    borderRadius: '12px',
+                    background: 'linear-gradient(135deg, rgba(14, 165, 233, 0.08), rgba(2, 132, 199, 0.03))',
+                    border: '1px solid rgba(14, 165, 233, 0.2)',
+                    animation: 'fadeIn 0.3s ease-in-out',
+                    backdropFilter: 'blur(8px)',
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                            {syncSSProgress < 100 ? (
+                                <svg width="18" height="18" fill="none" stroke="#0ea5e9" viewBox="0 0 24 24"
+                                    style={{ animation: 'spin 1s linear infinite' }}>
+                                    <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                                        d="M4 4v5h.582M20 20v-5h-.581M5.635 15A9 9 0 1 0 6 6.071" />
+                                </svg>
+                            ) : (
+                                <svg width="18" height="18" fill="none" stroke="#10b981" viewBox="0 0 24 24">
+                                    <path strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                </svg>
+                            )}
+                            <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+                                {syncSSProgress < 100 ? 'Syncing SkySlope Data…' : 'Sync Complete!'}
+                            </span>
+                        </div>
+                        <span style={{
+                            fontWeight: 700, fontSize: '1.25rem',
+                            color: syncSSProgress === 100 ? '#10b981' : '#0ea5e9',
+                            fontVariantNumeric: 'tabular-nums',
+                            minWidth: '3.5rem',
+                            textAlign: 'right',
+                        }}>
+                            {syncSSProgress}%
+                        </span>
+                    </div>
+                    <div className="progress-bar-wrap" style={{ height: '10px', background: 'rgba(14, 165, 233, 0.1)', marginBottom: '0.6rem' }}>
+                        <div className="progress-bar-fill" style={{
+                            width: `${syncSSProgress}%`,
+                            background: syncSSProgress === 100
+                                ? 'linear-gradient(90deg, #10b981, #34d399)'
+                                : 'linear-gradient(90deg, #0ea5e9, #38bdf8)',
+                            transition: 'width 0.4s ease, background 0.3s ease',
+                        }} />
+                    </div>
+                    <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                        {syncSSProgress < 20
+                            ? 'Connecting to SkySlope API…'
+                            : syncSSProgress < 50
+                                ? 'Fetching sale records…'
+                                : syncSSProgress < 80
+                                    ? 'Processing and updating records…'
+                                    : syncSSProgress < 100
+                                        ? 'Finalizing data sync…'
+                                        : 'All records have been synced successfully.'}
+                    </p>
+                </div>
+            )}
+
+            {/* Sync success banner */}
+            {!syncingSS && syncSSResult && syncSSResult.ok && (
+                <div style={{
+                    margin: '0 0 1.25rem 0',
+                    padding: '0.75rem 1.25rem',
+                    borderRadius: '10px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '1rem',
+                    background: 'rgba(16, 185, 129, 0.08)',
+                    border: '1px solid rgba(16,185,129,0.3)',
+                    color: '#10b981',
+                    fontWeight: 500,
+                    fontSize: '0.875rem',
+                    animation: 'fadeIn 0.3s ease-in-out',
+                }}
+                >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                        <span style={{ fontSize: '1rem' }}>✅</span>
+                        <span>{syncSSResult.message}</span>
+                    </div>
+                    <button
+                        onClick={() => setSyncSSResult(null)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', opacity: 0.55, fontSize: '1rem', padding: '0 0.25rem', lineHeight: 1 }}
+                        aria-label="Dismiss"
+                    >✕</button>
+                </div>
+            )}
 
             <div className="table-container">
                 <div className="table-header">
@@ -2553,22 +2658,69 @@ function Dashboard({ setIsAuthenticated }) {
             });
             const json = await res.json().catch(() => ({}));
             clearInterval(progressInterval);
-            setSyncProgress(100);
             if (res.ok) {
+                setSyncProgress(100);
                 setSyncBEResult({ ok: true, message: json.message || json.detail || 'Brokerage Engine data synced successfully.' });
+                setTimeout(() => {
+                    setSyncingBE(false);
+                    setSyncProgress(0);
+                }, 1500);
             } else {
                 console.warn('[Sync BE] Server error:', res.status, json);
+                setSyncingBE(false);
+                setSyncProgress(0);
             }
         } catch (err) {
             clearInterval(progressInterval);
-            setSyncProgress(100);
             console.warn('[Sync BE] Network error:', err.message);
-        } finally {
+            setSyncingBE(false);
+            setSyncProgress(0);
+        }
+    };
+
+    // ── Sync SkySlope state (lifted here so it persists across page navigation) ──
+    const [syncingSS, setSyncingSS] = useState(false);
+    const [syncSSResult, setSyncSSResult] = useState(null);
+    const [syncSSProgress, setSyncSSProgress] = useState(0);
+
+    const handleSyncSS = async () => {
+        setSyncingSS(true);
+        setSyncSSResult(null);
+        setSyncSSProgress(0);
+
+        const startTime = Date.now();
+        const progressInterval = setInterval(() => {
+            setSyncSSProgress(prev => {
+                if (prev >= 90) return prev;
+                const elapsed = (Date.now() - startTime) / 1000;
+                const target = Math.min(90, 20 * Math.log(elapsed + 1) + 3);
+                return Math.max(prev, Math.round(target));
+            });
+        }, 300);
+
+        try {
+            const res = await fetch('https://roa-data-backend.vercel.app/sync/skyslope-sales', {
+                method: 'POST',
+            });
+            const json = await res.json().catch(() => ({}));
             clearInterval(progressInterval);
-            setTimeout(() => {
-                setSyncingBE(false);
-                setSyncProgress(0);
-            }, 1500);
+            if (res.ok) {
+                setSyncSSProgress(100);
+                setSyncSSResult({ ok: true, message: json.message || json.detail || 'SkySlope data synced successfully.' });
+                setTimeout(() => {
+                    setSyncingSS(false);
+                    setSyncSSProgress(0);
+                }, 1500);
+            } else {
+                console.warn('[Sync SS] Server error:', res.status, json);
+                setSyncingSS(false);
+                setSyncSSProgress(0);
+            }
+        } catch (err) {
+            clearInterval(progressInterval);
+            console.warn('[Sync SS] Network error:', err.message);
+            setSyncingSS(false);
+            setSyncSSProgress(0);
         }
     };
 
@@ -2584,7 +2736,7 @@ function Dashboard({ setIsAuthenticated }) {
             case 'brokerage':
                 return <BrokerageView syncingBE={syncingBE} syncProgress={syncProgress} syncBEResult={syncBEResult} handleSyncBE={handleSyncBE} setSyncBEResult={setSyncBEResult} />;
             case 'skyslope':
-                return <SkySlopeView />;
+                return <SkySlopeView syncingSS={syncingSS} syncSSProgress={syncSSProgress} syncSSResult={syncSSResult} handleSyncSS={handleSyncSS} setSyncSSResult={setSyncSSResult} />;
             case 'txn_specialist':
                 return <TransactionSpecialistListingView />;
             case 'reviewer':
