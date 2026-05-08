@@ -3,6 +3,86 @@ import { utils, writeFile } from 'xlsx';
 import { TXN_SPECIALIST_SUMMARY_API } from '../constants';
 import { IconDownload } from '../components/Icons';
 
+// ── Sub-count color palette (within Outstanding) ──────────────────────────────
+const SUB_COUNTS = [
+    { key: 'open_count', label: 'Open', color: '#ef4444' }, // solid red
+    { key: 'commission_verified_count', label: 'Commission Verified', color: '#f59e0b' }, // solid amber
+    { key: 'cda_sent_count', label: 'CDA Sent', color: '#6366f1' }, // solid indigo
+    { key: 'title_payment_received_count', label: 'Title Payment Received', color: '#14b8a6' }, // solid teal
+];
+
+// ── Tooltip shown on hovering the Outstanding badge ───────────────────────────
+function OutstandingTooltip({ row }) {
+    return (
+        <div style={{
+            position: 'absolute',
+            top: 'calc(100% + 8px)',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 9999,
+            background: '#ffffff',
+            borderRadius: '10px',
+            border: '1px solid #e2e8f0',
+            boxShadow: '0 10px 32px rgba(0,0,0,0.14), 0 2px 8px rgba(0,0,0,0.08)',
+            padding: '0.85rem 1rem',
+            minWidth: '220px',
+            pointerEvents: 'none',
+            animation: 'fadeIn 0.15s ease',
+        }}>
+            {/* Arrow pointing up */}
+            <div style={{
+                position: 'absolute',
+                top: '-7px',
+                left: '50%',
+                transform: 'translateX(-50%) rotate(45deg)',
+                width: '12px', height: '12px',
+                background: '#ffffff',
+                borderTop: '1px solid #e2e8f0',
+                borderLeft: '1px solid #e2e8f0',
+            }} />
+
+            <p style={{ margin: '0 0 0.6rem 0', fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.09em', color: '#64748b' }}>
+                Outstanding Breakdown
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                {SUB_COUNTS.map(({ key, label, color }) => {
+                    const count = row[key] || 0;
+                    return (
+                        <div key={key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                                <span style={{
+                                    width: '10px', height: '10px', borderRadius: '3px',
+                                    background: color, flexShrink: 0, display: 'inline-block',
+                                }} />
+                                <span style={{ fontSize: '0.8rem', color: '#374151', fontWeight: 500 }}>{label}</span>
+                            </div>
+                            <span style={{
+                                fontSize: '0.88rem', fontWeight: 700,
+                                color: count > 0 ? '#111827' : '#9ca3af',
+                                fontVariantNumeric: 'tabular-nums',
+                                minWidth: '24px', textAlign: 'right',
+                            }}>
+                                {count}
+                            </span>
+                        </div>
+                    );
+                })}
+            </div>
+            {/* Total line */}
+            <div style={{
+                marginTop: '0.6rem', paddingTop: '0.6rem',
+                borderTop: '1px solid #e2e8f0',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+            }}>
+                <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#64748b' }}>Total Outstanding</span>
+                <span style={{ fontSize: '0.92rem', fontWeight: 800, color: '#dc2626', fontVariantNumeric: 'tabular-nums' }}>
+                    {row.transactions_outstanding || 0}
+                </span>
+            </div>
+        </div>
+    );
+}
+
 function TransactionSpecialistDashboardView() {
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -12,6 +92,7 @@ function TransactionSpecialistDashboardView() {
     const [dateTo, setDateTo] = useState('');
     const [stateFilter, setStateFilter] = useState('');
     const [uniqueStates, setUniqueStates] = useState([]);
+    const [hoveredOutstanding, setHoveredOutstanding] = useState(null); // row index
 
     useEffect(() => {
         const STATE_API = TXN_SPECIALIST_SUMMARY_API.replace('/transaction_specialist_dashboard', '/transaction_specialist/state');
@@ -33,9 +114,7 @@ function TransactionSpecialistDashboardView() {
         if (dateTo) params.append('to_date', dateTo);
         if (stateFilter) params.append('state', stateFilter);
         const queryString = params.toString();
-        if (queryString) {
-            url += `?${queryString}`;
-        }
+        if (queryString) url += `?${queryString}`;
 
         fetch(url)
             .then(res => { if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`); return res.json(); })
@@ -53,23 +132,12 @@ function TransactionSpecialistDashboardView() {
         return data.filter(r => (r.transaction_specialist || '').toLowerCase().includes(q));
     }, [data, searchQuery]);
 
-    const totals = useMemo(() => {
-        const outstanding = data.reduce((sum, r) => sum + (r.transactions_outstanding || 0), 0);
-        const closed = data.reduce((sum, r) => sum + (r.transactions_closed || 0), 0);
-        return { specialists: data.length, outstanding, closed, total: outstanding + closed };
-    }, [data]);
-
     const handleDownload = () => {
         const ws = utils.json_to_sheet(data);
         const wb = utils.book_new();
         utils.book_append_sheet(wb, ws, 'Specialist Summary');
         writeFile(wb, 'Transaction_Specialist_Summary.xlsx');
     };
-
-    // Find max value for bar scaling
-    const maxVal = useMemo(() => {
-        return Math.max(1, ...data.map(r => Math.max(r.transactions_outstanding || 0, r.transactions_closed || 0)));
-    }, [data]);
 
     return (
         <div className="dashboard">
@@ -122,7 +190,6 @@ function TransactionSpecialistDashboardView() {
                             style={{ backgroundImage: 'none' }}
                         />
                     </div>
-
                     <div className="filter-group">
                         <label htmlFor="txn-dash-date-to" className="filter-label">Close Date To</label>
                         <input
@@ -132,7 +199,6 @@ function TransactionSpecialistDashboardView() {
                             style={{ backgroundImage: 'none' }}
                         />
                     </div>
-
                     <div className="filter-group">
                         <label htmlFor="txn-dash-state-filter" className="filter-label">State</label>
                         <select
@@ -144,7 +210,6 @@ function TransactionSpecialistDashboardView() {
                             {uniqueStates.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
                     </div>
-
                     {(dateFrom || dateTo || stateFilter) && (
                         <div className="filter-group" style={{ justifyContent: 'flex-end' }}>
                             <button className="clear-all-btn" onClick={() => { setDateFrom(''); setDateTo(''); setStateFilter(''); }}>Clear Filters</button>
@@ -166,48 +231,94 @@ function TransactionSpecialistDashboardView() {
                                     <tr>
                                         <th style={{ width: '40px' }}>#</th>
                                         <th>Transaction Specialist</th>
-                                        <th style={{ width: '160px' }}>Outstanding</th>
+                                        <th style={{ width: '160px' }}>
+                                            Outstanding
+                                            <span style={{ display: 'block', fontSize: '0.65rem', fontWeight: 400, color: 'var(--text-muted)', marginTop: '2px' }}>hover for breakdown</span>
+                                        </th>
                                         <th style={{ width: '160px' }}>Closed</th>
                                         <th style={{ width: '120px' }}>Total</th>
-                                        <th style={{ minWidth: '220px' }}>Distribution</th>
+                                        <th style={{ minWidth: '280px' }}>Distribution</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {filteredData.map((row, i) => {
                                         const outstanding = row.transactions_outstanding || 0;
                                         const closed = row.transactions_closed || 0;
-                                        const total = outstanding + closed;
-                                        const outPct = total > 0 ? (outstanding / total * 100).toFixed(0) : 0;
-                                        const closedPct = total > 0 ? (closed / total * 100).toFixed(0) : 0;
+                                        const total = outstanding + closed || 1;
+
+                                        // Sub-counts for distribution bar
+                                        const openCount = row.open_count || 0;
+                                        const commissionCount = row.commission_verified_count || 0;
+                                        const cdaCount = row.cda_sent_count || 0;
+                                        const titleCount = row.title_payment_received_count || 0;
+
+                                        const openPct = (openCount / total * 100).toFixed(1);
+                                        const commissionPct = (commissionCount / total * 100).toFixed(1);
+                                        const cdaPct = (cdaCount / total * 100).toFixed(1);
+                                        const titlePct = (titleCount / total * 100).toFixed(1);
+                                        const closedPct = (closed / total * 100).toFixed(1);
+                                        const outstandingPct = (outstanding / total * 100).toFixed(0);
+
                                         return (
                                             <tr key={i}>
                                                 <td style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>{i + 1}</td>
                                                 <td style={{ fontWeight: 600 }}>{row.transaction_specialist || '-'}</td>
+
+                                                {/* Outstanding badge with hover tooltip */}
                                                 <td>
-                                                    <span className="badge warning" style={{ minWidth: '36px', textAlign: 'center' }}>{outstanding}</span>
+                                                    <div
+                                                        style={{ position: 'relative', display: 'inline-block' }}
+                                                        onMouseEnter={() => setHoveredOutstanding(i)}
+                                                        onMouseLeave={() => setHoveredOutstanding(null)}
+                                                    >
+                                                        <span
+                                                            className="badge warning"
+                                                            style={{
+                                                                minWidth: '36px', textAlign: 'center',
+                                                                cursor: 'default',
+                                                                outline: hoveredOutstanding === i ? '2px solid #f97316' : 'none',
+                                                                outlineOffset: '2px',
+                                                                transition: 'outline 0.15s ease',
+                                                            }}
+                                                        >
+                                                            {outstanding}
+                                                        </span>
+                                                        {hoveredOutstanding === i && <OutstandingTooltip row={row} />}
+                                                    </div>
                                                 </td>
+
                                                 <td>
                                                     <span className="badge match" style={{ minWidth: '36px', textAlign: 'center' }}>{closed}</span>
                                                 </td>
-                                                <td style={{ fontWeight: 600 }}>{total}</td>
+                                                <td style={{ fontWeight: 600 }}>{outstanding + closed}</td>
+
+                                                {/* Distribution bar — 4 outstanding sub-segments + closed */}
                                                 <td>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                                         <div style={{
                                                             display: 'flex', height: '22px', borderRadius: '6px',
-                                                            overflow: 'hidden', flex: 1, minWidth: '120px',
-                                                            background: 'var(--bg-secondary)'
+                                                            overflow: 'hidden', flex: 1, minWidth: '160px',
+                                                            background: 'var(--bg-secondary)',
                                                         }}>
-                                                            {outstanding > 0 && (
-                                                                <div style={{
-                                                                    width: `${outPct}%`, background: '#ef4444',
-                                                                    transition: 'width 0.6s ease'
-                                                                }} title={`Outstanding: ${outstanding} (${outPct}%)`} />
+                                                            {openCount > 0 && (
+                                                                <div style={{ width: `${openPct}%`, background: '#f97316', transition: 'width 0.6s ease', flexShrink: 0 }}
+                                                                    title={`Open: ${openCount} (${openPct}%)`} />
+                                                            )}
+                                                            {commissionCount > 0 && (
+                                                                <div style={{ width: `${commissionPct}%`, background: '#eab308', transition: 'width 0.6s ease', flexShrink: 0 }}
+                                                                    title={`Commission Verified: ${commissionCount} (${commissionPct}%)`} />
+                                                            )}
+                                                            {cdaCount > 0 && (
+                                                                <div style={{ width: `${cdaPct}%`, background: '#8b5cf6', transition: 'width 0.6s ease', flexShrink: 0 }}
+                                                                    title={`CDA Sent: ${cdaCount} (${cdaPct}%)`} />
+                                                            )}
+                                                            {titleCount > 0 && (
+                                                                <div style={{ width: `${titlePct}%`, background: '#10b981', transition: 'width 0.6s ease', flexShrink: 0 }}
+                                                                    title={`Title Payment Received: ${titleCount} (${titlePct}%)`} />
                                                             )}
                                                             {closed > 0 && (
-                                                                <div style={{
-                                                                    width: `${closedPct}%`, background: '#3b82f6',
-                                                                    transition: 'width 0.6s ease'
-                                                                }} title={`Closed: ${closed} (${closedPct}%)`} />
+                                                                <div style={{ width: `${closedPct}%`, background: '#3b82f6', transition: 'width 0.6s ease', flexShrink: 0 }}
+                                                                    title={`Closed: ${closed} (${closedPct}%)`} />
                                                             )}
                                                         </div>
                                                         <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
@@ -226,13 +337,16 @@ function TransactionSpecialistDashboardView() {
                         </div>
 
                         {/* Legend */}
-                        <div style={{ display: 'flex', gap: '1.5rem', padding: '1rem 1.5rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                <span style={{ width: '12px', height: '12px', borderRadius: '3px', background: '#ef4444', display: 'inline-block' }}></span>
-                                Outstanding
-                            </span>
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                <span style={{ width: '12px', height: '12px', borderRadius: '3px', background: '#3b82f6', display: 'inline-block' }}></span>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem 1.5rem', padding: '1rem 1.5rem', fontSize: '0.78rem', color: 'var(--text-muted)', borderTop: '1px solid var(--border)' }}>
+                            <span style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', alignSelf: 'center', color: 'var(--text-muted)', marginRight: '0.25rem' }}>Outstanding:</span>
+                            {SUB_COUNTS.map(({ label, color }) => (
+                                <span key={label} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                    <span style={{ width: '10px', height: '10px', borderRadius: '3px', background: color, display: 'inline-block', flexShrink: 0 }}></span>
+                                    {label}
+                                </span>
+                            ))}
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginLeft: '0.5rem' }}>
+                                <span style={{ width: '10px', height: '10px', borderRadius: '3px', background: '#3b82f6', display: 'inline-block', flexShrink: 0 }}></span>
                                 Closed
                             </span>
                         </div>
