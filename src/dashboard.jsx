@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import ReconciliationView from './pages/ReconciliationView';
 import BrokerageView from './pages/BrokerageView';
@@ -10,7 +10,15 @@ import ReviewerDashboardView from './pages/ReviewerDashboardView';
 
 // ── Dashboard Shell (layout + sidebar + lifted sync state) ───────────────────
 function Dashboard({ setIsAuthenticated }) {
-    const [activePage, setActivePage] = useState('dashboard');
+    // Restore the active page from the URL hash on refresh
+    const validPages = ['dashboard', 'brokerage', 'skyslope', 'txn_specialist', 'reviewer', 'txn_specialist_dash', 'reviewer_dash'];
+    const hashPage = window.location.hash.replace('#', '');
+    const [activePage, setActivePage] = useState(validPages.includes(hashPage) ? hashPage : 'dashboard');
+
+    // Keep the URL hash in sync with the active page
+    useEffect(() => {
+        window.location.hash = activePage;
+    }, [activePage]);
 
     // ── Sync BE Data state (lifted here so it persists across page navigation) ──
     const [syncingBE, setSyncingBE] = useState(false);

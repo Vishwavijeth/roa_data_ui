@@ -6,6 +6,7 @@ import SectionedDetailView from '../components/SectionedDetailView';
 
 function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, setSyncSSResult }) {
     const [data, setData] = useState([]);
+    const [syncInfo, setSyncInfo] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [page, setPage] = useState(1);
@@ -55,7 +56,17 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
         setError(null);
         fetch(SS_API)
             .then(res => { if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`); return res.json(); })
-            .then(json => { setData(Array.isArray(json) ? json : []); setLoading(false); })
+            .then(json => {
+                // Support both the new envelope { sync_info, data } and the legacy flat array
+                if (json && Array.isArray(json.data)) {
+                    setData(json.data);
+                    setSyncInfo(json.sync_info || null);
+                } else {
+                    setData(Array.isArray(json) ? json : []);
+                    setSyncInfo(null);
+                }
+                setLoading(false);
+            })
             .catch(err => { console.error(err); setError(err.message); setLoading(false); });
     }, []);
 
@@ -218,7 +229,29 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
             <div className="page-header">
                 <div>
                     <h1>SkySlope Data</h1>
-                    <p>Transaction data sourced from SkySlope.</p>
+                    <p style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        Transaction data sourced from SkySlope.
+                        {syncInfo && (
+                            <span style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.35rem',
+                                fontSize: '0.78rem',
+                                fontWeight: 500,
+                                color: 'var(--text-muted)',
+                                background: 'rgba(14,165,233,0.08)',
+                                border: '1px solid rgba(14,165,233,0.2)',
+                                borderRadius: '999px',
+                                padding: '0.2rem 0.65rem',
+                            }}>
+                                <svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ opacity: 0.7 }}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                                        d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" />
+                                </svg>
+                                Updated at {syncInfo.sync_date} &nbsp; {syncInfo.sync_timestamp}
+                            </span>
+                        )}
+                    </p>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                     <button
