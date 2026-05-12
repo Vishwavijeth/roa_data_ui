@@ -1,7 +1,7 @@
 // ── Parameter definitions ─────────────────────────────────────────────────────
 export const PARAMETERS = [
     { id: 'saleprice', label: 'Sale Price', endpoint: 'sale_price', skyslopeKey: 'skyslope_sale_price', beKey: 'be_sale_price' },
-    { id: 'status', label: 'Status', endpoint: 'status', skyslopeKey: 'sale_status', beKey: 'be_status' },
+    { id: 'status', label: 'Status', endpoint: 'status', skyslopeKey: 'skyslope_status', beKey: 'be_status' },
     { id: 'close_date', label: 'Close Date', endpoint: 'close_date', skyslopeKey: 'skyslope_close_date', beKey: 'be_close_date' },
     { id: 'listingprice', label: 'Listing Price', endpoint: 'listing_price', skyslopeKey: 'skyslope_listing_price', beKey: 'be_listing_price' },
     { id: 'contract_date', label: 'Contract Date', endpoint: 'contract_date', skyslopeKey: 'skyslope_contract_date', beKey: 'be_contract_date' },
