@@ -22,6 +22,23 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
     const [detailData, setDetailData] = useState(null);
     const [loadingDetail, setLoadingDetail] = useState(false);
 
+    // Sync logs modal state
+    const [showSyncLogs, setShowSyncLogs] = useState(false);
+    const [syncLogs, setSyncLogs] = useState(null);
+    const [loadingSyncLogs, setLoadingSyncLogs] = useState(false);
+    const [syncLogsError, setSyncLogsError] = useState(null);
+
+    const handleViewSyncLogs = () => {
+        setShowSyncLogs(true);
+        setLoadingSyncLogs(true);
+        setSyncLogsError(null);
+        setSyncLogs(null);
+        fetch('https://roa-data-backend.vercel.app/brokerage_sync_logs')
+            .then(res => { if (!res.ok) throw new Error(`API error: ${res.status}`); return res.json(); })
+            .then(json => { setSyncLogs(json); setLoadingSyncLogs(false); })
+            .catch(err => { setSyncLogsError(err.message); setLoadingSyncLogs(false); });
+    };
+
     useEffect(() => {
         if (selectedRecord) {
             setLoadingDetail(true);
@@ -40,7 +57,7 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
         }
     }, [selectedRecord]);
 
-    // Browser back-button support
+    // Browser back-button support for record detail
     useEffect(() => {
         if (selectedRecord) {
             window.history.pushState({ detail: true }, '');
@@ -49,6 +66,24 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
             return () => window.removeEventListener('popstate', handlePopState);
         }
     }, [selectedRecord]);
+
+    // Browser back-button support for sync logs view
+    useEffect(() => {
+        if (showSyncLogs) {
+            window.history.pushState({ syncLogs: true }, '');
+            const handlePopState = () => setShowSyncLogs(false);
+            window.addEventListener('popstate', handlePopState);
+            return () => window.removeEventListener('popstate', handlePopState);
+        }
+    }, [showSyncLogs]);
+
+    // Auto-dismiss the sync success banner after 3 seconds
+    useEffect(() => {
+        if (syncBEResult && syncBEResult.ok) {
+            const timer = setTimeout(() => setSyncBEResult(null), 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [syncBEResult, setSyncBEResult]);
 
     useEffect(() => {
         setLoading(true);
@@ -241,36 +276,111 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
         );
     }
 
+    if (showSyncLogs) {
+        return (
+            <div className="dashboard">
+                <div className="page-header" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', marginBottom: '2rem' }}>
+                    <button
+                        className="back-btn"
+                        onClick={() => setShowSyncLogs(false)}
+                        style={{
+                            background: 'none', border: 'none', color: 'var(--primary)',
+                            cursor: 'pointer', fontWeight: 500, padding: 0,
+                            marginBottom: '1.5rem', fontSize: '0.9rem',
+                            display: 'flex', alignItems: 'center', gap: '0.5rem',
+                            transition: 'color 0.2s'
+                        }}
+                    >
+                        <IconArrowLeft /> Back to brokerage engine
+                    </button>
+                </div>
+
+                <div className="table-container">
+                    {loadingSyncLogs ? (
+                        <div className="loading"><div className="spinner" /><p>Fetching sync logs…</p></div>
+                    ) : syncLogsError ? (
+                        <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--danger)' }}>
+                            <p>⚠️ Failed to load sync logs: {syncLogsError}</p>
+                        </div>
+                    ) : syncLogs ? (
+                        <>
+                            <div className="table-header">
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                    <h2>Sync History</h2>
+                                    <span className="record-count-badge">{syncLogs.count} {syncLogs.count === 1 ? 'entry' : 'entries'}</span>
+                                </div>
+                            </div>
+                            <div className="table-responsive">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Sync Date</th>
+                                            <th>Sync Time</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {syncLogs.data.map((log, idx) => (
+                                            <tr key={idx}>
+                                                <td style={{ fontWeight: 500 }}>{log.sync_date}</td>
+                                                <td style={{ fontFamily: 'monospace' }}>{log.sync_time}</td>
+                                                <td>
+                                                    <span style={{
+                                                        display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
+                                                        padding: '0.25rem 0.65rem', borderRadius: '999px',
+                                                        fontSize: '0.775rem', fontWeight: 600,
+                                                        ...(log.status === 'success'
+                                                            ? { background: 'rgba(16,185,129,0.12)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)' }
+                                                            : { background: 'rgba(239,68,68,0.12)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }
+                                                        ),
+                                                    }}>
+                                                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', display: 'inline-block', background: log.status === 'success' ? '#10b981' : '#ef4444' }} />
+                                                        {log.status.charAt(0).toUpperCase() + log.status.slice(1)}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </>
+                    ) : null}
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="dashboard">
-            <div className="page-header">
-                <div>
+            <div className="page-header" style={{ flexWrap: 'nowrap', alignItems: 'flex-start' }}>
+                <div style={{ minWidth: 0 }}>
                     <h1>Brokerage Engine</h1>
-                    <p style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.9rem' }}>
                         Transaction data sourced from Brokerage Engine.
-                        {syncInfo && (
-                            <span style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '0.35rem',
-                                fontSize: '0.78rem',
-                                fontWeight: 500,
-                                color: 'var(--text-muted)',
-                                background: 'rgba(99,102,241,0.08)',
-                                border: '1px solid rgba(99,102,241,0.2)',
-                                borderRadius: '999px',
-                                padding: '0.2rem 0.65rem',
-                            }}>
-                                <svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ opacity: 0.7 }}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                                        d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" />
-                                </svg>
-                                Updated at {syncInfo.sync_date} &nbsp; {syncInfo.sync_timestamp}
-                            </span>
-                        )}
                     </p>
+                    {syncInfo && (
+                        <span style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.35rem',
+                            marginTop: '0.4rem',
+                            fontSize: '0.78rem',
+                            fontWeight: 500,
+                            color: 'var(--text-muted)',
+                            background: 'rgba(99,102,241,0.08)',
+                            border: '1px solid rgba(99,102,241,0.2)',
+                            borderRadius: '999px',
+                            padding: '0.2rem 0.65rem',
+                        }}>
+                            <svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ opacity: 0.7 }}>
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                                    d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" />
+                            </svg>
+                            Updated at {syncInfo.sync_date} &nbsp; {syncInfo.sync_timestamp}
+                        </span>
+                    )}
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexShrink: 0 }}>
                     <button
                         id="sync-be-data-btn"
                         className="export-btn"
@@ -299,6 +409,22 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
                             </svg>
                         )}
                         {syncingBE ? 'Syncing…' : 'Sync BE Data'}
+                    </button>
+                    <button
+                        id="view-sync-logs-btn"
+                        className="export-btn"
+                        onClick={handleViewSyncLogs}
+                        style={{
+                            background: 'linear-gradient(135deg, #0ea5e9, #0284c7)',
+                            boxShadow: '0 4px 12px rgba(14, 165, 233, 0.35)',
+                            display: 'flex', alignItems: 'center', gap: '0.5rem',
+                        }}
+                    >
+                        <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                                d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2" />
+                        </svg>
+                        View Sync Logs
                     </button>
                     <button className="export-btn" onClick={handleDownload} disabled={!data.length}>
                         <IconDownload /> Download Report
