@@ -7,11 +7,14 @@ import TransactionSpecialistListingView from './pages/TransactionSpecialistListi
 import ReviewerListingView from './pages/ReviewerListingView';
 import TransactionSpecialistDashboardView from './pages/TransactionSpecialistDashboardView';
 import ReviewerDashboardView from './pages/ReviewerDashboardView';
+import CdaSent from './pages/CdaSent';
+
 
 // ── Dashboard Shell (layout + sidebar + lifted sync state) ───────────────────
 function Dashboard({ setIsAuthenticated }) {
     // Restore the active page from the URL hash on refresh
-    const validPages = ['dashboard', 'brokerage', 'skyslope', 'txn_specialist', 'reviewer', 'txn_specialist_dash', 'reviewer_dash'];
+    const validPages = ['dashboard', 'brokerage', 'skyslope', 'cda_sent', 'txn_specialist', 'reviewer', 'txn_specialist_dash', 'reviewer_dash'];
+
     const hashPage = window.location.hash.replace('#', '');
     const [activePage, setActivePage] = useState(validPages.includes(hashPage) ? hashPage : 'dashboard');
 
@@ -132,7 +135,10 @@ function Dashboard({ setIsAuthenticated }) {
                 return <BrokerageView syncingBE={syncingBE} syncProgress={syncProgress} syncBEResult={syncBEResult} handleSyncBE={handleSyncBE} setSyncBEResult={setSyncBEResult} />;
             case 'skyslope':
                 return <SkySlopeView syncingSS={syncingSS} syncSSProgress={syncSSProgress} syncSSResult={syncSSResult} handleSyncSS={handleSyncSS} setSyncSSResult={setSyncSSResult} />;
+            case 'cda_sent':
+                return <CdaSent />;
             case 'txn_specialist':
+
                 return <TransactionSpecialistListingView />;
             case 'reviewer':
                 return <ReviewerListingView />;

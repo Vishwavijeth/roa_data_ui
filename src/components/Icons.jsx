@@ -78,3 +78,11 @@ export const IconReviewerDash = () => (
         <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M9 14l2 2 4-4" />
     </svg>
 );
+
+export const IconCdaSent = () => (
+    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+            d="M9 12h6M9 16h3M9 8h6M5 4h14a2 2 0 012 2v10l-4 4H5a2 2 0 01-2-2V6a2 2 0 012-2z" />
+        <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M15 16l2 2 4-4" />
+    </svg>
+);
