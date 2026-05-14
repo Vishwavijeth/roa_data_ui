@@ -1,8 +1,9 @@
 import React from 'react';
 import {
     IconDashboard, IconBrokerage, IconSkySlope, IconChevron,
-    IconLogout, IconSpecialist, IconReviewer, IconSpecialistDash, IconReviewerDash
+    IconLogout, IconSpecialist, IconReviewer, IconSpecialistDash, IconReviewerDash, IconCdaSent
 } from './Icons';
+
 
 function Sidebar({ activePage, setActivePage, onLogout }) {
     const navSections = [
@@ -17,6 +18,12 @@ function Sidebar({ activePage, setActivePage, onLogout }) {
             items: [
                 { id: 'brokerage', label: 'Brokerage Engine', icon: <IconBrokerage /> },
                 { id: 'skyslope', label: 'SkySlope Data', icon: <IconSkySlope /> },
+            ],
+        },
+        {
+            label: 'CDA SENT',
+            items: [
+                { id: 'cda_sent', label: 'CDA Sent', icon: <IconCdaSent /> },
             ],
         },
         {
