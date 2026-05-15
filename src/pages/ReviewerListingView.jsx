@@ -17,11 +17,15 @@ function ReviewerListingView() {
     const [stateFilter, setStateFilter] = useState('');
     const [ssStatusFilter, setSsStatusFilter] = useState('');
     const [reviewerFilter, setReviewerFilter] = useState('');
+    const [stageFilter, setStageFilter] = useState('');
 
     useEffect(() => {
         setLoading(true);
         setError(null);
-        fetch(REVIEWER_API)
+        const url = stageFilter
+            ? `${REVIEWER_API}?stage_name=${encodeURIComponent(stageFilter)}`
+            : REVIEWER_API;
+        fetch(url)
             .then(res => { if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`); return res.json(); })
             .then(json => {
                 const rows = json && Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : []);
@@ -29,7 +33,7 @@ function ReviewerListingView() {
                 setLoading(false);
             })
             .catch(err => { console.error(err); setError(err.message); setLoading(false); });
-    }, []);
+    }, [stageFilter]);
 
     // Derive unique values for filters
     const uniqueStates = useMemo(() => {
@@ -43,6 +47,10 @@ function ReviewerListingView() {
 
     const uniqueReviewers = useMemo(() => {
         return [...new Set(data.map(r => r.reviewer_name).filter(Boolean))].sort();
+    }, [data]);
+
+    const uniqueStages = useMemo(() => {
+        return [...new Set(data.map(r => r.stage_name).filter(Boolean))].sort();
     }, [data]);
 
     // Filtered data
@@ -92,7 +100,7 @@ function ReviewerListingView() {
         writeFile(wb, 'Reviewer_Dashboard_report.xlsx');
     };
 
-    const hasActiveFilters = searchQuery || dateFrom || dateTo || stateFilter || ssStatusFilter || reviewerFilter;
+    const hasActiveFilters = searchQuery || dateFrom || dateTo || stateFilter || ssStatusFilter || reviewerFilter || stageFilter;
 
     const clearAllFilters = () => {
         setSearchQuery('');
@@ -101,6 +109,7 @@ function ReviewerListingView() {
         setStateFilter('');
         setSsStatusFilter('');
         setReviewerFilter('');
+        setStageFilter('');
         setPage(1);
     };
 
@@ -206,6 +215,18 @@ function ReviewerListingView() {
                         </select>
                     </div>
 
+                    <div className="filter-group">
+                        <label htmlFor="rev-stage-filter" className="filter-label">Stage</label>
+                        <select
+                            id="rev-stage-filter" className="filter-select"
+                            value={stageFilter}
+                            onChange={e => { setStageFilter(e.target.value); setPage(1); }}
+                        >
+                            <option value="">All Stages</option>
+                            {uniqueStages.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                    </div>
+
                     {hasActiveFilters && (
                         <div className="filter-group" style={{ justifyContent: 'flex-end' }}>
                             <button className="clear-all-btn" onClick={clearAllFilters}>Clear All Filters</button>
@@ -228,6 +249,7 @@ function ReviewerListingView() {
                                         <th>Sale GUID</th>
                                         <th>Property Address</th>
                                         <th>Reviewer</th>
+                                        <th>Stage</th>
                                         <th>State</th>
                                         <th>Sale Price</th>
                                         <th>Listing Price</th>
@@ -241,6 +263,11 @@ function ReviewerListingView() {
                                             <td className="cell-guid">{row.saleguid || '-'}</td>
                                             <td className="cell-address">{row.propertyaddress || '-'}</td>
                                             <td>{row.reviewer_name || '-'}</td>
+                                            <td>
+                                                {row.stage_name
+                                                    ? <span className="badge badge-stage">{row.stage_name}</span>
+                                                    : '-'}
+                                            </td>
                                             <td>{extractState(row.propertyaddress) || '-'}</td>
                                             <td>{row.sale_price != null ? `$${Number(row.sale_price).toLocaleString()}` : '-'}</td>
                                             <td>{row.listing_price != null ? `$${Number(row.listing_price).toLocaleString()}` : '-'}</td>
@@ -253,7 +280,7 @@ function ReviewerListingView() {
                                         </tr>
                                     ))}
                                     {paginatedData.length === 0 && (
-                                        <tr><td colSpan={8} style={{ textAlign: 'center', padding: '2rem' }}>No data available</td></tr>
+                                        <tr><td colSpan={9} style={{ textAlign: 'center', padding: '2rem' }}>No data available</td></tr>
                                     )}
                                 </tbody>
                             </table>
