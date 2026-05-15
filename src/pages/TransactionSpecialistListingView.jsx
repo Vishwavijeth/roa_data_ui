@@ -3,6 +3,7 @@ import { utils, writeFile } from 'xlsx';
 import { TXN_SPECIALIST_API, ROWS_PER_PAGE } from '../constants';
 import { IconDownload } from '../components/Icons';
 import { extractState } from '../utils/helpers';
+import MultiSelect from '../components/MultiSelect';
 
 function TransactionSpecialistListingView() {
     const [data, setData] = useState([]);
@@ -11,12 +12,12 @@ function TransactionSpecialistListingView() {
     const [page, setPage] = useState(1);
     const [searchQuery, setSearchQuery] = useState('');
 
-    // Filters
+    // Filters — all multi-select (arrays), except date range
     const [dateFrom, setDateFrom] = useState('');
     const [dateTo, setDateTo] = useState('');
-    const [stateFilter, setStateFilter] = useState('');
-    const [workflowStatusFilter, setWorkflowStatusFilter] = useState('');
-    const [specialistFilter, setSpecialistFilter] = useState('');
+    const [stateFilter, setStateFilter] = useState([]);
+    const [workflowStatusFilter, setWorkflowStatusFilter] = useState([]);
+    const [specialistFilter, setSpecialistFilter] = useState([]);
 
     useEffect(() => {
         setLoading(true);
@@ -45,6 +46,8 @@ function TransactionSpecialistListingView() {
         return [...new Set(data.map(r => r.transaction_specialist).filter(Boolean))].sort();
     }, [data]);
 
+    const specialistOptions = useMemo(() => ['UNASSIGNED', ...uniqueSpecialists], [uniqueSpecialists]);
+
     // Filtered data
     const filteredData = useMemo(() => {
         let result = data;
@@ -58,22 +61,21 @@ function TransactionSpecialistListingView() {
         }
 
         // State filter
-        if (stateFilter) {
-            result = result.filter(r => extractState(r.propertyaddress) === stateFilter);
+        if (stateFilter.length > 0) {
+            result = result.filter(r => stateFilter.includes(extractState(r.propertyaddress)));
         }
 
         // Workflow Status filter
-        if (workflowStatusFilter) {
-            result = result.filter(r => r.be_workflow_status === workflowStatusFilter);
+        if (workflowStatusFilter.length > 0) {
+            result = result.filter(r => workflowStatusFilter.includes(r.be_workflow_status));
         }
 
         // Transaction specialist filter
-        if (specialistFilter) {
-            if (specialistFilter === 'UNASSIGNED') {
-                result = result.filter(r => !r.transaction_specialist);
-            } else {
-                result = result.filter(r => r.transaction_specialist === specialistFilter);
-            }
+        if (specialistFilter.length > 0) {
+            result = result.filter(r => {
+                if (specialistFilter.includes('UNASSIGNED') && !r.transaction_specialist) return true;
+                return specialistFilter.includes(r.transaction_specialist);
+            });
         }
 
         // Search
@@ -101,15 +103,16 @@ function TransactionSpecialistListingView() {
         writeFile(wb, 'Transaction_Specialist_report.xlsx');
     };
 
-    const hasActiveFilters = searchQuery || dateFrom || dateTo || stateFilter || workflowStatusFilter || specialistFilter;
+    const hasActiveFilters = searchQuery || dateFrom || dateTo ||
+        stateFilter.length > 0 || workflowStatusFilter.length > 0 || specialistFilter.length > 0;
 
     const clearAllFilters = () => {
         setSearchQuery('');
         setDateFrom('');
         setDateTo('');
-        setStateFilter('');
-        setWorkflowStatusFilter('');
-        setSpecialistFilter('');
+        setStateFilter([]);
+        setWorkflowStatusFilter([]);
+        setSpecialistFilter([]);
         setPage(1);
     };
 
@@ -181,40 +184,39 @@ function TransactionSpecialistListingView() {
                     </div>
 
                     <div className="filter-group">
-                        <label htmlFor="txn-state-filter" className="filter-label">State</label>
-                        <select
-                            id="txn-state-filter" className="filter-select"
-                            value={stateFilter}
-                            onChange={e => { setStateFilter(e.target.value); setPage(1); }}
-                        >
-                            <option value="">All States</option>
-                            {uniqueStates.map(s => <option key={s} value={s}>{s}</option>)}
-                        </select>
+                        <label className="filter-label">State</label>
+                        <MultiSelect
+                            id="txn-state-filter"
+                            options={uniqueStates}
+                            selected={stateFilter}
+                            onChange={v => { setStateFilter(v); setPage(1); }}
+                            placeholder="All States"
+                            allLabel="All States"
+                        />
                     </div>
 
                     <div className="filter-group">
-                        <label htmlFor="txn-workflow-status-filter" className="filter-label">BE Status</label>
-                        <select
-                            id="txn-workflow-status-filter" className="filter-select"
-                            value={workflowStatusFilter}
-                            onChange={e => { setWorkflowStatusFilter(e.target.value); setPage(1); }}
-                        >
-                            <option value="">All Statuses</option>
-                            {uniqueWorkflowStatuses.map(s => <option key={s} value={s}>{s}</option>)}
-                        </select>
+                        <label className="filter-label">BE Status</label>
+                        <MultiSelect
+                            id="txn-workflow-status-filter"
+                            options={uniqueWorkflowStatuses}
+                            selected={workflowStatusFilter}
+                            onChange={v => { setWorkflowStatusFilter(v); setPage(1); }}
+                            placeholder="All Statuses"
+                            allLabel="All Statuses"
+                        />
                     </div>
 
                     <div className="filter-group">
-                        <label htmlFor="txn-specialist-filter" className="filter-label">Transaction Specialist</label>
-                        <select
-                            id="txn-specialist-filter" className="filter-select"
-                            value={specialistFilter}
-                            onChange={e => { setSpecialistFilter(e.target.value); setPage(1); }}
-                        >
-                            <option value="">All Specialists</option>
-                            <option value="UNASSIGNED">Unassigned</option>
-                            {uniqueSpecialists.map(s => <option key={s} value={s}>{s}</option>)}
-                        </select>
+                        <label className="filter-label">Transaction Specialist</label>
+                        <MultiSelect
+                            id="txn-specialist-filter"
+                            options={specialistOptions}
+                            selected={specialistFilter}
+                            onChange={v => { setSpecialistFilter(v); setPage(1); }}
+                            placeholder="All Specialists"
+                            allLabel="All Specialists"
+                        />
                     </div>
 
                     {hasActiveFilters && (
