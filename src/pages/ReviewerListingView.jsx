@@ -3,6 +3,7 @@ import { utils, writeFile } from 'xlsx';
 import { REVIEWER_API, ROWS_PER_PAGE } from '../constants';
 import { IconDownload } from '../components/Icons';
 import { extractState } from '../utils/helpers';
+import MultiSelect from '../components/MultiSelect';
 
 function ReviewerListingView() {
     const [data, setData] = useState([]);
@@ -11,19 +12,20 @@ function ReviewerListingView() {
     const [page, setPage] = useState(1);
     const [searchQuery, setSearchQuery] = useState('');
 
-    // Filters
+    // Filters — all multi-select (arrays), except date range
     const [dateFrom, setDateFrom] = useState('');
     const [dateTo, setDateTo] = useState('');
-    const [stateFilter, setStateFilter] = useState('');
-    const [ssStatusFilter, setSsStatusFilter] = useState('');
-    const [reviewerFilter, setReviewerFilter] = useState('');
-    const [stageFilter, setStageFilter] = useState('');
+    const [stateFilter, setStateFilter] = useState([]);
+    const [ssStatusFilter, setSsStatusFilter] = useState([]);
+    const [reviewerFilter, setReviewerFilter] = useState([]);
+    const [stageFilter, setStageFilter] = useState([]);
 
     useEffect(() => {
         setLoading(true);
         setError(null);
-        const url = stageFilter
-            ? `${REVIEWER_API}?stage_name=${encodeURIComponent(stageFilter)}`
+        // Stage filter: send first selected stage for API (server-side), rest filtered client-side
+        const url = stageFilter.length === 1
+            ? `${REVIEWER_API}?stage_name=${encodeURIComponent(stageFilter[0])}`
             : REVIEWER_API;
         fetch(url)
             .then(res => { if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`); return res.json(); })
@@ -33,7 +35,7 @@ function ReviewerListingView() {
                 setLoading(false);
             })
             .catch(err => { console.error(err); setError(err.message); setLoading(false); });
-    }, [stageFilter]);
+    }, []); // fetch once; all filtering is client-side
 
     // Derive unique values for filters
     const uniqueStates = useMemo(() => {
@@ -49,6 +51,8 @@ function ReviewerListingView() {
         return [...new Set(data.map(r => r.reviewer_name).filter(Boolean))].sort();
     }, [data]);
 
+    const reviewerOptions = useMemo(() => ['UNASSIGNED', ...uniqueReviewers], [uniqueReviewers]);
+
     const uniqueStages = useMemo(() => {
         return [...new Set(data.map(r => r.stage_name).filter(Boolean))].sort();
     }, [data]);
@@ -63,18 +67,20 @@ function ReviewerListingView() {
         if (dateTo) {
             result = result.filter(r => r.escrow_close_date && r.escrow_close_date <= dateTo);
         }
-        if (stateFilter) {
-            result = result.filter(r => extractState(r.propertyaddress) === stateFilter);
+        if (stateFilter.length > 0) {
+            result = result.filter(r => stateFilter.includes(extractState(r.propertyaddress)));
         }
-        if (ssStatusFilter) {
-            result = result.filter(r => r.ss_status === ssStatusFilter);
+        if (ssStatusFilter.length > 0) {
+            result = result.filter(r => ssStatusFilter.includes(r.ss_status));
         }
-        if (reviewerFilter) {
-            if (reviewerFilter === 'UNASSIGNED') {
-                result = result.filter(r => !r.reviewer_name);
-            } else {
-                result = result.filter(r => r.reviewer_name === reviewerFilter);
-            }
+        if (reviewerFilter.length > 0) {
+            result = result.filter(r => {
+                if (reviewerFilter.includes('UNASSIGNED') && !r.reviewer_name) return true;
+                return reviewerFilter.includes(r.reviewer_name);
+            });
+        }
+        if (stageFilter.length > 0) {
+            result = result.filter(r => stageFilter.includes(r.stage_name));
         }
         if (searchQuery.trim()) {
             const q = searchQuery.trim().toLowerCase();
@@ -85,7 +91,7 @@ function ReviewerListingView() {
         }
 
         return result;
-    }, [data, dateFrom, dateTo, stateFilter, ssStatusFilter, reviewerFilter, searchQuery]);
+    }, [data, dateFrom, dateTo, stateFilter, ssStatusFilter, reviewerFilter, stageFilter, searchQuery]);
 
     const totalPages = Math.ceil(filteredData.length / ROWS_PER_PAGE);
     const paginatedData = useMemo(() => {
@@ -100,16 +106,18 @@ function ReviewerListingView() {
         writeFile(wb, 'Reviewer_Dashboard_report.xlsx');
     };
 
-    const hasActiveFilters = searchQuery || dateFrom || dateTo || stateFilter || ssStatusFilter || reviewerFilter || stageFilter;
+    const hasActiveFilters = searchQuery || dateFrom || dateTo ||
+        stateFilter.length > 0 || ssStatusFilter.length > 0 ||
+        reviewerFilter.length > 0 || stageFilter.length > 0;
 
     const clearAllFilters = () => {
         setSearchQuery('');
         setDateFrom('');
         setDateTo('');
-        setStateFilter('');
-        setSsStatusFilter('');
-        setReviewerFilter('');
-        setStageFilter('');
+        setStateFilter([]);
+        setSsStatusFilter([]);
+        setReviewerFilter([]);
+        setStageFilter([]);
         setPage(1);
     };
 
@@ -179,52 +187,51 @@ function ReviewerListingView() {
                     </div>
 
                     <div className="filter-group">
-                        <label htmlFor="rev-state-filter" className="filter-label">State</label>
-                        <select
-                            id="rev-state-filter" className="filter-select"
-                            value={stateFilter}
-                            onChange={e => { setStateFilter(e.target.value); setPage(1); }}
-                        >
-                            <option value="">All States</option>
-                            {uniqueStates.map(s => <option key={s} value={s}>{s}</option>)}
-                        </select>
+                        <label className="filter-label">State</label>
+                        <MultiSelect
+                            id="rev-state-filter"
+                            options={uniqueStates}
+                            selected={stateFilter}
+                            onChange={v => { setStateFilter(v); setPage(1); }}
+                            placeholder="All States"
+                            allLabel="All States"
+                        />
                     </div>
 
                     <div className="filter-group">
-                        <label htmlFor="rev-ss-status-filter" className="filter-label">SS Status</label>
-                        <select
-                            id="rev-ss-status-filter" className="filter-select"
-                            value={ssStatusFilter}
-                            onChange={e => { setSsStatusFilter(e.target.value); setPage(1); }}
-                        >
-                            <option value="">All Statuses</option>
-                            {uniqueSsStatuses.map(s => <option key={s} value={s}>{s}</option>)}
-                        </select>
+                        <label className="filter-label">SS Status</label>
+                        <MultiSelect
+                            id="rev-ss-status-filter"
+                            options={uniqueSsStatuses}
+                            selected={ssStatusFilter}
+                            onChange={v => { setSsStatusFilter(v); setPage(1); }}
+                            placeholder="All Statuses"
+                            allLabel="All Statuses"
+                        />
                     </div>
 
                     <div className="filter-group">
-                        <label htmlFor="rev-reviewer-filter" className="filter-label">Reviewer</label>
-                        <select
-                            id="rev-reviewer-filter" className="filter-select"
-                            value={reviewerFilter}
-                            onChange={e => { setReviewerFilter(e.target.value); setPage(1); }}
-                        >
-                            <option value="">All Reviewers</option>
-                            <option value="UNASSIGNED">Unassigned</option>
-                            {uniqueReviewers.map(r => <option key={r} value={r}>{r}</option>)}
-                        </select>
+                        <label className="filter-label">Reviewer</label>
+                        <MultiSelect
+                            id="rev-reviewer-filter"
+                            options={reviewerOptions}
+                            selected={reviewerFilter}
+                            onChange={v => { setReviewerFilter(v); setPage(1); }}
+                            placeholder="All Reviewers"
+                            allLabel="All Reviewers"
+                        />
                     </div>
 
                     <div className="filter-group">
-                        <label htmlFor="rev-stage-filter" className="filter-label">Stage</label>
-                        <select
-                            id="rev-stage-filter" className="filter-select"
-                            value={stageFilter}
-                            onChange={e => { setStageFilter(e.target.value); setPage(1); }}
-                        >
-                            <option value="">All Stages</option>
-                            {uniqueStages.map(s => <option key={s} value={s}>{s}</option>)}
-                        </select>
+                        <label className="filter-label">Stage</label>
+                        <MultiSelect
+                            id="rev-stage-filter"
+                            options={uniqueStages}
+                            selected={stageFilter}
+                            onChange={v => { setStageFilter(v); setPage(1); }}
+                            placeholder="All Stages"
+                            allLabel="All Stages"
+                        />
                     </div>
 
                     {hasActiveFilters && (

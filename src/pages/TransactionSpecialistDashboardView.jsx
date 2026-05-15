@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { utils, writeFile } from 'xlsx';
 import { TXN_SPECIALIST_SUMMARY_API } from '../constants';
 import { IconDownload } from '../components/Icons';
+import MultiSelect from '../components/MultiSelect';
 
 // ── Sub-count color palette (within Outstanding) ──────────────────────────────
 const SUB_COUNTS = [
@@ -90,7 +91,7 @@ function TransactionSpecialistDashboardView() {
     const [searchQuery, setSearchQuery] = useState('');
     const [dateFrom, setDateFrom] = useState('');
     const [dateTo, setDateTo] = useState('');
-    const [stateFilter, setStateFilter] = useState('');
+    const [stateFilter, setStateFilter] = useState([]); // multi-select → array
     const [uniqueStates, setUniqueStates] = useState([]);
     const [hoveredOutstanding, setHoveredOutstanding] = useState(null); // row index
 
@@ -112,7 +113,8 @@ function TransactionSpecialistDashboardView() {
         const params = new URLSearchParams();
         if (dateFrom) params.append('from_date', dateFrom);
         if (dateTo) params.append('to_date', dateTo);
-        if (stateFilter) params.append('state', stateFilter);
+        // Send single state to API; multi-state is handled client-side
+        if (stateFilter.length === 1) params.append('state', stateFilter[0]);
         const queryString = params.toString();
         if (queryString) url += `?${queryString}`;
 
@@ -127,16 +129,32 @@ function TransactionSpecialistDashboardView() {
     }, [dateFrom, dateTo, stateFilter]);
 
     const filteredData = useMemo(() => {
-        if (!searchQuery.trim()) return data;
-        const q = searchQuery.trim().toLowerCase();
-        return data.filter(r => (r.transaction_specialist || '').toLowerCase().includes(q));
-    }, [data, searchQuery]);
+        let result = data;
+        // Client-side filter when multiple states are selected
+        if (stateFilter.length > 1) {
+            result = result.filter(r => stateFilter.includes(r.state));
+        }
+        if (searchQuery.trim()) {
+            const q = searchQuery.trim().toLowerCase();
+            result = result.filter(r => (r.transaction_specialist || '').toLowerCase().includes(q));
+        }
+        return result;
+    }, [data, searchQuery, stateFilter]);
 
     const handleDownload = () => {
         const ws = utils.json_to_sheet(data);
         const wb = utils.book_new();
         utils.book_append_sheet(wb, ws, 'Specialist Summary');
         writeFile(wb, 'Transaction_Specialist_Summary.xlsx');
+    };
+
+    const hasActiveFilters = dateFrom || dateTo || stateFilter.length > 0 || searchQuery;
+
+    const clearAllFilters = () => {
+        setDateFrom('');
+        setDateTo('');
+        setStateFilter([]);
+        setSearchQuery('');
     };
 
     return (
@@ -200,19 +218,19 @@ function TransactionSpecialistDashboardView() {
                         />
                     </div>
                     <div className="filter-group">
-                        <label htmlFor="txn-dash-state-filter" className="filter-label">State</label>
-                        <select
-                            id="txn-dash-state-filter" className="filter-select"
-                            value={stateFilter}
-                            onChange={e => setStateFilter(e.target.value)}
-                        >
-                            <option value="">All States</option>
-                            {uniqueStates.map(s => <option key={s} value={s}>{s}</option>)}
-                        </select>
+                        <label className="filter-label">State</label>
+                        <MultiSelect
+                            id="txn-dash-state-filter"
+                            options={uniqueStates}
+                            selected={stateFilter}
+                            onChange={v => setStateFilter(v)}
+                            placeholder="All States"
+                            allLabel="All States"
+                        />
                     </div>
-                    {(dateFrom || dateTo || stateFilter) && (
+                    {hasActiveFilters && (
                         <div className="filter-group" style={{ justifyContent: 'flex-end' }}>
-                            <button className="clear-all-btn" onClick={() => { setDateFrom(''); setDateTo(''); setStateFilter(''); }}>Clear Filters</button>
+                            <button className="clear-all-btn" onClick={clearAllFilters}>Clear Filters</button>
                         </div>
                     )}
                 </div>

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { utils, writeFile } from 'xlsx';
 import { REVIEWER_SUMMARY_API } from '../constants';
 import { IconDownload } from '../components/Icons';
+import MultiSelect from '../components/MultiSelect';
 
 function ReviewerDashboardView() {
     const [data, setData] = useState([]);
@@ -10,7 +11,7 @@ function ReviewerDashboardView() {
     const [searchQuery, setSearchQuery] = useState('');
     const [dateFrom, setDateFrom] = useState('');
     const [dateTo, setDateTo] = useState('');
-    const [stateFilter, setStateFilter] = useState('');
+    const [stateFilter, setStateFilter] = useState([]); // multi-select → array
     const [uniqueStates, setUniqueStates] = useState([]);
 
     useEffect(() => {
@@ -30,11 +31,10 @@ function ReviewerDashboardView() {
         const params = new URLSearchParams();
         if (dateFrom) params.append('from_date', dateFrom);
         if (dateTo) params.append('to_date', dateTo);
-        if (stateFilter) params.append('state', stateFilter);
+        // Send each selected state as a separate param; server handles multi or we filter client-side
+        if (stateFilter.length === 1) params.append('state', stateFilter[0]);
         const queryString = params.toString();
-        if (queryString) {
-            url += `?${queryString}`;
-        }
+        if (queryString) url += `?${queryString}`;
 
         fetch(url)
             .then(res => { if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`); return res.json(); })
@@ -47,10 +47,17 @@ function ReviewerDashboardView() {
     }, [dateFrom, dateTo, stateFilter]);
 
     const filteredData = useMemo(() => {
-        if (!searchQuery.trim()) return data;
-        const q = searchQuery.trim().toLowerCase();
-        return data.filter(r => (r.reviewer_full_name || '').toLowerCase().includes(q));
-    }, [data, searchQuery]);
+        let result = data;
+        // When multiple states selected, filter client-side (data already filtered server-side for single)
+        if (stateFilter.length > 1) {
+            result = result.filter(r => stateFilter.includes(r.state));
+        }
+        if (searchQuery.trim()) {
+            const q = searchQuery.trim().toLowerCase();
+            result = result.filter(r => (r.reviewer_full_name || '').toLowerCase().includes(q));
+        }
+        return result;
+    }, [data, searchQuery, stateFilter]);
 
     const totals = useMemo(() => {
         const outstanding = data.reduce((sum, r) => sum + (r.transactions_outstanding || 0), 0);
@@ -63,6 +70,15 @@ function ReviewerDashboardView() {
         const wb = utils.book_new();
         utils.book_append_sheet(wb, ws, 'Reviewer Summary');
         writeFile(wb, 'Reviewer_Summary.xlsx');
+    };
+
+    const hasActiveFilters = dateFrom || dateTo || stateFilter.length > 0 || searchQuery;
+
+    const clearAllFilters = () => {
+        setDateFrom('');
+        setDateTo('');
+        setStateFilter([]);
+        setSearchQuery('');
     };
 
     return (
@@ -128,20 +144,20 @@ function ReviewerDashboardView() {
                     </div>
 
                     <div className="filter-group">
-                        <label htmlFor="rev-dash-state-filter" className="filter-label">State</label>
-                        <select
-                            id="rev-dash-state-filter" className="filter-select"
-                            value={stateFilter}
-                            onChange={e => setStateFilter(e.target.value)}
-                        >
-                            <option value="">All States</option>
-                            {uniqueStates.map(s => <option key={s} value={s}>{s}</option>)}
-                        </select>
+                        <label className="filter-label">State</label>
+                        <MultiSelect
+                            id="rev-dash-state-filter"
+                            options={uniqueStates}
+                            selected={stateFilter}
+                            onChange={v => setStateFilter(v)}
+                            placeholder="All States"
+                            allLabel="All States"
+                        />
                     </div>
 
-                    {(dateFrom || dateTo || stateFilter) && (
+                    {hasActiveFilters && (
                         <div className="filter-group" style={{ justifyContent: 'flex-end' }}>
-                            <button className="clear-all-btn" onClick={() => { setDateFrom(''); setDateTo(''); setStateFilter(''); }}>Clear Filters</button>
+                            <button className="clear-all-btn" onClick={clearAllFilters}>Clear Filters</button>
                         </div>
                     )}
                 </div>
