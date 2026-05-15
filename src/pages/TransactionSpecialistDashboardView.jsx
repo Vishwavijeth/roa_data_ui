@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { utils, writeFile } from 'xlsx';
 import { TXN_SPECIALIST_SUMMARY_API } from '../constants';
 import { IconDownload } from '../components/Icons';
@@ -6,40 +6,56 @@ import MultiSelect from '../components/MultiSelect';
 
 // ── Sub-count color palette (within Outstanding) ──────────────────────────────
 const SUB_COUNTS = [
-    { key: 'open_count', label: 'Open', color: '#ef4444' }, // solid red
-    { key: 'commission_verified_count', label: 'Commission Verified', color: '#f59e0b' }, // solid amber
-    { key: 'cda_sent_count', label: 'CDA Sent', color: '#6366f1' }, // solid indigo
-    { key: 'title_payment_received_count', label: 'Title Payment Received', color: '#14b8a6' }, // solid teal
+    { key: 'open_count', label: 'Open', color: '#ef4444' },
+    { key: 'commission_verified_count', label: 'Commission Verified', color: '#f59e0b' },
+    { key: 'cda_sent_count', label: 'CDA Sent', color: '#6366f1' },
+    { key: 'title_payment_received_count', label: 'Title Payment Received', color: '#14b8a6' },
 ];
 
-// ── Tooltip shown on hovering the Outstanding badge ───────────────────────────
-function OutstandingTooltip({ row }) {
+// ── Viewport-aware tooltip (position: fixed, flips above when near bottom) ────
+function OutstandingTooltip({ row, anchorRect }) {
+    if (!anchorRect) return null;
+
+    const TOOLTIP_HEIGHT = 210; // estimated tooltip height in px
+    const GAP = 8;
+    const spaceBelow = window.innerHeight - anchorRect.bottom;
+    const showAbove = spaceBelow < TOOLTIP_HEIGHT + GAP * 2;
+
+    const top = showAbove
+        ? anchorRect.top - TOOLTIP_HEIGHT - GAP
+        : anchorRect.bottom + GAP;
+
+    // Centre the tooltip on the badge, but clamp to viewport edges
+    const TOOLTIP_WIDTH = 240;
+    const rawLeft = anchorRect.left + anchorRect.width / 2 - TOOLTIP_WIDTH / 2;
+    const left = Math.max(8, Math.min(rawLeft, window.innerWidth - TOOLTIP_WIDTH - 8));
+
     return (
         <div style={{
-            position: 'absolute',
-            top: 'calc(100% + 8px)',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 9999,
+            position: 'fixed',
+            top,
+            left,
+            width: `${TOOLTIP_WIDTH}px`,
+            zIndex: 99999,
             background: '#ffffff',
             borderRadius: '10px',
             border: '1px solid #e2e8f0',
             boxShadow: '0 10px 32px rgba(0,0,0,0.14), 0 2px 8px rgba(0,0,0,0.08)',
             padding: '0.85rem 1rem',
-            minWidth: '220px',
             pointerEvents: 'none',
             animation: 'fadeIn 0.15s ease',
         }}>
-            {/* Arrow pointing up */}
+            {/* Arrow */}
             <div style={{
                 position: 'absolute',
-                top: '-7px',
-                left: '50%',
-                transform: 'translateX(-50%) rotate(45deg)',
+                ...(showAbove
+                    ? { bottom: '-7px', borderBottom: '1px solid #e2e8f0', borderRight: '1px solid #e2e8f0' }
+                    : { top: '-7px', borderTop: '1px solid #e2e8f0', borderLeft: '1px solid #e2e8f0' }
+                ),
+                left: `${anchorRect.left + anchorRect.width / 2 - left - 6}px`,
+                transform: 'rotate(45deg)',
                 width: '12px', height: '12px',
                 background: '#ffffff',
-                borderTop: '1px solid #e2e8f0',
-                borderLeft: '1px solid #e2e8f0',
             }} />
 
             <p style={{ margin: '0 0 0.6rem 0', fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.09em', color: '#64748b' }}>
@@ -93,7 +109,8 @@ function TransactionSpecialistDashboardView() {
     const [dateTo, setDateTo] = useState('');
     const [stateFilter, setStateFilter] = useState([]); // multi-select → array
     const [uniqueStates, setUniqueStates] = useState([]);
-    const [hoveredOutstanding, setHoveredOutstanding] = useState(null); // row index
+    // Tooltip state: stores { rowIndex, row, anchorRect }
+    const [tooltip, setTooltip] = useState(null);
 
     useEffect(() => {
         const STATE_API = TXN_SPECIALIST_SUMMARY_API.replace('/transaction_specialist_dashboard', '/transaction_specialist/state');
@@ -159,6 +176,10 @@ function TransactionSpecialistDashboardView() {
 
     return (
         <div className="dashboard">
+            {/* Global viewport-aware tooltip — rendered outside the table */}
+            {tooltip && (
+                <OutstandingTooltip row={tooltip.row} anchorRect={tooltip.anchorRect} />
+            )}
             <div className="page-header">
                 <div>
                     <h1>Transaction Specialist Dashboard</h1>
@@ -282,27 +303,26 @@ function TransactionSpecialistDashboardView() {
                                                 <td style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>{i + 1}</td>
                                                 <td style={{ fontWeight: 600 }}>{row.transaction_specialist || '-'}</td>
 
-                                                {/* Outstanding badge with hover tooltip */}
+                                                {/* Outstanding badge with viewport-aware tooltip */}
                                                 <td>
-                                                    <div
-                                                        style={{ position: 'relative', display: 'inline-block' }}
-                                                        onMouseEnter={() => setHoveredOutstanding(i)}
-                                                        onMouseLeave={() => setHoveredOutstanding(null)}
+                                                    <span
+                                                        className="badge warning"
+                                                        style={{
+                                                            minWidth: '36px', textAlign: 'center',
+                                                            cursor: 'default',
+                                                            outline: tooltip?.rowIndex === i ? '2px solid #f97316' : 'none',
+                                                            outlineOffset: '2px',
+                                                            transition: 'outline 0.15s ease',
+                                                            display: 'inline-block',
+                                                        }}
+                                                        onMouseEnter={e => {
+                                                            const rect = e.currentTarget.getBoundingClientRect();
+                                                            setTooltip({ rowIndex: i, row, anchorRect: rect });
+                                                        }}
+                                                        onMouseLeave={() => setTooltip(null)}
                                                     >
-                                                        <span
-                                                            className="badge warning"
-                                                            style={{
-                                                                minWidth: '36px', textAlign: 'center',
-                                                                cursor: 'default',
-                                                                outline: hoveredOutstanding === i ? '2px solid #f97316' : 'none',
-                                                                outlineOffset: '2px',
-                                                                transition: 'outline 0.15s ease',
-                                                            }}
-                                                        >
-                                                            {outstanding}
-                                                        </span>
-                                                        {hoveredOutstanding === i && <OutstandingTooltip row={row} />}
-                                                    </div>
+                                                        {outstanding}
+                                                    </span>
                                                 </td>
 
                                                 <td>
