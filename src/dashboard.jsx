@@ -8,12 +8,13 @@ import ReviewerListingView from './pages/ReviewerListingView';
 import TransactionSpecialistDashboardView from './pages/TransactionSpecialistDashboardView';
 import ReviewerDashboardView from './pages/ReviewerDashboardView';
 import CdaSent from './pages/CdaSent';
+import MonthClosing from './pages/MonthClosing';
 
 
 // ── Dashboard Shell (layout + sidebar + lifted sync state) ───────────────────
 function Dashboard({ setIsAuthenticated }) {
     // Restore the active page from the URL hash on refresh
-    const validPages = ['dashboard', 'brokerage', 'skyslope', 'cda_sent', 'txn_specialist', 'reviewer', 'txn_specialist_dash', 'reviewer_dash'];
+    const validPages = ['dashboard', 'brokerage', 'skyslope', 'cda_sent', 'month_closing', 'txn_specialist', 'reviewer', 'txn_specialist_dash', 'reviewer_dash'];
 
     const hashPage = window.location.hash.replace('#', '');
     const [activePage, setActivePage] = useState(validPages.includes(hashPage) ? hashPage : 'dashboard');
@@ -137,6 +138,8 @@ function Dashboard({ setIsAuthenticated }) {
                 return <SkySlopeView syncingSS={syncingSS} syncSSProgress={syncSSProgress} syncSSResult={syncSSResult} handleSyncSS={handleSyncSS} setSyncSSResult={setSyncSSResult} />;
             case 'cda_sent':
                 return <CdaSent />;
+            case 'month_closing':
+                return <MonthClosing />;
             case 'txn_specialist':
 
                 return <TransactionSpecialistListingView />;

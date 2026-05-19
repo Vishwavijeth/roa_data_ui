@@ -16,6 +16,7 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
     const [closeDateTo, setCloseDateTo] = useState('');
     const [contractDateFrom, setContractDateFrom] = useState('');
     const [contractDateTo, setContractDateTo] = useState('');
+    const [brokerHold, setBrokerHold] = useState(false);
 
     const [selectedRecord, setSelectedRecord] = useState(null);
     const [detailTab, setDetailTab] = useState('details'); // 'details' | 'skyslope'
@@ -88,10 +89,10 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
     useEffect(() => {
         setLoading(true);
         setError(null);
-        fetch(BE_API)
+        const url = brokerHold ? `${BE_API}?brokerhold=true` : BE_API;
+        fetch(url)
             .then(res => { if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`); return res.json(); })
             .then(json => {
-                // Support both the new envelope { sync_info, data } and the legacy flat array
                 if (json && Array.isArray(json.data)) {
                     setData(json.data);
                     setSyncInfo(json.sync_info || null);
@@ -102,7 +103,7 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
                 setLoading(false);
             })
             .catch(err => { console.error(err); setError(err.message); setLoading(false); });
-    }, []);
+    }, [brokerHold]);
 
     const stats = useMemo(() => {
         if (!data.length) return { total: 0, complete: 0, withSpecialist: 0 };
@@ -581,11 +582,59 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
                             {uniqueStatuses.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
                     </div>
-                    {(searchQuery || statusFilter || closeDateFrom || closeDateTo || contractDateFrom || contractDateTo) && (
+
+                    {/* Broker Hold toggle */}
+                    <div className="filter-group" style={{ justifyContent: 'flex-end' }}>
+                        <label className="filter-label">Broker Hold</label>
+                        <button
+                            id="be-brokerhold-toggle"
+                            onClick={() => { setBrokerHold(v => !v); setPage(1); }}
+                            style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.45rem',
+                                padding: '0.42rem 0.9rem',
+                                borderRadius: '8px',
+                                border: brokerHold ? '1px solid rgba(239,68,68,0.5)' : '1px solid var(--border)',
+                                background: brokerHold
+                                    ? 'linear-gradient(135deg,rgba(239,68,68,0.15),rgba(239,68,68,0.05))'
+                                    : 'transparent',
+                                color: brokerHold ? '#ef4444' : 'var(--text-muted)',
+                                fontWeight: 700,
+                                fontSize: '0.8rem',
+                                fontFamily: 'inherit',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease',
+                                whiteSpace: 'nowrap',
+                            }}
+                        >
+                            {/* toggle track */}
+                            <span style={{
+                                position: 'relative', display: 'inline-block',
+                                width: '28px', height: '16px',
+                                background: brokerHold ? '#ef4444' : 'rgba(150,150,150,0.3)',
+                                borderRadius: '999px',
+                                transition: 'background 0.2s',
+                                flexShrink: 0,
+                            }}>
+                                <span style={{
+                                    position: 'absolute', top: '2px',
+                                    left: brokerHold ? '14px' : '2px',
+                                    width: '12px', height: '12px',
+                                    borderRadius: '50%', background: '#fff',
+                                    transition: 'left 0.2s',
+                                    boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                                }} />
+                            </span>
+                            Broker Hold
+                        </button>
+                    </div>
+
+                    {(searchQuery || statusFilter || closeDateFrom || closeDateTo || contractDateFrom || contractDateTo || brokerHold) && (
                         <div className="filter-group" style={{ justifyContent: 'flex-end' }}>
                             <button className="clear-all-btn" onClick={() => {
                                 setSearchQuery(''); setStatusFilter(''); setCloseDateFrom(''); setCloseDateTo('');
-                                setContractDateFrom(''); setContractDateTo(''); setPage(1);
+                                setContractDateFrom(''); setContractDateTo(''); setBrokerHold(false); setPage(1);
                             }}>Clear All Filters</button>
                         </div>
                     )}

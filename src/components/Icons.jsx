@@ -86,3 +86,11 @@ export const IconCdaSent = () => (
         <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M15 16l2 2 4-4" />
     </svg>
 );
+
+export const IconMonthClosing = () => (
+    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <rect x="3" y="4" width="18" height="18" rx="2" strokeWidth="2" />
+        <path strokeWidth="2" strokeLinecap="round" d="M16 2v4M8 2v4M3 10h18" />
+        <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01" />
+    </svg>
+);
