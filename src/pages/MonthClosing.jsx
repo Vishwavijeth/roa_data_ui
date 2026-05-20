@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import SectionedDetailView from '../components/SectionedDetailView';
 
-const BASE_URL = 'http://127.0.0.1:8000';
+const BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://127.0.0.1:8000'
+    : 'https://roa-data-backend.vercel.app';
 const fmtCurrency = v => (v != null ? `$${Number(v).toLocaleString()}` : '—');
 const fmtVal = v => (v != null && v !== '' ? String(v) : '—');
 
