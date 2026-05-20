@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import SectionedDetailView from '../components/SectionedDetailView';
 
-const BASE_URL = 'https://roa-data-backend.vercel.app';
+const BASE_URL = 'http://127.0.0.1:8000';
 const fmtCurrency = v => (v != null ? `$${Number(v).toLocaleString()}` : '—');
 const fmtVal = v => (v != null && v !== '' ? String(v) : '—');
 
@@ -843,7 +843,10 @@ function MonthClosing() {
 
     // Helper to build URL for a single column with applied filters
     const buildColumnUrl = useCallback((colQuery) => {
-        let url = `${BASE_URL}/month-closing/listing?${colQuery}`;
+        let url = `${BASE_URL}/month-closing/listing`;
+        if (colQuery) {
+            url += `?${colQuery}`;
+        }
         const params = [];
         if (activeFrom) params.push(`from_close_date=${encodeURIComponent(activeFrom)}`);
         if (activeTo) params.push(`to_close_date=${encodeURIComponent(activeTo)}`);
@@ -853,7 +856,7 @@ function MonthClosing() {
         }
 
         if (params.length > 0) {
-            url += `&${params.join('&')}`;
+            url += (colQuery ? '&' : '?') + params.join('&');
         }
         return url;
     }, [activeFrom, activeTo, activeState, activeSpecialist]);
@@ -874,40 +877,103 @@ function MonthClosing() {
             cancelled: null
         });
 
-        const fetchColumn = async (col) => {
+        // 1. Fetch SkySlope column
+        const fetchSkySlope = async () => {
             try {
-                const url = buildColumnUrl(col.apiQuery);
+                const url = buildColumnUrl('skyslope=true');
                 const res = await fetch(url);
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 const json = await res.json();
 
                 setColumnsData(prev => ({
                     ...prev,
-                    [col.id]: Array.isArray(json.data) ? json.data : []
+                    skyslope: Array.isArray(json.data) ? json.data : []
                 }));
                 setColumnsLoading(prev => ({
                     ...prev,
-                    [col.id]: false
+                    skyslope: false
                 }));
             } catch (e) {
-                console.error(`Error fetching column ${col.id}:`, e);
+                console.error(`Error fetching column skyslope:`, e);
                 setColumnsError(prev => ({
                     ...prev,
-                    [col.id]: e.message
+                    skyslope: e.message
                 }));
                 setColumnsLoading(prev => ({
                     ...prev,
-                    [col.id]: false
+                    skyslope: false
                 }));
                 setColumnsData(prev => ({
                     ...prev,
-                    [col.id]: []
+                    skyslope: []
                 }));
             }
         };
 
-        // Run all fetches in parallel
-        await Promise.all(COLUMNS.map(col => fetchColumn(col)));
+        // 2. Fetch Pending, Closed, Cancelled columns (Single API Call)
+        const fetchOtherColumns = async () => {
+            try {
+                const url = buildColumnUrl('');
+                const res = await fetch(url);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const json = await res.json();
+
+                const listings = Array.isArray(json.data) ? json.data : [];
+                
+                // Group by be_transaction_status
+                const pendingData = [];
+                const closedData = [];
+                const cancelledData = [];
+
+                listings.forEach(row => {
+                    const status = (row.be_transaction_status || '').trim().toLowerCase();
+                    if (status === 'pending') {
+                        pendingData.push(row);
+                    } else if (status === 'closed') {
+                        closedData.push(row);
+                    } else if (status === 'cancelled') {
+                        cancelledData.push(row);
+                    }
+                });
+
+                setColumnsData(prev => ({
+                    ...prev,
+                    pending: pendingData,
+                    closed: closedData,
+                    cancelled: cancelledData
+                }));
+
+                setColumnsLoading(prev => ({
+                    ...prev,
+                    pending: false,
+                    closed: false,
+                    cancelled: false
+                }));
+            } catch (e) {
+                console.error(`Error fetching other columns:`, e);
+                setColumnsError(prev => ({
+                    ...prev,
+                    pending: e.message,
+                    closed: e.message,
+                    cancelled: e.message
+                }));
+                setColumnsLoading(prev => ({
+                    ...prev,
+                    pending: false,
+                    closed: false,
+                    cancelled: false
+                }));
+                setColumnsData(prev => ({
+                    ...prev,
+                    pending: [],
+                    closed: [],
+                    cancelled: []
+                }));
+            }
+        };
+
+        // Run both fetches in parallel
+        await Promise.all([fetchSkySlope(), fetchOtherColumns()]);
     }, [buildColumnUrl]);
 
     // Trigger initial load and loads on active filters change
