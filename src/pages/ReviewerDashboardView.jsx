@@ -8,7 +8,14 @@ function ReviewerDashboardView() {
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
-    const [searchQuery, setSearchQuery] = useState('');
+    const [searchQuery, setSearchQuery] = useState(() => {
+        const stored = sessionStorage.getItem('reviewer_dash_search');
+        if (stored) {
+            sessionStorage.removeItem('reviewer_dash_search');
+            return stored;
+        }
+        return '';
+    });
     const [dateFrom, setDateFrom] = useState('');
     const [dateTo, setDateTo] = useState('');
     const [stateFilter, setStateFilter] = useState([]); // multi-select → array

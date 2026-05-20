@@ -104,7 +104,14 @@ function TransactionSpecialistDashboardView() {
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
-    const [searchQuery, setSearchQuery] = useState('');
+    const [searchQuery, setSearchQuery] = useState(() => {
+        const stored = sessionStorage.getItem('specialist_dash_search');
+        if (stored) {
+            sessionStorage.removeItem('specialist_dash_search');
+            return stored;
+        }
+        return '';
+    });
     const [dateFrom, setDateFrom] = useState('');
     const [dateTo, setDateTo] = useState('');
     const [stateFilter, setStateFilter] = useState([]); // multi-select → array
