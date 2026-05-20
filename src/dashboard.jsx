@@ -16,13 +16,25 @@ function Dashboard({ setIsAuthenticated }) {
     // Restore the active page from the URL hash on refresh
     const validPages = ['dashboard', 'brokerage', 'skyslope', 'cda_sent', 'month_closing', 'txn_specialist', 'reviewer', 'txn_specialist_dash', 'reviewer_dash'];
 
-    const hashPage = window.location.hash.replace('#', '');
+    const hashPage = window.location.hash.replace('#', '').split('?')[0];
     const [activePage, setActivePage] = useState(validPages.includes(hashPage) ? hashPage : 'dashboard');
 
     // Keep the URL hash in sync with the active page
     useEffect(() => {
         window.location.hash = activePage;
     }, [activePage]);
+
+    // Handle back button and external hash routing dynamically
+    useEffect(() => {
+        const handleHashChange = () => {
+            const hash = window.location.hash.replace('#', '').split('?')[0];
+            if (validPages.includes(hash)) {
+                setActivePage(hash);
+            }
+        };
+        window.addEventListener('hashchange', handleHashChange);
+        return () => window.removeEventListener('hashchange', handleHashChange);
+    }, []);
 
     // ── Sync BE Data state (lifted here so it persists across page navigation) ──
     const [syncingBE, setSyncingBE] = useState(false);
