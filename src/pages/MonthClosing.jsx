@@ -1,9 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import SectionedDetailView from '../components/SectionedDetailView';
 
-const BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    ? 'http://127.0.0.1:8000'
-    : 'https://roa-data-backend.vercel.app';
+const BASE_URL = 'https://roa-data-backend.vercel.app';
 const fmtCurrency = v => (v != null ? `$${Number(v).toLocaleString()}` : '—');
 const fmtVal = v => (v != null && v !== '' ? String(v) : '—');
 
@@ -625,20 +623,28 @@ function KanbanCard({ row, col, onCardClick }) {
 }
 
 // ── Kanban Column ────────────────────────────────────────────────────────────
-function KanbanColumn({ col, data, loading, error, activeSpecialist, onCardClick }) {
-    const [search, setSearch] = useState('');
+function KanbanColumn({ col, data, loading, error, activeSpecialist, onCardClick, hasMore, loadingMore, onLoadMore, searchQuery, onSearchChange }) {
+    const [search, setSearch] = useState(searchQuery || '');
+
+    // Sync local state when parent searchQuery changes (e.g. on clear all)
+    useEffect(() => {
+        setSearch(searchQuery || '');
+    }, [searchQuery]);
+
+    // Debounce search input
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (search !== (searchQuery || '')) {
+                onSearchChange(search);
+            }
+        }, 400);
+        return () => clearTimeout(timer);
+    }, [search, searchQuery, onSearchChange]);
 
     const filtered = useMemo(() => {
         let result = data || [];
         if (activeSpecialist === 'UNASSIGNED') {
             result = result.filter(r => !r.transaction_specialist);
-        }
-        if (search.trim()) {
-            const q = search.toLowerCase();
-            result = result.filter(r =>
-                (r.property_address || '').toLowerCase().includes(q) ||
-                (r.transaction_specialist || '').toLowerCase().includes(q)
-            );
         }
 
         // Display cards with mismatches first in pending, closed, and cancelled columns
@@ -656,7 +662,7 @@ function KanbanColumn({ col, data, loading, error, activeSpecialist, onCardClick
         }
 
         return result;
-    }, [data, search, col.id, activeSpecialist]);
+    }, [data, col.id, activeSpecialist]);
 
     const mismatchesCount = useMemo(() => {
         if (!data) return 0;
@@ -668,6 +674,15 @@ function KanbanColumn({ col, data, loading, error, activeSpecialist, onCardClick
     }, [data, activeSpecialist]);
 
     const hasAnyMismatch = mismatchesCount > 0;
+
+    const handleScroll = (e) => {
+        const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+        if (scrollHeight - scrollTop - clientHeight < 50) {
+            if (!loading && !loadingMore && hasMore) {
+                onLoadMore();
+            }
+        }
+    };
 
     return (
         <div
@@ -731,7 +746,7 @@ function KanbanColumn({ col, data, loading, error, activeSpecialist, onCardClick
                 {search && <button className="kanban-search-clear" onClick={() => setSearch('')}>✕</button>}
             </div>
 
-            <div className="kanban-cards-container">
+            <div className="kanban-cards-container" onScroll={handleScroll}>
                 {loading ? (
                     <div className="kanban-col-state">
                         <div className="spinner" style={{ width: '24px', height: '24px', borderWidth: '2px' }} />
@@ -748,7 +763,15 @@ function KanbanColumn({ col, data, loading, error, activeSpecialist, onCardClick
                         </span>
                     </div>
                 ) : (
-                    filtered.map((row, i) => <KanbanCard key={row.id || row.transaction_id || i} row={row} col={col} onCardClick={onCardClick} />)
+                    <>
+                        {filtered.map((row, i) => <KanbanCard key={row.id || row.transaction_id || i} row={row} col={col} onCardClick={onCardClick} />)}
+                        {loadingMore && (
+                            <div style={{ display: 'flex', justifyContent: 'center', padding: '1rem', alignItems: 'center', gap: '0.5rem' }}>
+                                <div className="spinner" style={{ width: '18px', height: '18px', borderWidth: '2px' }} />
+                                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Loading more…</span>
+                            </div>
+                        )}
+                    </>
                 )}
             </div>
         </div>
@@ -767,25 +790,34 @@ function MonthClosing() {
         }
     };
 
-    // Parallel fetching states
-    const [columnsData, setColumnsData] = useState({
-        skyslope: [],
-        pending: [],
-        closed: [],
-        cancelled: []
+    // Parallel fetching states per column with page, total records, and searchQuery tracking
+    const [columnsState, setColumnsState] = useState({
+        skyslope: { data: [], loading: true, loadingMore: false, error: null, page: 1, total: 0, hasMore: true, searchQuery: '' },
+        pending: { data: [], loading: true, loadingMore: false, error: null, page: 1, total: 0, hasMore: true, searchQuery: '' },
+        closed: { data: [], loading: true, loadingMore: false, error: null, page: 1, total: 0, hasMore: true, searchQuery: '' },
+        cancelled: { data: [], loading: true, loadingMore: false, error: null, page: 1, total: 0, hasMore: true, searchQuery: '' }
     });
-    const [columnsLoading, setColumnsLoading] = useState({
-        skyslope: true,
-        pending: true,
-        closed: true,
-        cancelled: true
-    });
-    const [columnsError, setColumnsError] = useState({
-        skyslope: null,
-        pending: null,
-        closed: null,
-        cancelled: null
-    });
+
+    const columnsData = useMemo(() => ({
+        skyslope: columnsState.skyslope.data,
+        pending: columnsState.pending.data,
+        closed: columnsState.closed.data,
+        cancelled: columnsState.cancelled.data,
+    }), [columnsState]);
+
+    const columnsLoading = useMemo(() => ({
+        skyslope: columnsState.skyslope.loading,
+        pending: columnsState.pending.loading,
+        closed: columnsState.closed.loading,
+        cancelled: columnsState.cancelled.loading,
+    }), [columnsState]);
+
+    const columnsError = useMemo(() => ({
+        skyslope: columnsState.skyslope.error,
+        pending: columnsState.pending.error,
+        closed: columnsState.closed.error,
+        cancelled: columnsState.cancelled.error,
+    }), [columnsState]);
 
     // Options for dropdowns — populated once from the initial unfiltered load.
     // Using a ref flag so applying filters later never overwrites these lists.
@@ -843,13 +875,24 @@ function MonthClosing() {
         sessionStorage.setItem('mc_activeSpecialist', activeSpecialist);
     }, [draftFrom, draftTo, draftState, draftSpecialist, activeFrom, activeTo, activeState, activeSpecialist]);
 
-    // Helper to build URL for a single column with applied filters
-    const buildColumnUrl = useCallback((colQuery) => {
+    // Ref to hold search queries without triggering the main fetchData effect loop
+    const searchQueriesRef = React.useRef({
+        skyslope: '',
+        pending: '',
+        closed: '',
+        cancelled: ''
+    });
+
+    // Helper to build URL for a single column with applied filters, page number, and search query
+    const buildColumnUrl = useCallback((colQuery, pageNum, searchQuery) => {
         let url = `${BASE_URL}/month-closing/listing`;
+        const params = [`page=${pageNum}`];
         if (colQuery) {
-            url += `?${colQuery}`;
+            params.push(colQuery);
         }
-        const params = [];
+        if (searchQuery) {
+            params.push(`search=${encodeURIComponent(searchQuery)}`);
+        }
         if (activeFrom) params.push(`from_close_date=${encodeURIComponent(activeFrom)}`);
         if (activeTo) params.push(`to_close_date=${encodeURIComponent(activeTo)}`);
         if (activeState) params.push(`state=${encodeURIComponent(activeState)}`);
@@ -858,130 +901,117 @@ function MonthClosing() {
         }
 
         if (params.length > 0) {
-            url += (colQuery ? '&' : '?') + params.join('&');
+            url += '?' + params.join('&');
         }
         return url;
     }, [activeFrom, activeTo, activeState, activeSpecialist]);
 
-    // Data fetching handler
-    const fetchData = useCallback(async () => {
-        // Set all columns to loading state
-        setColumnsLoading({
-            skyslope: true,
-            pending: true,
-            closed: true,
-            cancelled: true
-        });
-        setColumnsError({
-            skyslope: null,
-            pending: null,
-            closed: null,
-            cancelled: null
-        });
+    // Fetch individual column's page
+    const fetchColumnPage = useCallback(async (colId, pageNum, isLoadMore = false, searchQuery = '') => {
+        const col = COLUMNS.find(c => c.id === colId);
+        if (!col) return;
 
-        // 1. Fetch SkySlope column
-        const fetchSkySlope = async () => {
-            try {
-                const url = buildColumnUrl('skyslope=true');
-                const res = await fetch(url);
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                const json = await res.json();
+        if (isLoadMore) {
+            setColumnsState(prev => ({
+                ...prev,
+                [colId]: { ...prev[colId], loadingMore: true, error: null }
+            }));
+        } else {
+            setColumnsState(prev => ({
+                ...prev,
+                [colId]: { ...prev[colId], loading: true, error: null, page: 1, data: [] }
+            }));
+        }
 
-                setColumnsData(prev => ({
-                    ...prev,
-                    skyslope: Array.isArray(json.data) ? json.data : []
-                }));
-                setColumnsLoading(prev => ({
-                    ...prev,
-                    skyslope: false
-                }));
-            } catch (e) {
-                console.error(`Error fetching column skyslope:`, e);
-                setColumnsError(prev => ({
-                    ...prev,
-                    skyslope: e.message
-                }));
-                setColumnsLoading(prev => ({
-                    ...prev,
-                    skyslope: false
-                }));
-                setColumnsData(prev => ({
-                    ...prev,
-                    skyslope: []
-                }));
-            }
-        };
+        try {
+            const url = buildColumnUrl(col.apiQuery, pageNum, searchQuery);
+            const res = await fetch(url);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const json = await res.json();
 
-        // 2. Fetch Pending, Closed, Cancelled columns (Single API Call)
-        const fetchOtherColumns = async () => {
-            try {
-                const url = buildColumnUrl('');
-                const res = await fetch(url);
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                const json = await res.json();
+            const fetchedData = Array.isArray(json.data) ? json.data : [];
+            const total = json.total != null ? json.total : fetchedData.length;
 
-                const listings = Array.isArray(json.data) ? json.data : [];
-                
-                // Group by be_transaction_status
-                const pendingData = [];
-                const closedData = [];
-                const cancelledData = [];
-
-                listings.forEach(row => {
-                    const status = (row.be_transaction_status || '').trim().toLowerCase();
-                    if (status === 'pending') {
-                        pendingData.push(row);
-                    } else if (status === 'closed') {
-                        closedData.push(row);
-                    } else if (status === 'cancelled') {
-                        cancelledData.push(row);
+            setColumnsState(prev => {
+                const existingData = isLoadMore ? prev[colId].data : [];
+                // Merge data and avoid duplicates
+                const merged = [...existingData];
+                fetchedData.forEach(item => {
+                    const id1 = item.id || item.transaction_id || item.skyslopefileid;
+                    const exists = merged.some(m => (m.id || m.transaction_id || m.skyslopefileid) === id1);
+                    if (!exists) {
+                        merged.push(item);
                     }
                 });
 
-                setColumnsData(prev => ({
+                return {
                     ...prev,
-                    pending: pendingData,
-                    closed: closedData,
-                    cancelled: cancelledData
-                }));
-
-                setColumnsLoading(prev => ({
-                    ...prev,
-                    pending: false,
-                    closed: false,
-                    cancelled: false
-                }));
-            } catch (e) {
-                console.error(`Error fetching other columns:`, e);
-                setColumnsError(prev => ({
-                    ...prev,
-                    pending: e.message,
-                    closed: e.message,
-                    cancelled: e.message
-                }));
-                setColumnsLoading(prev => ({
-                    ...prev,
-                    pending: false,
-                    closed: false,
-                    cancelled: false
-                }));
-                setColumnsData(prev => ({
-                    ...prev,
-                    pending: [],
-                    closed: [],
-                    cancelled: []
-                }));
-            }
-        };
-
-        // Run both fetches in parallel
-        await Promise.all([fetchSkySlope(), fetchOtherColumns()]);
+                    [colId]: {
+                        ...prev[colId],
+                        data: merged,
+                        loading: false,
+                        loadingMore: false,
+                        error: null,
+                        page: pageNum,
+                        total: total,
+                        hasMore: merged.length < total && fetchedData.length > 0
+                    }
+                };
+            });
+        } catch (e) {
+            console.error(`Error fetching column ${colId} page ${pageNum}:`, e);
+            setColumnsState(prev => ({
+                ...prev,
+                [colId]: {
+                    ...prev[colId],
+                    loading: false,
+                    loadingMore: false,
+                    error: e.message
+                }
+            }));
+        }
     }, [buildColumnUrl]);
+
+    // Data fetching handler
+    const fetchData = useCallback(async () => {
+        // Run all column fetches for page 1 in parallel with their current search query
+        await Promise.all(
+            COLUMNS.map(col => {
+                const searchQ = searchQueriesRef.current[col.id];
+                return fetchColumnPage(col.id, 1, false, searchQ);
+            })
+        );
+    }, [fetchColumnPage]);
 
     // Trigger initial load and loads on active filters change
     useEffect(() => {
         fetchData();
     }, [fetchData]);
+
+    const handleLoadMore = useCallback((colId) => {
+        const colState = columnsState[colId];
+        if (colState.loading || colState.loadingMore || !colState.hasMore) return;
+        fetchColumnPage(colId, colState.page + 1, true, colState.searchQuery);
+    }, [columnsState, fetchColumnPage]);
+
+    const handleSearchChange = useCallback((colId, query) => {
+        searchQueriesRef.current[colId] = query;
+
+        setColumnsState(prev => {
+            const currentQ = prev[colId].searchQuery || '';
+            if (currentQ === query) return prev;
+
+            fetchColumnPage(colId, 1, false, query);
+
+            return {
+                ...prev,
+                [colId]: {
+                    ...prev[colId],
+                    searchQuery: query
+                }
+            };
+        });
+    }, [fetchColumnPage]);
 
     const handleApply = () => {
         setActiveFrom(draftFrom);
@@ -993,6 +1023,14 @@ function MonthClosing() {
     const handleClear = () => {
         setDraftFrom(''); setDraftTo(''); setDraftState(''); setDraftSpecialist('');
         setActiveFrom(''); setActiveTo(''); setActiveState(''); setActiveSpecialist('');
+
+        searchQueriesRef.current = { skyslope: '', pending: '', closed: '', cancelled: '' };
+        setColumnsState(prev => ({
+            skyslope: { ...prev.skyslope, searchQuery: '' },
+            pending: { ...prev.pending, searchQuery: '' },
+            closed: { ...prev.closed, searchQuery: '' },
+            cancelled: { ...prev.cancelled, searchQuery: '' }
+        }));
     };
 
     const hasActive = !!(activeFrom || activeTo || activeState || activeSpecialist);
@@ -1100,7 +1138,8 @@ function MonthClosing() {
                             if (activeSpecialist === 'UNASSIGNED') {
                                 list = list.filter(r => !r.transaction_specialist);
                             }
-                            const count = list.length;
+                            const total = columnsState[col.id].total || 0;
+                            const count = activeSpecialist === 'UNASSIGNED' ? list.length : total;
                             return (
                                 <div key={col.id} className="month-closing-summary-card" style={{ borderTop: `3px solid ${col.color}` }}>
                                     <div className="month-closing-summary-icon" style={{ color: col.color }}>{col.icon}</div>
@@ -1133,6 +1172,11 @@ function MonthClosing() {
                                 error={columnsError[col.id]}
                                 activeSpecialist={activeSpecialist}
                                 onCardClick={handleCardClick}
+                                hasMore={columnsState[col.id].hasMore}
+                                loadingMore={columnsState[col.id].loadingMore}
+                                onLoadMore={() => handleLoadMore(col.id)}
+                                searchQuery={columnsState[col.id].searchQuery}
+                                onSearchChange={(query) => handleSearchChange(col.id, query)}
                             />
                         ))}
                     </div>
