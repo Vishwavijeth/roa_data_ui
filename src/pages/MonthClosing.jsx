@@ -643,9 +643,6 @@ function KanbanColumn({ col, data, loading, error, activeSpecialist, onCardClick
 
     const filtered = useMemo(() => {
         let result = data || [];
-        if (activeSpecialist === 'UNASSIGNED') {
-            result = result.filter(r => !r.transaction_specialist);
-        }
 
         // Display cards with mismatches first in pending, closed, and cancelled columns
         if (col.id === 'pending' || col.id === 'closed' || col.id === 'cancelled') {
@@ -662,16 +659,12 @@ function KanbanColumn({ col, data, loading, error, activeSpecialist, onCardClick
         }
 
         return result;
-    }, [data, col.id, activeSpecialist]);
+    }, [data, col.id]);
 
     const mismatchesCount = useMemo(() => {
         if (!data) return 0;
-        let list = data;
-        if (activeSpecialist === 'UNASSIGNED') {
-            list = list.filter(r => !r.transaction_specialist);
-        }
-        return list.filter(checkHasMismatch).length;
-    }, [data, activeSpecialist]);
+        return data.filter(checkHasMismatch).length;
+    }, [data]);
 
     const hasAnyMismatch = mismatchesCount > 0;
 
@@ -826,6 +819,25 @@ function MonthClosing() {
     const optionsPopulated = React.useRef(false);
 
     useEffect(() => {
+        // Fetch all transaction specialists from the dashboard/summary API to ensure the dropdown has everyone
+        fetch(`${BASE_URL}/transaction_specialist_dashboard`)
+            .then(res => res.json())
+            .then(json => {
+                const rows = json && Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : []);
+                const specialists = new Set();
+                rows.forEach(row => {
+                    if (row.transaction_specialist) {
+                        specialists.add(row.transaction_specialist.trim());
+                    }
+                });
+                if (specialists.size > 0) {
+                    setSpecialistOptions(Array.from(specialists).sort());
+                }
+            })
+            .catch(err => console.error('Failed to fetch transaction specialists:', err));
+    }, []);
+
+    useEffect(() => {
         // Wait until all columns have finished loading
         const isLoaded = !columnsLoading.skyslope && !columnsLoading.pending &&
             !columnsLoading.closed && !columnsLoading.cancelled;
@@ -835,18 +847,15 @@ function MonthClosing() {
         if (optionsPopulated.current) return;
 
         const states = new Set();
-        const specialists = new Set();
 
         Object.values(columnsData).forEach(arr => {
             if (!Array.isArray(arr)) return;
             arr.forEach(row => {
                 if (row.state) states.add(row.state.trim().toUpperCase());
-                if (row.transaction_specialist) specialists.add(row.transaction_specialist.trim());
             });
         });
 
         if (states.size > 0) setStateOptions(Array.from(states).sort());
-        if (specialists.size > 0) setSpecialistOptions(Array.from(specialists).sort());
 
         optionsPopulated.current = true;
     }, [columnsData, columnsLoading]);
@@ -896,8 +905,9 @@ function MonthClosing() {
         if (activeFrom) params.push(`from_close_date=${encodeURIComponent(activeFrom)}`);
         if (activeTo) params.push(`to_close_date=${encodeURIComponent(activeTo)}`);
         if (activeState) params.push(`state=${encodeURIComponent(activeState)}`);
-        if (activeSpecialist && activeSpecialist !== 'UNASSIGNED') {
-            params.push(`transaction_specialist=${encodeURIComponent(activeSpecialist)}`);
+        if (activeSpecialist) {
+            const specVal = activeSpecialist === 'UNASSIGNED' ? 'Unassigned' : activeSpecialist;
+            params.push(`transaction_specialist=${encodeURIComponent(specVal)}`);
         }
 
         if (params.length > 0) {
@@ -1134,12 +1144,7 @@ function MonthClosing() {
                     {/* Summary row */}
                     <div className="kanban-summary-row">
                         {COLUMNS.map(col => {
-                            let list = columnsData[col.id] || [];
-                            if (activeSpecialist === 'UNASSIGNED') {
-                                list = list.filter(r => !r.transaction_specialist);
-                            }
-                            const total = columnsState[col.id].total || 0;
-                            const count = activeSpecialist === 'UNASSIGNED' ? list.length : total;
+                            const count = columnsState[col.id].total || 0;
                             return (
                                 <div key={col.id} className="month-closing-summary-card" style={{ borderTop: `3px solid ${col.color}` }}>
                                     <div className="month-closing-summary-icon" style={{ color: col.color }}>{col.icon}</div>
