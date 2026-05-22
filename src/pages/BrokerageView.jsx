@@ -11,12 +11,15 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
     const [error, setError] = useState(null);
     const [page, setPage] = useState(1);
     const [searchQuery, setSearchQuery] = useState('');
+    const [searchInput, setSearchInput] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
     const [closeDateFrom, setCloseDateFrom] = useState('');
     const [closeDateTo, setCloseDateTo] = useState('');
     const [contractDateFrom, setContractDateFrom] = useState('');
     const [contractDateTo, setContractDateTo] = useState('');
     const [brokerHold, setBrokerHold] = useState(false);
+
+    const [totalCount, setTotalCount] = useState(0);
 
     const [selectedRecord, setSelectedRecord] = useState(null);
     const [detailTab, setDetailTab] = useState('details'); // 'details' | 'skyslope'
@@ -86,60 +89,83 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
         }
     }, [syncBEResult, setSyncBEResult]);
 
+    // Debounce search input
     useEffect(() => {
+        const timer = setTimeout(() => {
+            setSearchQuery(searchInput);
+        }, 400);
+        return () => clearTimeout(timer);
+    }, [searchInput]);
+
+    // Reset page to 1 when filters change
+    useEffect(() => {
+        setPage(1);
+    }, [brokerHold, closeDateFrom, closeDateTo, contractDateFrom, contractDateTo, statusFilter, searchQuery]);
+
+    // Fetch data when page or filters change
+    useEffect(() => {
+        let active = true;
         setLoading(true);
         setError(null);
-        const url = brokerHold ? `${BE_API}?brokerhold=true` : BE_API;
+
+        const params = new URLSearchParams();
+        params.append('page', page);
+        if (brokerHold) params.append('brokerhold', 'true');
+        if (closeDateFrom) params.append('from_close_date', closeDateFrom);
+        if (closeDateTo) params.append('to_close_date', closeDateTo);
+        if (contractDateFrom) params.append('from_contract_date', contractDateFrom);
+        if (contractDateTo) params.append('to_contract_date', contractDateTo);
+        if (statusFilter) params.append('status', statusFilter);
+        if (searchQuery.trim()) params.append('search', searchQuery.trim());
+
+        const url = `${BE_API}?${params.toString()}`;
+
         fetch(url)
-            .then(res => { if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`); return res.json(); })
+            .then(res => {
+                if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`);
+                return res.json();
+            })
             .then(json => {
-                if (json && Array.isArray(json.data)) {
-                    setData(json.data);
-                    setSyncInfo(json.sync_info || null);
-                } else {
-                    setData(Array.isArray(json) ? json : []);
-                    setSyncInfo(null);
+                if (!active) return;
+                const fetchedData = json && Array.isArray(json.data) ? json.data : [];
+                const total = json.total_count != null ? json.total_count : fetchedData.length;
+
+                setData(fetchedData);
+                setTotalCount(total);
+
+                if (json.sync_info) {
+                    setSyncInfo(json.sync_info);
                 }
                 setLoading(false);
             })
-            .catch(err => { console.error(err); setError(err.message); setLoading(false); });
-    }, [brokerHold]);
+            .catch(err => {
+                if (!active) return;
+                console.error(err);
+                setError(err.message);
+                setLoading(false);
+            });
+
+        return () => {
+            active = false;
+        };
+    }, [page, brokerHold, closeDateFrom, closeDateTo, contractDateFrom, contractDateTo, statusFilter, searchQuery]);
 
     const stats = useMemo(() => {
         if (!data.length) return { total: 0, complete: 0, withSpecialist: 0 };
         return {
-            total: data.length,
+            total: totalCount,
             complete: data.filter(r => r.status === 'Complete').length,
             withSpecialist: data.filter(r => r.transaction_specialist).length,
         };
+    }, [data, totalCount]);
+
+    const uniqueStatuses = useMemo(() => {
+        const fromData = [...new Set(data.map(r => r.status).filter(Boolean))];
+        const defaults = ['Pending', 'Complete', 'Closed', 'Cancelled', 'Archived', 'Active'];
+        return [...new Set([...defaults, ...fromData])].sort();
     }, [data]);
 
-    const uniqueStatuses = useMemo(() => [...new Set(data.map(r => r.status).filter(Boolean))].sort(), [data]);
-
-    const filteredData = useMemo(() => {
-        let result = data;
-        if (statusFilter) result = result.filter(r => r.status === statusFilter);
-        if (closeDateFrom) result = result.filter(r => r.close_date && r.close_date >= closeDateFrom);
-        if (closeDateTo) result = result.filter(r => r.close_date && r.close_date <= closeDateTo);
-        if (contractDateFrom) result = result.filter(r => r.contract_date && r.contract_date >= contractDateFrom);
-        if (contractDateTo) result = result.filter(r => r.contract_date && r.contract_date <= contractDateTo);
-        if (searchQuery.trim()) {
-            const q = searchQuery.trim().toLowerCase();
-            result = result.filter(r =>
-                (r.transactionid || '').toLowerCase().includes(q) ||
-                (r.property_address || '').toLowerCase().includes(q) ||
-                (r.buying_agent_name || '').toLowerCase().includes(q) ||
-                (r.skyslopefileid || '').toLowerCase().includes(q)
-            );
-        }
-        return result;
-    }, [data, statusFilter, closeDateFrom, closeDateTo, contractDateFrom, contractDateTo, searchQuery]);
-
-    const totalPages = Math.ceil(filteredData.length / ROWS_PER_PAGE);
-    const paginatedData = useMemo(() => {
-        const start = (page - 1) * ROWS_PER_PAGE;
-        return filteredData.slice(start, start + ROWS_PER_PAGE);
-    }, [filteredData, page]);
+    const totalPages = Math.ceil(totalCount / 50);
 
     const handleDownload = () => {
         const ws = utils.json_to_sheet(data);
@@ -522,7 +548,7 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                         <h2>Transactions</h2>
                         {data.length > 0 && (
-                            <span className="record-count-badge">{filteredData.length.toLocaleString()} records</span>
+                            <span className="record-count-badge">{totalCount.toLocaleString()} records</span>
                         )}
                     </div>
                     <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
@@ -539,11 +565,11 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
                         <input
                             id="be-search" type="text" className="search-input"
                             placeholder="Search by Transaction ID, Property Address, or Buying Agent…"
-                            value={searchQuery}
-                            onChange={e => { setSearchQuery(e.target.value); setPage(1); }}
+                            value={searchInput}
+                            onChange={e => setSearchInput(e.target.value)}
                         />
-                        {searchQuery && (
-                            <button className="search-clear-btn" onClick={() => { setSearchQuery(''); setPage(1); }} aria-label="Clear search">✕</button>
+                        {searchInput && (
+                            <button className="search-clear-btn" onClick={() => { setSearchInput(''); setSearchQuery(''); setPage(1); }} aria-label="Clear search">✕</button>
                         )}
                     </div>
                 </div>
@@ -630,10 +656,10 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
                         </button>
                     </div>
 
-                    {(searchQuery || statusFilter || closeDateFrom || closeDateTo || contractDateFrom || contractDateTo || brokerHold) && (
+                    {(searchInput || searchQuery || statusFilter || closeDateFrom || closeDateTo || contractDateFrom || contractDateTo || brokerHold) && (
                         <div className="filter-group" style={{ justifyContent: 'flex-end' }}>
                             <button className="clear-all-btn" onClick={() => {
-                                setSearchQuery(''); setStatusFilter(''); setCloseDateFrom(''); setCloseDateTo('');
+                                setSearchInput(''); setSearchQuery(''); setStatusFilter(''); setCloseDateFrom(''); setCloseDateTo('');
                                 setContractDateFrom(''); setContractDateTo(''); setBrokerHold(false); setPage(1);
                             }}>Clear All Filters</button>
                         </div>
@@ -664,7 +690,7 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {paginatedData.map((row, i) => (
+                                    {data.map((row, i) => (
                                         <tr key={i} onClick={() => { setSelectedRecord(row); setDetailTab('details'); }} style={{ cursor: 'pointer' }} className="clickable-row">
                                             <td className="cell-guid">{row.transactionid || '-'}</td>
                                             <td className="cell-address">{row.property_address || '-'}</td>
@@ -681,8 +707,8 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
                                             <td>{row.skyslopefileid || '-'}</td>
                                         </tr>
                                     ))}
-                                    {paginatedData.length === 0 && (
-                                        <tr><td colSpan={8} style={{ textAlign: 'center', padding: '2rem' }}>No data available</td></tr>
+                                    {data.length === 0 && (
+                                        <tr><td colSpan={9} style={{ textAlign: 'center', padding: '2rem' }}>No data available</td></tr>
                                     )}
                                 </tbody>
                             </table>
