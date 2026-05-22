@@ -5,12 +5,12 @@ export const PARAMETERS = [
     { id: 'close_date', label: 'Close Date', endpoint: 'close_date', skyslopeKey: 'skyslope_close_date', beKey: 'be_close_date' },
     { id: 'listingprice', label: 'Listing Price', endpoint: 'listing_price', skyslopeKey: 'skyslope_listing_price', beKey: 'be_listing_price' },
     { id: 'contract_date', label: 'Contract Date', endpoint: 'contract_date', skyslopeKey: 'skyslope_contract_date', beKey: 'be_contract_date' },
-    { id: 'buyer_name', label: 'Buyer Name', endpoint: 'buyer_name', apiBase: 'https://roa-data-backend.vercel.app/comparison', skyslopeKey: 'skyslope_buyer_name', beKey: 'be_buyer_name' },
-    { id: 'seller_name', label: 'Seller Name', endpoint: 'seller_name', apiBase: 'https://roa-data-backend.vercel.app/comparison', skyslopeKey: 'skyslope_seller_name', beKey: 'be_seller_name' },
-    { id: 'buying_agent_name', label: 'Buying Agent Name', endpoint: 'buying_agent_name', apiBase: 'https://roa-data-backend.vercel.app/comparison', skyslopeKey: 'skyslope_buying_agent_name', beKey: 'be_buying_agent_name' },
+    { id: 'buyer_name', label: 'Buyer Name', endpoint: 'buyer_name', skyslopeKey: 'skyslope_buyer_name', beKey: 'be_buyer_name' },
+    { id: 'seller_name', label: 'Seller Name', endpoint: 'seller_name', skyslopeKey: 'skyslope_seller_name', beKey: 'be_seller_name' },
+    { id: 'buying_agent_name', label: 'Buying Agent Name', endpoint: 'buying_agent_name', skyslopeKey: 'skyslope_buying_agent_name', beKey: 'be_buying_agent_name' },
     { id: 'gross_commission', label: 'Gross Commission', endpoint: 'gross_commission', skyslopeKey: 'skyslope_gross_commission', beKey: 'be_gross_commission' },
     { id: 'reviewer_specialist', label: 'Reviewer & Specialist', endpoint: 'transaction_reviewer_mapping', skyslopeKey: 'skyslope_reviewer_name', beKey: 'be_transaction_specialist' },
-    { id: 'title_company', label: 'Title Company', endpoint: 'title_company', apiBase: 'https://roa-data-backend.vercel.app/comparison', skyslopeKey: 'skyslope_title_company', beKey: 'be_title_company' }
+    { id: 'title_company', label: 'Title Company', endpoint: 'title_company', skyslopeKey: 'skyslope_title_company', beKey: 'be_title_company' }
 ];
 
 export const API_BASE = 'https://roa-data-backend.vercel.app/compare';
