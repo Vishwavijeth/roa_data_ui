@@ -7,15 +7,16 @@ const fmtVal = v => (v != null && v !== '' ? String(v) : '—');
 
 const checkHasMismatch = (row) => {
     if (!row) return false;
+    // Strictly check backend comparison fields for explicit 'mismatch'
     return (
-        row.closed_date_mismatch === true ||
-        row.contract_date_mismatch === true ||
-        row.sale_price_mismatch === true ||
+        row.closed_date_comparison === 'mismatch' ||
+        row.sale_price_comparison === 'mismatch' ||
+        row.contract_date_comparison === 'mismatch' ||
+        row.transaction_status_comparison === 'mismatch' ||
+        row.gross_commission_comparison === 'mismatch' ||
         row.listing_price_comparison === 'mismatch' ||
-        ((row.be_gross_commission != null && row.ss_gross_commission != null && Number(row.be_gross_commission) !== Number(row.ss_gross_commission)) || row.gross_commission_mismatch === 'mismatch') ||
-        row.transaction_status_mismatch === true ||
-        row.buyer_name_comparison === 'mismatch' || row.buyer_name_mismatch === 'mismatch' ||
-        row.seller_name_comparison === 'mismatch' || row.seller_name_mismatch === 'mismatch'
+        row.buyer_name_comparison === 'mismatch' ||
+        row.seller_name_comparison === 'mismatch'
     );
 };
 
@@ -404,16 +405,16 @@ function BrokerageDetailModal({ transactionId, row, onClose }) {
 
 // ── Premium Kanban Card ──────────────────────────────────────────────────────
 function KanbanCard({ row, col, onCardClick }) {
-    // Mismatches state
+    // Strictly check backend comparison fields for explicit 'mismatch'
     const mismatches = {
-        commission: (row.be_gross_commission != null && row.ss_gross_commission != null && Number(row.be_gross_commission) !== Number(row.ss_gross_commission)) || row.gross_commission_mismatch === 'mismatch',
-        closeDate: row.closed_date_mismatch === true,
-        contractDate: row.contract_date_mismatch === true,
-        salePrice: row.sale_price_mismatch === true,
+        closeDate: row.closed_date_comparison === 'mismatch',
+        contractDate: row.contract_date_comparison === 'mismatch',
+        salePrice: row.sale_price_comparison === 'mismatch',
         listingPrice: row.listing_price_comparison === 'mismatch',
-        status: row.transaction_status_mismatch === true,
-        buyerName: row.buyer_name_comparison === 'mismatch' || row.buyer_name_mismatch === 'mismatch',
-        sellerName: row.seller_name_comparison === 'mismatch' || row.seller_name_mismatch === 'mismatch',
+        commission: row.gross_commission_comparison === 'mismatch',
+        status: row.transaction_status_comparison === 'mismatch',
+        buyerName: row.buyer_name_comparison === 'mismatch',
+        sellerName: row.seller_name_comparison === 'mismatch',
     };
 
     const hasMismatch = Object.values(mismatches).some(Boolean);
@@ -438,10 +439,10 @@ function KanbanCard({ row, col, onCardClick }) {
         mismatchItems.push({ label: 'Status', be: row.be_transaction_status, ss: row.ss_transaction_status });
     }
     if (mismatches.buyerName) {
-        mismatchItems.push({ label: 'Buyer Name', be: row.be_buyer_name, ss: row.ss_buyer_name });
+        mismatchItems.push({ label: 'Buyer Name', be: row.buyer_name, ss: row.ss_buyer_name });
     }
     if (mismatches.sellerName) {
-        mismatchItems.push({ label: 'Seller Name', be: row.be_seller_name, ss: row.ss_seller_name });
+        mismatchItems.push({ label: 'Seller Name', be: row.seller_name, ss: row.ss_seller_name });
     }
 
     const isSkyslope = col.id === 'skyslope';
@@ -579,45 +580,47 @@ function KanbanCard({ row, col, onCardClick }) {
                 </div>
             )}
 
-            {/* Mismatch items rendering */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
-                {mismatchItems.map((item, index) => (
-                    <div key={index} style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '0.25rem',
-                        background: 'rgba(239, 68, 68, 0.06)',
-                        border: '1px solid rgba(239, 68, 68, 0.18)',
-                        borderRadius: '6px',
-                        padding: '0.35rem 0.5rem',
-                        fontSize: '0.72rem'
-                    }}>
-                        <div style={{ fontWeight: 700, color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                            ⚠️ {item.label} Mismatch
+            {/* Mismatch items rendering — only for pending / closed / cancelled */}
+            {col.id !== 'skyslope' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+                    {mismatchItems.map((item, index) => (
+                        <div key={index} style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '0.25rem',
+                            background: 'rgba(239, 68, 68, 0.06)',
+                            border: '1px solid rgba(239, 68, 68, 0.18)',
+                            borderRadius: '6px',
+                            padding: '0.35rem 0.5rem',
+                            fontSize: '0.72rem'
+                        }}>
+                            <div style={{ fontWeight: 700, color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                                ⚠️ {item.label} Mismatch
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-primary)', fontSize: '0.7rem', fontWeight: 500 }}>
+                                <span>BE: {item.be || '—'}</span>
+                                <span>SS: {item.ss || '—'}</span>
+                            </div>
                         </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-primary)', fontSize: '0.7rem', fontWeight: 500 }}>
-                            <span>BE: {item.be || '—'}</span>
-                            <span>SS: {item.ss || '—'}</span>
+                    ))}
+                    {mismatchItems.length === 0 && (
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.35rem',
+                            color: 'var(--success)',
+                            background: 'rgba(16, 185, 129, 0.08)',
+                            border: '1px solid rgba(16, 185, 129, 0.25)',
+                            borderRadius: '6px',
+                            padding: '0.4rem 0.5rem',
+                            fontSize: '0.72rem',
+                            fontWeight: 600
+                        }}>
+                            ✅ All matched perfectly
                         </div>
-                    </div>
-                ))}
-                {mismatchItems.length === 0 && col.id !== 'skyslope' && (
-                    <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.35rem',
-                        color: 'var(--success)',
-                        background: 'rgba(16, 185, 129, 0.08)',
-                        border: '1px solid rgba(16, 185, 129, 0.25)',
-                        borderRadius: '6px',
-                        padding: '0.4rem 0.5rem',
-                        fontSize: '0.72rem',
-                        fontWeight: 600
-                    }}>
-                        ✅ All matched perfectly
-                    </div>
-                )}
-            </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 }
@@ -865,12 +868,14 @@ function MonthClosing() {
     const [draftTo, setDraftTo] = useState(() => sessionStorage.getItem('mc_draftTo') || '');
     const [draftState, setDraftState] = useState(() => sessionStorage.getItem('mc_draftState') || '');
     const [draftSpecialist, setDraftSpecialist] = useState(() => sessionStorage.getItem('mc_draftSpecialist') || '');
+    const [draftMismatch, setDraftMismatch] = useState(() => sessionStorage.getItem('mc_draftMismatch') === 'true');
 
     // Applied filter state (triggers fetch)
     const [activeFrom, setActiveFrom] = useState(() => sessionStorage.getItem('mc_activeFrom') || '');
     const [activeTo, setActiveTo] = useState(() => sessionStorage.getItem('mc_activeTo') || '');
     const [activeState, setActiveState] = useState(() => sessionStorage.getItem('mc_activeState') || '');
     const [activeSpecialist, setActiveSpecialist] = useState(() => sessionStorage.getItem('mc_activeSpecialist') || '');
+    const [activeMismatch, setActiveMismatch] = useState(() => sessionStorage.getItem('mc_activeMismatch') === 'true');
 
     // Sync filters to sessionStorage to keep state across navigation unmounts
     useEffect(() => {
@@ -878,11 +883,13 @@ function MonthClosing() {
         sessionStorage.setItem('mc_draftTo', draftTo);
         sessionStorage.setItem('mc_draftState', draftState);
         sessionStorage.setItem('mc_draftSpecialist', draftSpecialist);
+        sessionStorage.setItem('mc_draftMismatch', String(draftMismatch));
         sessionStorage.setItem('mc_activeFrom', activeFrom);
         sessionStorage.setItem('mc_activeTo', activeTo);
         sessionStorage.setItem('mc_activeState', activeState);
         sessionStorage.setItem('mc_activeSpecialist', activeSpecialist);
-    }, [draftFrom, draftTo, draftState, draftSpecialist, activeFrom, activeTo, activeState, activeSpecialist]);
+        sessionStorage.setItem('mc_activeMismatch', String(activeMismatch));
+    }, [draftFrom, draftTo, draftState, draftSpecialist, draftMismatch, activeFrom, activeTo, activeState, activeSpecialist, activeMismatch]);
 
     // Ref to hold search queries without triggering the main fetchData effect loop
     const searchQueriesRef = React.useRef({
@@ -909,12 +916,15 @@ function MonthClosing() {
             const specVal = activeSpecialist === 'UNASSIGNED' ? 'Unassigned' : activeSpecialist;
             params.push(`transaction_specialist=${encodeURIComponent(specVal)}`);
         }
+        if (activeMismatch) {
+            params.push('mismatch=true');
+        }
 
         if (params.length > 0) {
             url += '?' + params.join('&');
         }
         return url;
-    }, [activeFrom, activeTo, activeState, activeSpecialist]);
+    }, [activeFrom, activeTo, activeState, activeSpecialist, activeMismatch]);
 
     // Fetch individual column's page
     const fetchColumnPage = useCallback(async (colId, pageNum, isLoadMore = false, searchQuery = '') => {
@@ -1028,11 +1038,12 @@ function MonthClosing() {
         setActiveTo(draftTo);
         setActiveState(draftState.trim().toUpperCase());
         setActiveSpecialist(draftSpecialist.trim());
+        setActiveMismatch(draftMismatch);
     };
 
     const handleClear = () => {
-        setDraftFrom(''); setDraftTo(''); setDraftState(''); setDraftSpecialist('');
-        setActiveFrom(''); setActiveTo(''); setActiveState(''); setActiveSpecialist('');
+        setDraftFrom(''); setDraftTo(''); setDraftState(''); setDraftSpecialist(''); setDraftMismatch(false);
+        setActiveFrom(''); setActiveTo(''); setActiveState(''); setActiveSpecialist(''); setActiveMismatch(false);
 
         searchQueriesRef.current = { skyslope: '', pending: '', closed: '', cancelled: '' };
         setColumnsState(prev => ({
@@ -1043,7 +1054,7 @@ function MonthClosing() {
         }));
     };
 
-    const hasActive = !!(activeFrom || activeTo || activeState || activeSpecialist);
+    const hasActive = !!(activeFrom || activeTo || activeState || activeSpecialist || activeMismatch);
     const isAnyLoading = Object.values(columnsLoading).some(Boolean);
 
     return (
@@ -1123,9 +1134,56 @@ function MonthClosing() {
                             ))}
                         </select>
                     </div>
+                    <div className="mc-filter-group" style={{ flex: '0 0 auto', minWidth: '120px' }}>
+                        <label className="mc-filter-label">Mismatches Only</label>
+                        <div style={{ display: 'flex', alignItems: 'center', height: '38px' }}>
+                            <label className="switch" style={{
+                                position: 'relative',
+                                display: 'inline-block',
+                                width: '36px',
+                                height: '20px',
+                                cursor: 'pointer'
+                            }}>
+                                <input
+                                    type="checkbox"
+                                    checked={draftMismatch}
+                                    onChange={e => setDraftMismatch(e.target.checked)}
+                                    style={{
+                                        opacity: 0,
+                                        width: 0,
+                                        height: 0
+                                    }}
+                                />
+                                <span style={{
+                                    position: 'absolute',
+                                    top: 0,
+                                    left: 0,
+                                    right: 0,
+                                    bottom: 0,
+                                    backgroundColor: draftMismatch ? '#6366f1' : '#334155',
+                                    transition: '0.3s',
+                                    borderRadius: '20px',
+                                    border: '1px solid rgba(255, 255, 255, 0.1)'
+                                }}>
+                                    <span style={{
+                                        position: 'absolute',
+                                        content: '""',
+                                        height: '14px',
+                                        width: '14px',
+                                        left: draftMismatch ? '18px' : '4px',
+                                        top: '2px',
+                                        backgroundColor: 'white',
+                                        transition: '0.3s',
+                                        borderRadius: '50%',
+                                        boxShadow: '0 1px 3px rgba(0,0,0,0.4)'
+                                    }} />
+                                </span>
+                            </label>
+                        </div>
+                    </div>
                     <div className="mc-filter-actions">
                         <button className="mc-apply-btn" onClick={handleApply} disabled={isAnyLoading}>Apply</button>
-                        {(hasActive || draftFrom || draftTo || draftState || draftSpecialist) && (
+                        {(hasActive || draftFrom || draftTo || draftState || draftSpecialist || draftMismatch) && (
                             <button className="mc-clear-btn" onClick={handleClear}>Clear</button>
                         )}
                     </div>
@@ -1135,6 +1193,7 @@ function MonthClosing() {
                             {activeTo && <span className="mc-chip">To: {activeTo}</span>}
                             {activeState && <span className="mc-chip">State: {activeState}</span>}
                             {activeSpecialist && <span className="mc-chip">Specialist: {activeSpecialist}</span>}
+                            {activeMismatch && <span className="mc-chip" style={{ background: 'rgba(239, 68, 68, 0.15)', borderColor: 'rgba(239, 68, 68, 0.35)', color: '#ef4444' }}>⚠️ Mismatches Only</span>}
                         </div>
                     )}
                 </div>
