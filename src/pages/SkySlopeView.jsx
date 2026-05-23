@@ -10,12 +10,17 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [page, setPage] = useState(1);
+    const [searchInput, setSearchInput] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
     const [closeDateFrom, setCloseDateFrom] = useState('');
     const [closeDateTo, setCloseDateTo] = useState('');
     const [contractDateFrom, setContractDateFrom] = useState('');
     const [contractDateTo, setContractDateTo] = useState('');
+
+    const [totalCount, setTotalCount] = useState(0);
+    const [hasMore, setHasMore] = useState(true);
+    const [availableStatuses, setAvailableStatuses] = useState([]);
 
     const [selectedRecord, setSelectedRecord] = useState(null);
     const [detailTab, setDetailTab] = useState('skyslope');
@@ -86,50 +91,107 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
         }
     }, [syncSSResult, setSyncSSResult]);
 
+    // Debounce search input
     useEffect(() => {
+        const timer = setTimeout(() => {
+            setSearchQuery(searchInput);
+        }, 400);
+        return () => clearTimeout(timer);
+    }, [searchInput]);
+
+    // Fetch unique statuses for the filter dropdown on mount
+    useEffect(() => {
+        fetch('https://roa-data-backend.vercel.app/skyslope/status-filter')
+            .then(res => {
+                if (!res.ok) throw new Error(`API error: ${res.status}`);
+                return res.json();
+            })
+            .then(json => {
+                if (json && Array.isArray(json.status_list)) {
+                    setAvailableStatuses(json.status_list.sort());
+                }
+            })
+            .catch(err => {
+                console.error('Failed to fetch status filter options:', err);
+            });
+    }, []);
+
+    // Fetch sync info on mount
+    useEffect(() => {
+        fetch('https://roa-data-backend.vercel.app/skyslope/sync_info')
+            .then(res => {
+                if (!res.ok) throw new Error(`API error: ${res.status}`);
+                return res.json();
+            })
+            .then(json => {
+                if (json && json.sync_info) setSyncInfo(json.sync_info);
+            })
+            .catch(err => {
+                console.error('Failed to fetch sync info:', err);
+            });
+    }, []);
+
+    // Reset page to 1 when filters change
+    useEffect(() => {
+        setPage(1);
+    }, [closeDateFrom, closeDateTo, contractDateFrom, contractDateTo, statusFilter, searchQuery]);
+
+    // Fetch paginated and filtered data from API
+    useEffect(() => {
+        let active = true;
         setLoading(true);
         setError(null);
-        fetch(SS_API)
-            .then(res => { if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`); return res.json(); })
+
+        const params = new URLSearchParams();
+        params.append('page', page);
+        params.append('limit', 50);
+        if (closeDateFrom) params.append('from_close_date', closeDateFrom);
+        if (closeDateTo) params.append('to_close_date', closeDateTo);
+        if (contractDateFrom) params.append('from_contract_date', contractDateFrom);
+        if (contractDateTo) params.append('to_contract_date', contractDateTo);
+        if (statusFilter) params.append('status', statusFilter);
+        if (searchQuery.trim()) params.append('search', searchQuery.trim());
+
+        const url = `${SS_API}?${params.toString()}`;
+
+        fetch(url)
+            .then(res => {
+                if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`);
+                return res.json();
+            })
             .then(json => {
-                // Support both the new envelope { sync_info, data } and the legacy flat array
-                if (json && Array.isArray(json.data)) {
-                    setData(json.data);
-                    setSyncInfo(json.sync_info || null);
+                if (!active) return;
+
+                const fetchedData = json && Array.isArray(json.data) ? json.data : [];
+                setData(fetchedData);
+
+                const total = json.total_count != null ? json.total_count : (json.total != null ? json.total : null);
+                if (total !== null) {
+                    setTotalCount(total);
+                    setHasMore((page - 1) * 50 + fetchedData.length < total);
                 } else {
-                    setData(Array.isArray(json) ? json : []);
-                    setSyncInfo(null);
+                    setHasMore(fetchedData.length === 50);
+                    setTotalCount(prev => (page === 1 ? fetchedData.length : prev + fetchedData.length));
+                }
+
+                if (json.sync_info) {
+                    setSyncInfo(json.sync_info);
                 }
                 setLoading(false);
             })
-            .catch(err => { console.error(err); setError(err.message); setLoading(false); });
-    }, []);
+            .catch(err => {
+                if (!active) return;
+                console.error(err);
+                setError(err.message);
+                setLoading(false);
+            });
 
-    const uniqueStatuses = useMemo(() => [...new Set(data.map(r => r.status).filter(Boolean))].sort(), [data]);
+        return () => {
+            active = false;
+        };
+    }, [page, closeDateFrom, closeDateTo, contractDateFrom, contractDateTo, statusFilter, searchQuery]);
 
-    const filteredData = useMemo(() => {
-        let result = data;
-        if (statusFilter) result = result.filter(r => r.status === statusFilter);
-        if (closeDateFrom) result = result.filter(r => r.close_date && r.close_date >= closeDateFrom);
-        if (closeDateTo) result = result.filter(r => r.close_date && r.close_date <= closeDateTo);
-        if (contractDateFrom) result = result.filter(r => r.contract_date && r.contract_date >= contractDateFrom);
-        if (contractDateTo) result = result.filter(r => r.contract_date && r.contract_date <= contractDateTo);
-        if (searchQuery.trim()) {
-            const q = searchQuery.trim().toLowerCase();
-            result = result.filter(r =>
-                (r.saleguid || '').toLowerCase().includes(q) ||
-                (r.propertyaddress || '').toLowerCase().includes(q) ||
-                (r.transaction_id || '').toLowerCase().includes(q)
-            );
-        }
-        return result;
-    }, [data, statusFilter, closeDateFrom, closeDateTo, contractDateFrom, contractDateTo, searchQuery]);
-
-    const totalPages = Math.ceil(filteredData.length / ROWS_PER_PAGE);
-    const paginatedData = useMemo(() => {
-        const start = (page - 1) * ROWS_PER_PAGE;
-        return filteredData.slice(start, start + ROWS_PER_PAGE);
-    }, [filteredData, page]);
+    const totalPages = Math.ceil(totalCount / 50);
 
     const handleDownload = () => {
         const ws = utils.json_to_sheet(data);
@@ -244,7 +306,7 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
                             <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Sale GUID:</span> {selectedRecord.saleguid || 'Unknown'}
                         </p>
                         <div style={{ marginTop: '0.75rem' }}>
-                            {selectedRecord.transaction_id ? (
+                            {selectedRecord.transaction_id && selectedRecord.transaction_id !== 'No related BE data' ? (
                                 <span style={{
                                     display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
                                     padding: '0.3rem 0.75rem', borderRadius: '999px',
@@ -321,9 +383,9 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
                                         : <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '3rem' }}><p style={{ fontSize: '1.1rem' }}>No SkySlope details found.</p></div>
                                 )}
                                 {detailTab === 'details' && (
-                                    detailData.brokerage_engine
-                                        ? <SectionedDetailView data={detailData.brokerage_engine} />
-                                        : <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '3rem' }}><p style={{ fontSize: '1.1rem' }}>No related Brokerage Engine record found.</p></div>
+                                    (!selectedRecord.transaction_id || selectedRecord.transaction_id === 'No related BE data' || !detailData.brokerage_engine)
+                                        ? <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '3rem' }}><p style={{ fontSize: '1.1rem' }}>No related Brokerage Engine data</p></div>
+                                        : <SectionedDetailView data={detailData.brokerage_engine} />
                                 )}
                             </div>
                         ) : null}
@@ -342,25 +404,39 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
                         Transaction data sourced from SkySlope.
                     </p>
                     {syncInfo && (
-                        <span style={{
+                        <div style={{
                             display: 'inline-flex',
                             alignItems: 'center',
-                            gap: '0.35rem',
-                            marginTop: '0.4rem',
-                            fontSize: '0.78rem',
-                            fontWeight: 500,
-                            color: 'var(--text-muted)',
-                            background: 'rgba(14,165,233,0.08)',
-                            border: '1px solid rgba(14,165,233,0.2)',
+                            gap: '0.5rem',
+                            marginTop: '0.5rem',
+                            padding: '0.35rem 0.85rem 0.35rem 0.65rem',
                             borderRadius: '999px',
-                            padding: '0.2rem 0.65rem',
+                            background: 'rgba(14,165,233,0.07)',
+                            border: '1px solid rgba(14,165,233,0.18)',
+                            backdropFilter: 'blur(4px)',
                         }}>
-                            <svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ opacity: 0.7 }}>
+                            <svg width="13" height="13" fill="none" stroke="#0ea5e9" viewBox="0 0 24 24" style={{ flexShrink: 0, opacity: 0.85 }}>
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                                     d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" />
                             </svg>
-                            Updated at {syncInfo.sync_date} &nbsp; {syncInfo.sync_timestamp}
-                        </span>
+                            <span style={{ fontSize: '0.75rem', fontWeight: 400, color: 'var(--text-muted)', letterSpacing: '0.01em' }}>
+                                Updated at
+                            </span>
+                            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.02em', fontVariantNumeric: 'tabular-nums' }}>
+                                {syncInfo.sync_date}
+                            </span>
+                            <span style={{ width: '3px', height: '3px', borderRadius: '50%', background: 'var(--text-muted)', opacity: 0.4, flexShrink: 0 }} />
+                            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.02em', fontVariantNumeric: 'tabular-nums' }}>
+                                {syncInfo.sync_timestamp}
+                            </span>
+                            <span style={{
+                                fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.06em',
+                                color: '#0ea5e9', background: 'rgba(14,165,233,0.12)',
+                                border: '1px solid rgba(14,165,233,0.25)',
+                                borderRadius: '4px', padding: '0.05rem 0.35rem',
+                                textTransform: 'uppercase',
+                            }}>IST</span>
+                        </div>
                     )}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexShrink: 0 }}>
@@ -489,13 +565,17 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
                 <div className="table-header">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                         <h2>Transactions</h2>
-                        {data.length > 0 && (
-                            <span className="record-count-badge">{filteredData.length.toLocaleString()} records</span>
+                        {totalCount > 0 && (
+                            <span className="record-count-badge">
+                                {totalCount.toLocaleString()} records
+                            </span>
                         )}
                     </div>
-                    <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
-                        Showing page {page} of {totalPages || 1}
-                    </span>
+                    {totalPages > 0 && (
+                        <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)', fontWeight: 500 }}>
+                            Showing page {page} of {totalPages}
+                        </span>
+                    )}
                 </div>
 
                 {/* Search + filters */}
@@ -507,11 +587,11 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
                         <input
                             id="ss-search" type="text" className="search-input"
                             placeholder="Search by Sale GUID, Property Address, Transaction ID"
-                            value={searchQuery}
-                            onChange={e => { setSearchQuery(e.target.value); setPage(1); }}
+                            value={searchInput}
+                            onChange={e => { setSearchInput(e.target.value); }}
                         />
-                        {searchQuery && (
-                            <button className="search-clear-btn" onClick={() => { setSearchQuery(''); setPage(1); }} aria-label="Clear search">✕</button>
+                        {searchInput && (
+                            <button className="search-clear-btn" onClick={() => { setSearchInput(''); setSearchQuery(''); setPage(1); }} aria-label="Clear search">✕</button>
                         )}
                     </div>
                 </div>
@@ -547,13 +627,13 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
                         <select id="ss-status-filter" className="filter-select" value={statusFilter}
                             onChange={e => { setStatusFilter(e.target.value); setPage(1); }}>
                             <option value="">All Statuses</option>
-                            {uniqueStatuses.map(s => <option key={s} value={s}>{s}</option>)}
+                            {availableStatuses.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
                     </div>
-                    {(searchQuery || statusFilter || closeDateFrom || closeDateTo || contractDateFrom || contractDateTo) && (
+                    {(searchInput || searchQuery || statusFilter || closeDateFrom || closeDateTo || contractDateFrom || contractDateTo) && (
                         <div className="filter-group" style={{ justifyContent: 'flex-end' }}>
                             <button className="clear-all-btn" onClick={() => {
-                                setSearchQuery(''); setStatusFilter(''); setCloseDateFrom(''); setCloseDateTo('');
+                                setSearchInput(''); setSearchQuery(''); setStatusFilter(''); setCloseDateFrom(''); setCloseDateTo('');
                                 setContractDateFrom(''); setContractDateTo(''); setPage(1);
                             }}>Clear All Filters</button>
                         </div>
@@ -573,21 +653,20 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
                                 <thead>
                                     <tr>
                                         <th>Sale GUID</th>
-                                        <th>Transaction ID</th>
                                         <th>Property Address</th>
+                                        <th>Close Date</th>
+                                        <th>Status</th>
+                                        <th>Transaction ID</th>
                                         <th>Buyer Name</th>
                                         <th>Buyer Agent</th>
                                         <th>Contract Date</th>
-                                        <th>Close Date</th>
                                         <th>Reviewer</th>
-                                        <th>Status</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {paginatedData.map((row, i) => (
+                                    {data.map((row, i) => (
                                         <tr key={i} onClick={() => { setSelectedRecord(row); setDetailTab('skyslope'); }} style={{ cursor: 'pointer' }} className="clickable-row">
                                             <td className="cell-guid">{row.saleguid || '-'}</td>
-                                            <td>{row.transaction_id || 'No related BE data'}</td>
                                             <td>
                                                 {row.propertyaddress ? (
                                                     row.propertyaddress.includes(',') ? (
@@ -598,29 +677,33 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
                                                     ) : row.propertyaddress
                                                 ) : '-'}
                                             </td>
-                                            <td>{row.buyer_name || '-'}</td>
-                                            <td>{row.buyer_agent_name || '-'}</td>
-                                            <td>{row.contract_date || '-'}</td>
                                             <td>{row.close_date || '-'}</td>
-                                            <td>{row.reviewer || '-'}</td>
                                             <td>
                                                 {row.status
                                                     ? <span className={`badge ${row.status.toLowerCase().replace(/[^a-z]/g, '-')}`}>{row.status}</span>
                                                     : '-'}
                                             </td>
+                                            <td>{row.transaction_id || 'No related BE data'}</td>
+                                            <td>{row.buyer_name || '-'}</td>
+                                            <td>{row.buyer_agent_name || '-'}</td>
+                                            <td>{row.contract_date || '-'}</td>
+                                            <td>{row.reviewer || '-'}</td>
                                         </tr>
                                     ))}
-                                    {paginatedData.length === 0 && (
-                                        <tr><td colSpan={7} style={{ textAlign: 'center', padding: '2rem' }}>No data available</td></tr>
+                                    {data.length === 0 && !loading && (
+                                        <tr><td colSpan={9} style={{ textAlign: 'center', padding: '2rem' }}>No data available</td></tr>
                                     )}
                                 </tbody>
                             </table>
                         </div>
-                        {totalPages > 1 && (
+                        
+                        {(totalPages > 1 || page > 1 || hasMore) && (
                             <div className="pagination">
                                 <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>Previous</button>
-                                <span style={{ fontSize: '0.875rem' }}>Page {page} of {totalPages}</span>
-                                <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>Next</button>
+                                <span style={{ fontSize: '0.875rem' }}>
+                                    Page {page} {totalPages > 0 ? `of ${totalPages}` : ''}
+                                </span>
+                                <button onClick={() => setPage(p => p + 1)} disabled={!hasMore || (totalPages > 0 && page === totalPages)}>Next</button>
                             </div>
                         )}
                     </>
