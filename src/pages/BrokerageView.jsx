@@ -20,6 +20,7 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
     const [brokerHold, setBrokerHold] = useState(false);
 
     const [totalCount, setTotalCount] = useState(0);
+    const [availableStatuses, setAvailableStatuses] = useState([]);
 
     const [selectedRecord, setSelectedRecord] = useState(null);
     const [detailTab, setDetailTab] = useState('details'); // 'details' | 'skyslope'
@@ -97,6 +98,36 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
         return () => clearTimeout(timer);
     }, [searchInput]);
 
+    // Fetch sync info on mount
+    useEffect(() => {
+        fetch('https://roa-data-backend.vercel.app/brokerage_engine/sync_info')
+            .then(res => res.json())
+            .then(json => {
+                if (json && json.sync_info) {
+                    setSyncInfo(json.sync_info);
+                } else if (json && json.sync_date) {
+                    setSyncInfo(json);
+                }
+            })
+            .catch(err => {
+                console.error('Failed to fetch BE sync info:', err);
+            });
+    }, []);
+
+    // Fetch status filter options on mount
+    useEffect(() => {
+        fetch('https://roa-data-backend.vercel.app/brokerage_engine/status-filter')
+            .then(res => res.json())
+            .then(json => {
+                if (json && Array.isArray(json.status_list)) {
+                    setAvailableStatuses(json.status_list);
+                }
+            })
+            .catch(err => {
+                console.error('Failed to fetch BE status filter:', err);
+            });
+    }, []);
+
     // Reset page to 1 when filters change
     useEffect(() => {
         setPage(1);
@@ -134,7 +165,7 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
                 setTotalCount(total);
 
                 if (json.sync_info) {
-                    setSyncInfo(json.sync_info);
+                    setSyncInfo(prev => prev ?? json.sync_info);
                 }
                 setLoading(false);
             })
@@ -159,11 +190,6 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
         };
     }, [data, totalCount]);
 
-    const uniqueStatuses = useMemo(() => {
-        const fromData = [...new Set(data.map(r => r.status).filter(Boolean))];
-        const defaults = ['Pending', 'Complete', 'Closed', 'Cancelled', 'Archived', 'Active'];
-        return [...new Set([...defaults, ...fromData])].sort();
-    }, [data]);
 
     const totalPages = Math.ceil(totalCount / 50);
 
@@ -386,25 +412,39 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
                         Transaction data sourced from Brokerage Engine.
                     </p>
                     {syncInfo && (
-                        <span style={{
+                        <div style={{
                             display: 'inline-flex',
                             alignItems: 'center',
-                            gap: '0.35rem',
-                            marginTop: '0.4rem',
-                            fontSize: '0.78rem',
-                            fontWeight: 500,
-                            color: 'var(--text-muted)',
-                            background: 'rgba(99,102,241,0.08)',
-                            border: '1px solid rgba(99,102,241,0.2)',
+                            gap: '0.5rem',
+                            marginTop: '0.5rem',
+                            padding: '0.35rem 0.85rem 0.35rem 0.65rem',
                             borderRadius: '999px',
-                            padding: '0.2rem 0.65rem',
+                            background: 'rgba(99,102,241,0.07)',
+                            border: '1px solid rgba(99,102,241,0.18)',
+                            backdropFilter: 'blur(4px)',
                         }}>
-                            <svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ opacity: 0.7 }}>
+                            <svg width="13" height="13" fill="none" stroke="#6366f1" viewBox="0 0 24 24" style={{ flexShrink: 0, opacity: 0.85 }}>
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                                     d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" />
                             </svg>
-                            Updated at {syncInfo.sync_date} &nbsp; {syncInfo.sync_timestamp}
-                        </span>
+                            <span style={{ fontSize: '0.75rem', fontWeight: 400, color: 'var(--text-muted)', letterSpacing: '0.01em' }}>
+                                Updated at
+                            </span>
+                            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.02em', fontVariantNumeric: 'tabular-nums' }}>
+                                {syncInfo.sync_date}
+                            </span>
+                            <span style={{ width: '3px', height: '3px', borderRadius: '50%', background: 'var(--text-muted)', opacity: 0.4, flexShrink: 0 }} />
+                            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.02em', fontVariantNumeric: 'tabular-nums' }}>
+                                {syncInfo.sync_timestamp}
+                            </span>
+                            <span style={{
+                                fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.06em',
+                                color: '#6366f1', background: 'rgba(99,102,241,0.12)',
+                                border: '1px solid rgba(99,102,241,0.25)',
+                                borderRadius: '4px', padding: '0.05rem 0.35rem',
+                                textTransform: 'uppercase',
+                            }}>IST</span>
+                        </div>
                     )}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexShrink: 0 }}>
@@ -605,7 +645,7 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
                         <select id="be-status-filter" className="filter-select"
                             value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }}>
                             <option value="">All Statuses</option>
-                            {uniqueStatuses.map(s => <option key={s} value={s}>{s}</option>)}
+                            {availableStatuses.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
                     </div>
 
@@ -680,12 +720,12 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
                                     <tr>
                                         <th>Transaction ID</th>
                                         <th>Property Address</th>
-                                        <th>Buying Agent</th>
                                         <th>Sale Price</th>
-                                        <th>Contract Date</th>
-                                        <th>Close Date</th>
-                                        <th>Transaction Specialist</th>
                                         <th>Status</th>
+                                        <th>Close Date</th>
+                                        <th>Contract Date</th>
+                                        <th>Buying Agent</th>
+                                        <th>Transaction Specialist</th>
                                         <th>Skyslope FileID</th>
                                     </tr>
                                 </thead>
@@ -694,16 +734,16 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
                                         <tr key={i} onClick={() => { setSelectedRecord(row); setDetailTab('details'); }} style={{ cursor: 'pointer' }} className="clickable-row">
                                             <td className="cell-guid">{row.transactionid || '-'}</td>
                                             <td className="cell-address">{row.property_address || '-'}</td>
-                                            <td>{row.buying_agent_name || '-'}</td>
                                             <td>{row.sale_price != null ? `$${Number(row.sale_price).toLocaleString()}` : '-'}</td>
-                                            <td>{row.contract_date || '-'}</td>
-                                            <td>{row.close_date || '-'}</td>
-                                            <td>{row.transaction_specialist || '-'}</td>
                                             <td>
                                                 {row.status
                                                     ? <span className={`badge ${row.status.toLowerCase()}`}>{row.status}</span>
                                                     : '-'}
                                             </td>
+                                            <td>{row.close_date || '-'}</td>
+                                            <td>{row.contract_date || '-'}</td>
+                                            <td>{row.buying_agent_name || '-'}</td>
+                                            <td>{row.transaction_specialist || '-'}</td>
                                             <td>{row.skyslopefileid || '-'}</td>
                                         </tr>
                                     ))}
