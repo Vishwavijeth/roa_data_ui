@@ -7,12 +7,12 @@ import { Badge } from '../components/ui/Badge';
 import { Input } from '../components/ui/Input';
 import { Skeleton } from '../components/ui/Skeleton';
 import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
+    Table,
+    TableHeader,
+    TableBody,
+    TableRow,
+    TableHead,
+    TableCell,
 } from '../components/ui/Table';
 
 function ReconciliationView() {
@@ -33,6 +33,14 @@ function ReconciliationView() {
     const [showOnlyMismatches, setShowOnlyMismatches] = useState(false);
     const [showNoSkyslope, setShowNoSkyslope] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+    const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearchQuery(searchQuery);
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
 
     useEffect(() => {
         if (activeParam && activeParam.id) {
@@ -64,17 +72,17 @@ function ReconciliationView() {
                     return res.json();
                 })
             ])
-            .then(([summaryJson, mismatchJson]) => {
-                setSummaryStats({
-                    ...summaryJson,
-                    mismatch_count: mismatchJson.total_count
+                .then(([summaryJson, mismatchJson]) => {
+                    setSummaryStats({
+                        ...summaryJson,
+                        mismatch_count: mismatchJson.total_count
+                    });
+                    setStatsLoading(false);
+                })
+                .catch(err => {
+                    console.error('Error fetching summary stats:', err);
+                    setStatsLoading(false);
                 });
-                setStatsLoading(false);
-            })
-            .catch(err => {
-                console.error('Error fetching summary stats:', err);
-                setStatsLoading(false);
-            });
         } else {
             setSummaryStats(null);
         }
@@ -93,6 +101,10 @@ function ReconciliationView() {
             url += '&mismatch=true';
         } else if (showNoSkyslope) {
             url += '&no_skyslope=true';
+        }
+
+        if (isServerSideParam(activeParam.id) && debouncedSearchQuery.trim()) {
+            url += `&search=${encodeURIComponent(debouncedSearchQuery.trim())}`;
         }
 
         fetch(url)
@@ -115,7 +127,7 @@ function ReconciliationView() {
                 setError(err.message);
                 setLoading(false);
             });
-    }, [activeParam, page, showOnlyMismatches, showNoSkyslope]);
+    }, [activeParam, page, showOnlyMismatches, showNoSkyslope, debouncedSearchQuery]);
 
     // Fetch data for other endpoints (client-side paginated and client-filtered)
     useEffect(() => {
@@ -193,7 +205,7 @@ function ReconciliationView() {
             if (showOnlyMismatches) result = result.filter(r => getResult(r) === 'mismatch');
             if (showNoSkyslope) result = result.filter(r => getResult(r) === 'no_skyslope_record');
         }
-        if (searchQuery.trim()) {
+        if (searchQuery.trim() && !isServerSideParam(activeParam.id)) {
             const q = searchQuery.trim().toLowerCase();
             result = result.filter(r =>
                 (r.transactionId || r.transactionid || '').toLowerCase().includes(q) ||
@@ -303,8 +315,8 @@ function ReconciliationView() {
                     <h1 className="text-2xl font-bold tracking-tight text-slate-900">Transaction Reconciliation</h1>
                     <p className="text-sm text-slate-500 mt-1">Compare transaction data across Brokerage Engine and SkySlope.</p>
                 </div>
-                <Button 
-                    onClick={handleDownload} 
+                <Button
+                    onClick={handleDownload}
                     disabled={downloading}
                     className="shadow-lg shadow-blue-600/10 font-semibold gap-2 select-none"
                 >
@@ -394,11 +406,10 @@ function ReconciliationView() {
                                         setSearchQuery('');
                                         setPage(1);
                                     }}
-                                    className={`rounded-full px-4 h-8 text-xs font-semibold ${
-                                        isSelected 
-                                            ? 'shadow-sm' 
+                                    className={`rounded-full px-4 h-8 text-xs font-semibold ${isSelected
+                                            ? 'shadow-sm'
                                             : 'hover:bg-slate-50'
-                                    }`}
+                                        }`}
                                 >
                                     {param.label}
                                 </Button>
@@ -414,15 +425,14 @@ function ReconciliationView() {
                 <div className="p-5 border-b border-slate-100 bg-slate-50/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="flex flex-wrap items-center gap-3">
                         <h2 className="text-md font-bold text-slate-800">{activeParam.label}</h2>
-                        
+
                         {/* Mismatches filter toggle */}
                         <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white p-0.5 overflow-hidden">
                             <button
-                                className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${
-                                    showOnlyMismatches 
-                                        ? 'bg-red-50 text-red-700' 
+                                className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${showOnlyMismatches
+                                        ? 'bg-red-50 text-red-700'
                                         : 'hover:bg-slate-50 text-slate-600'
-                                }`}
+                                    }`}
                                 onClick={() => {
                                     setShowOnlyMismatches(!showOnlyMismatches);
                                     if (!showOnlyMismatches) setShowNoSkyslope(false);
@@ -443,11 +453,10 @@ function ReconciliationView() {
                         {/* No SkySlope toggle */}
                         <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white p-0.5 overflow-hidden">
                             <button
-                                className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${
-                                    showNoSkyslope 
-                                        ? 'bg-amber-50 text-amber-700' 
+                                className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${showNoSkyslope
+                                        ? 'bg-amber-50 text-amber-700'
                                         : 'hover:bg-slate-50 text-slate-600'
-                                }`}
+                                    }`}
                                 onClick={() => {
                                     setShowNoSkyslope(!showNoSkyslope);
                                     if (!showNoSkyslope) setShowOnlyMismatches(false);
@@ -501,8 +510,8 @@ function ReconciliationView() {
                             className="pl-9 pr-8 w-full"
                         />
                         {searchQuery && (
-                            <button 
-                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold" 
+                            <button
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold"
                                 onClick={() => { setSearchQuery(''); setPage(1); }}
                             >
                                 ✕
@@ -550,13 +559,13 @@ function ReconciliationView() {
                                     const skVal = row[activeParam.skyslopeKey];
                                     const beVal = row[activeParam.beKey];
                                     return (
-                                        <TableRow 
-                                            key={i} 
+                                        <TableRow
+                                            key={i}
                                             className={
-                                                isMismatch 
-                                                    ? 'bg-red-50/40 hover:bg-red-50/60 transition-colors' 
-                                                    : isNoSkyslope 
-                                                        ? 'bg-amber-50/20 hover:bg-amber-50/40 transition-colors' 
+                                                isMismatch
+                                                    ? 'bg-red-50/40 hover:bg-red-50/60 transition-colors'
+                                                    : isNoSkyslope
+                                                        ? 'bg-amber-50/20 hover:bg-amber-50/40 transition-colors'
                                                         : 'hover:bg-slate-50/40'
                                             }
                                         >
@@ -567,12 +576,12 @@ function ReconciliationView() {
                                             <TableCell className="text-xs font-semibold text-slate-600">{beVal != null ? String(beVal) : 'null'}</TableCell>
                                             <TableCell className="text-right pr-6 shrink-0 select-none">
                                                 {resultVal ? (
-                                                    <Badge 
+                                                    <Badge
                                                         variant={
-                                                            resultVal === 'match' 
-                                                                ? 'success' 
-                                                                : resultVal === 'mismatch' 
-                                                                    ? 'destructive' 
+                                                            resultVal === 'match'
+                                                                ? 'success'
+                                                                : resultVal === 'mismatch'
+                                                                    ? 'destructive'
                                                                     : 'warning'
                                                         }
                                                         className="capitalize px-2 py-0.5 rounded text-[10px]"
