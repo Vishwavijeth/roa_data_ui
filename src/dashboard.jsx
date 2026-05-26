@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import Sidebar from './components/Sidebar';
+import Sidebar from './components/layout/Sidebar';
 import ReconciliationView from './pages/ReconciliationView';
 import BrokerageView from './pages/BrokerageView';
 import SkySlopeView from './pages/SkySlopeView';
@@ -9,7 +9,6 @@ import TransactionSpecialistDashboardView from './pages/TransactionSpecialistDas
 import ReviewerDashboardView from './pages/ReviewerDashboardView';
 import CdaSent from './pages/CdaSent';
 import MonthClosing from './pages/MonthClosing';
-
 
 // ── Dashboard Shell (layout + sidebar + lifted sync state) ───────────────────
 function Dashboard({ setIsAuthenticated }) {
@@ -153,7 +152,6 @@ function Dashboard({ setIsAuthenticated }) {
             case 'month_closing':
                 return <MonthClosing />;
             case 'txn_specialist':
-
                 return <TransactionSpecialistListingView />;
             case 'reviewer':
                 return <ReviewerListingView />;
@@ -167,9 +165,9 @@ function Dashboard({ setIsAuthenticated }) {
     };
 
     return (
-        <div className="app-layout">
+        <div className="flex min-h-screen w-full bg-slate-50">
             <Sidebar activePage={activePage} setActivePage={setActivePage} onLogout={handleLogout} />
-            <main className="main-content">
+            <main className="flex-1 min-w-0 overflow-y-auto bg-slate-50">
                 {renderPage()}
             </main>
         </div>

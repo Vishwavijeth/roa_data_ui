@@ -1,21 +1,26 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { Button } from '../components/ui/Button';
+import { Card, CardContent } from '../components/ui/Card';
+import { Badge } from '../components/ui/Badge';
+import { Input } from '../components/ui/Input';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
 
 const CDA_SENT_API = 'https://roa-data-backend.vercel.app/cda-sent/listing';
 const ROWS_PER_PAGE = 50;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const fmt = (val) => {
-    if (val === null || val === undefined) return <span style={{ color: 'var(--text-muted)' }}>—</span>;
+    if (val === null || val === undefined) return <span className="text-slate-400 font-bold">—</span>;
     return String(val);
 };
 
 const fmtCurrency = (val) => {
-    if (val === null || val === undefined) return <span style={{ color: 'var(--text-muted)' }}>—</span>;
+    if (val === null || val === undefined) return <span className="text-slate-400 font-bold">—</span>;
     return `$${Number(val).toLocaleString()}`;
 };
 
 const fmtDate = (val) => {
-    if (!val) return <span style={{ color: 'var(--text-muted)' }}>—</span>;
+    if (!val) return <span className="text-slate-400 font-bold">—</span>;
     return val;
 };
 
@@ -36,23 +41,21 @@ const hasMismatch = (row) => {
 // Badge for boolean mismatch fields
 const MismatchBadge = ({ mismatch }) => {
     if (mismatch === true) {
-        return <span className="badge mismatch" style={{ fontSize: '0.7rem' }}>Mismatch</span>;
+        return <Badge variant="destructive" className="px-1.5 py-0.5 rounded font-semibold text-[9px] capitalize">Mismatch</Badge>;
     }
     if (mismatch === false) {
-        return <span className="badge match" style={{ fontSize: '0.7rem' }}>Match</span>;
+        return <Badge variant="success" className="px-1.5 py-0.5 rounded font-semibold text-[9px] capitalize">Match</Badge>;
     }
-    // "null" string or actual null
-    return <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>N/A</span>;
+    return <span className="text-slate-400 text-[10px] font-bold">N/A</span>;
 };
 
-// Badge for comparison string fields (match / mismatch / null / "null")
+// Badge for comparison string fields
 const CompBadge = ({ value }) => {
-    if (value === 'match') return <span className="badge match" style={{ fontSize: '0.7rem' }}>Match</span>;
-    if (value === 'mismatch') return <span className="badge mismatch" style={{ fontSize: '0.7rem' }}>Mismatch</span>;
-    return <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>N/A</span>;
+    if (value === 'match') return <Badge variant="success" className="px-1.5 py-0.5 rounded font-semibold text-[9px] capitalize">Match</Badge>;
+    if (value === 'mismatch') return <Badge variant="destructive" className="px-1.5 py-0.5 rounded font-semibold text-[9px] capitalize">Mismatch</Badge>;
+    return <span className="text-slate-400 text-[10px] font-bold">N/A</span>;
 };
 
-// ── Component ─────────────────────────────────────────────────────────────────
 function CdaSent() {
     const [filter, setFilter] = useState('all'); // 'all' | 'mismatch' | 'no_skyslope'
     const [data, setData] = useState([]);
@@ -109,54 +112,72 @@ function CdaSent() {
         return filteredData.slice(start, start + ROWS_PER_PAGE);
     }, [filteredData, page]);
 
-    // Column count: 2 fixed + 3*7 groups + is_stale = 2 + 21 + 1 = 24
-    const COL_COUNT = 24;
-
     return (
-        <div className="dashboard">
-            {/* ── Page Header ─────────────────────────────────────────────── */}
-            <div className="page-header">
+        <div className="p-8 max-w-7xl mx-auto w-full space-y-6">
+            {/* Page Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200/80 pb-5">
                 <div>
-                    <h1>CDA Sent</h1>
-                    <p>Review CDA-sent transactions and highlight data mismatches between Brokerage Engine and SkySlope.</p>
+                    <h1 className="text-2xl font-bold tracking-tight text-slate-900">CDA Sent</h1>
+                    <p className="text-sm text-slate-500 mt-1">Review CDA-sent transactions and highlight data mismatches between Brokerage Engine and SkySlope.</p>
                 </div>
             </div>
 
-            {/* ── Summary Cards ────────────────────────────────────────────── */}
-            <div className="metrics-container" style={{ gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem' }}>
-                <div className="metric-card">
-                    <h3>Total CDA Sent</h3>
-                    <p className="value">{totalCdaSent.toLocaleString()}</p>
-                </div>
-                <div className="metric-card">
-                    <h3>Unmatched Transactions</h3>
-                    <p className="value danger">{unmatchedCount.toLocaleString()}</p>
-                </div>
-                <div className="metric-card">
-                    <h3>Match Rate</h3>
-                    <p className="value success">
-                        {totalCdaSent > 0
-                            ? `${(((totalCdaSent - unmatchedCount) / totalCdaSent) * 100).toFixed(1)}%`
-                            : '—'}
-                    </p>
-                </div>
-                <div className="metric-card">
-                    <h3>No SkySlope File ID</h3>
-                    <p className="value warning">{noSkyslopeCount.toLocaleString()}</p>
-                </div>
+            {/* Metrics cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <Card className="hover:border-slate-300 transition-all select-none">
+                    <CardContent className="pt-6">
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Total CDA Sent</span>
+                        <div className="text-2xl font-bold text-slate-800 mt-2">
+                            {totalCdaSent.toLocaleString()}
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card className="hover:border-red-200 hover:bg-red-50/5 transition-all select-none">
+                    <CardContent className="pt-6">
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Unmatched Transactions</span>
+                        <div className="text-2xl font-bold text-red-600 mt-2">
+                            {unmatchedCount.toLocaleString()}
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card className="hover:border-emerald-200 hover:bg-emerald-50/5 transition-all select-none">
+                    <CardContent className="pt-6">
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Match Rate</span>
+                        <div className="text-2xl font-bold text-emerald-600 mt-2">
+                            {totalCdaSent > 0
+                                ? `${(((totalCdaSent - unmatchedCount) / totalCdaSent) * 100).toFixed(1)}%`
+                                : '—'}
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card className="hover:border-amber-200 hover:bg-amber-50/5 transition-all select-none">
+                    <CardContent className="pt-6">
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">No SkySlope File ID</span>
+                        <div className="text-2xl font-bold text-amber-600 mt-2">
+                            {noSkyslopeCount.toLocaleString()}
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
 
-            {/* ── Table Card ───────────────────────────────────────────────── */}
-            <div className="table-container">
-                <div className="table-header">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-                        <h2>Transactions</h2>
+            {/* Table Card */}
+            <Card className="shadow-sm border-slate-100 overflow-hidden">
+                <div className="p-5 border-b border-slate-100 bg-slate-50/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex flex-wrap items-center gap-3">
+                        <h2 className="text-md font-bold text-slate-800">Transactions</h2>
 
-                        {/* Mismatches filter */}
-                        <div className="mismatch-toggle-group">
+                        {/* Mismatches Filter Toggle */}
+                        <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white p-0.5 overflow-hidden">
                             <button
                                 id="cda-filter-mismatch"
-                                className={`toggle-btn ${filter === 'mismatch' ? 'active' : ''}`}
+                                className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${
+                                    filter === 'mismatch'
+                                        ? 'bg-red-50 text-red-700'
+                                        : 'hover:bg-slate-50 text-slate-600'
+                                }`}
                                 onClick={() => {
                                     setFilter(f => f === 'mismatch' ? 'all' : 'mismatch');
                                     setPage(1);
@@ -165,14 +186,20 @@ function CdaSent() {
                             >
                                 Mismatches Only
                             </button>
-                            <span className="mismatch-count-badge">{unmatchedCount}</span>
+                            <span className="px-2 text-xs font-bold text-slate-500 border-l border-slate-200">
+                                {unmatchedCount}
+                            </span>
                         </div>
 
-                        {/* No SkySlope File ID filter */}
-                        <div className="mismatch-toggle-group">
+                        {/* No SkySlope Filter Toggle */}
+                        <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white p-0.5 overflow-hidden">
                             <button
                                 id="cda-filter-no-skyslope"
-                                className={`toggle-btn no-skyslope ${filter === 'no_skyslope' ? 'active' : ''}`}
+                                className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${
+                                    filter === 'no_skyslope'
+                                        ? 'bg-amber-50 text-amber-700'
+                                        : 'hover:bg-slate-50 text-slate-600'
+                                }`}
                                 onClick={() => {
                                     setFilter(f => f === 'no_skyslope' ? 'all' : 'no_skyslope');
                                     setPage(1);
@@ -181,213 +208,227 @@ function CdaSent() {
                             >
                                 No SkySlope File ID
                             </button>
-                            <span className="no-skyslope-count-badge">{noSkyslopeCount}</span>
+                            <span className="px-2 text-xs font-bold text-slate-500 border-l border-slate-200">
+                                {noSkyslopeCount}
+                            </span>
                         </div>
 
                         {(filter !== 'all' || searchQuery) && (
-                            <button
-                                className="clear-filters-btn"
+                            <Button
+                                variant="ghost"
+                                size="sm"
                                 onClick={() => { setFilter('all'); setSearchQuery(''); setPage(1); }}
+                                className="h-7 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
                             >
                                 ✕ Clear Filters
-                            </button>
+                            </Button>
                         )}
                     </div>
-                    <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
-                        Showing page {page} of {totalPages || 1}&nbsp;({filteredData.length.toLocaleString()} records)
+                    <span className="text-xs font-semibold text-slate-500">
+                        Showing page {page} of {totalPages || 1} ({filteredData.length.toLocaleString()} records)
                     </span>
                 </div>
 
-                {/* Search bar */}
-                <div className="search-filter-bar">
-                    <div className="search-input-wrapper">
-                        <svg className="search-icon" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+                {/* Search input */}
+                <div className="px-5 py-4 border-b border-slate-100 flex items-center">
+                    <div className="relative w-full max-w-lg">
+                        <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
-                        <input
+                        <Input
                             id="cda-search"
                             type="text"
-                            className="search-input"
                             placeholder="Search by Transaction ID or Property Address…"
                             value={searchQuery}
                             onChange={e => { setSearchQuery(e.target.value); setPage(1); }}
+                            className="pl-9 pr-8 w-full"
                         />
                         {searchQuery && (
-                            <button className="search-clear-btn" onClick={() => { setSearchQuery(''); setPage(1); }} aria-label="Clear search">✕</button>
+                            <button 
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold" 
+                                onClick={() => { setSearchQuery(''); setPage(1); }}
+                            >
+                                ✕
+                            </button>
                         )}
                     </div>
                 </div>
 
-                {/* Content */}
+                {/* Main Content */}
                 {loading ? (
-                    <div className="loading">
-                        <div className="spinner"></div>
-                        <p>Loading CDA Sent data…</p>
+                    <div className="p-12 flex flex-col items-center justify-center space-y-4">
+                        <svg className="animate-spin h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        <p className="text-sm font-semibold text-slate-500">Loading CDA Sent data…</p>
                     </div>
                 ) : error ? (
-                    <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--danger)' }}>
-                        <p>⚠️ Failed to load data: {error}</p>
+                    <div className="p-12 text-center max-w-sm mx-auto space-y-2">
+                        <div className="text-3xl">⚠️</div>
+                        <h3 className="text-sm font-bold text-red-600">Failed to load data</h3>
+                        <p className="text-xs text-slate-500">{error}</p>
                     </div>
                 ) : (
                     <>
-                        <div className="table-responsive">
-                            <table style={{ fontSize: '0.78rem' }}>
-                                <thead>
-                                    <tr>
-                                        {/* Fixed columns */}
-                                        <th style={{ minWidth: '130px' }}>Transaction ID</th>
-                                        <th style={{ minWidth: '220px' }}>Property Address</th>
-                                        <th style={{ minWidth: '160px' }}>Tags</th>
+                        <Table style={{ fontSize: '0.75rem' }}>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead className="min-w-[130px] font-bold">Transaction ID</TableHead>
+                                    <TableHead className="min-w-[220px] font-bold">Property Address</TableHead>
+                                    <TableHead className="min-w-[160px] font-bold">Tags</TableHead>
+                                    <TableHead className="font-semibold">BE Gross Commission</TableHead>
+                                    <TableHead className="font-semibold">SS Gross Commission</TableHead>
+                                    <TableHead className="font-semibold">Gross Commission</TableHead>
+                                    <TableHead className="font-semibold">BE Closed</TableHead>
+                                    <TableHead className="font-semibold">SS Closed</TableHead>
+                                    <TableHead className="font-semibold">Closed Date</TableHead>
+                                    <TableHead className="font-semibold">BE Sale Price</TableHead>
+                                    <TableHead className="font-semibold">SS Sale Price</TableHead>
+                                    <TableHead className="font-semibold">Sale Price</TableHead>
+                                    <TableHead className="font-semibold">BE Status</TableHead>
+                                    <TableHead className="font-semibold">SS Status</TableHead>
+                                    <TableHead className="font-semibold">Status</TableHead>
+                                    <TableHead className="font-semibold">BE Contract</TableHead>
+                                    <TableHead className="font-semibold">SS Contract</TableHead>
+                                    <TableHead className="font-semibold">Contract Date</TableHead>
+                                    <TableHead className="font-semibold">BE Listing Price</TableHead>
+                                    <TableHead className="font-semibold">SS Listing Price</TableHead>
+                                    <TableHead className="font-semibold">Listing Price</TableHead>
+                                    <TableHead className="font-semibold">BE Buyer</TableHead>
+                                    <TableHead className="font-semibold">SS Buyer</TableHead>
+                                    <TableHead className="font-semibold">Buyer</TableHead>
+                                    <TableHead className="font-semibold">BE Seller</TableHead>
+                                    <TableHead className="font-semibold">SS Seller</TableHead>
+                                    <TableHead className="font-semibold">Seller</TableHead>
+                                    <TableHead className="font-semibold text-right pr-6">Stale?</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {paginatedData.map((row, i) => {
+                                    const rowHasMismatch = hasMismatch(row);
+                                    return (
+                                        <TableRow
+                                            key={row.transaction_id || i}
+                                            className={
+                                                rowHasMismatch 
+                                                    ? 'bg-red-50/30 hover:bg-red-50/50 transition-colors' 
+                                                    : 'hover:bg-slate-50/40'
+                                            }
+                                        >
+                                            {/* Transaction ID */}
+                                            <TableCell className="font-mono text-[10px] text-slate-500 shrink-0" title={row.transaction_id}>
+                                                {row.transaction_id ? `${row.transaction_id.slice(0, 18)}…` : '—'}
+                                            </TableCell>
 
-                                        {/* Gross Commission */}
-                                        <th>BE Gross Commission</th>
-                                        <th>SS Gross Commission</th>
-                                        <th>Gross Commission</th>
+                                            {/* Property Address */}
+                                            <TableCell className="font-medium text-slate-800 text-xs truncate max-w-xs">{row.property_address || '—'}</TableCell>
 
-                                        {/* Closed Date */}
-                                        <th>BE Closed</th>
-                                        <th>SS Closed</th>
-                                        <th>Closed Date</th>
+                                            {/* Tags */}
+                                            <TableCell className="max-w-[200px] shrink-0">
+                                                {row.tags ? (
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {row.tags.split(',').map(t => t.trim()).map((tag, ti) => (
+                                                            <Badge key={ti} variant="secondary" className="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider bg-slate-100 hover:bg-slate-200/80 text-slate-600 border border-slate-200/30">
+                                                                {tag}
+                                                            </Badge>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-slate-400 font-bold">—</span>
+                                                )}
+                                            </TableCell>
 
-                                        {/* Sale Price */}
-                                        <th>BE Sale Price</th>
-                                        <th>SS Sale Price</th>
-                                        <th>Sale Price</th>
+                                            {/* Gross Commission */}
+                                            <TableCell className="text-xs font-semibold text-slate-600">{fmtCurrency(row.be_gross_commission)}</TableCell>
+                                            <TableCell className="text-xs font-semibold text-slate-600">{fmtCurrency(row.ss_gross_commission)}</TableCell>
+                                            <TableCell><CompBadge value={row.gross_commission_mismatch} /></TableCell>
 
-                                        {/* Transaction Status */}
-                                        <th>BE Status</th>
-                                        <th>SS Status</th>
-                                        <th>Status</th>
+                                            {/* Closed Date */}
+                                            <TableCell className="text-xs text-slate-500 font-medium">{fmtDate(row.be_closed_date)}</TableCell>
+                                            <TableCell className="text-xs text-slate-500 font-medium">{fmtDate(row.ss_closed_date)}</TableCell>
+                                            <TableCell><MismatchBadge mismatch={row.closed_date_mismatch} /></TableCell>
 
-                                        {/* Contract Date */}
-                                        <th>BE Contract</th>
-                                        <th>SS Contract</th>
-                                        <th>Contract Date</th>
+                                            {/* Sale Price */}
+                                            <TableCell className="text-xs font-semibold text-slate-600">{fmtCurrency(row.be_sale_price)}</TableCell>
+                                            <TableCell className="text-xs font-semibold text-slate-600">{fmtCurrency(row.ss_sale_price)}</TableCell>
+                                            <TableCell><MismatchBadge mismatch={row.sale_price_mismatch} /></TableCell>
 
-                                        {/* Listing Price */}
-                                        <th>BE Listing Price</th>
-                                        <th>SS Listing Price</th>
-                                        <th>Listing Price</th>
+                                            {/* Transaction Status */}
+                                            <TableCell className="text-xs text-slate-600 font-medium">{fmt(row.be_transaction_status)}</TableCell>
+                                            <TableCell className="text-xs text-slate-600 font-medium">{fmt(row.ss_transaction_status)}</TableCell>
+                                            <TableCell><MismatchBadge mismatch={row.transaction_status_mismatch} /></TableCell>
 
-                                        {/* Buyer */}
-                                        <th>BE Buyer</th>
-                                        <th>SS Buyer</th>
-                                        <th>Buyer</th>
+                                            {/* Contract Date */}
+                                            <TableCell className="text-xs text-slate-500 font-medium">{fmtDate(row.be_contract_date)}</TableCell>
+                                            <TableCell className="text-xs text-slate-500 font-medium">{fmtDate(row.ss_contract_date)}</TableCell>
+                                            <TableCell><MismatchBadge mismatch={row.contract_date_mismatch} /></TableCell>
 
-                                        {/* Seller */}
-                                        <th>BE Seller</th>
-                                        <th>SS Seller</th>
-                                        <th>Seller</th>
+                                            {/* Listing Price */}
+                                            <TableCell className="text-xs font-semibold text-slate-600">{fmtCurrency(row.be_listing_price)}</TableCell>
+                                            <TableCell className="text-xs font-semibold text-slate-600">{fmtCurrency(row.ss_listing_price)}</TableCell>
+                                            <TableCell><CompBadge value={row.listing_price_mismatch} /></TableCell>
 
-                                        {/* Stale — last */}
-                                        <th>Stale?</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {paginatedData.map((row, i) => {
-                                        const rowHasMismatch = hasMismatch(row);
-                                        return (
-                                            <tr
-                                                key={row.transaction_id || i}
-                                                className={rowHasMismatch ? 'mismatch' : ''}
-                                            >
-                                                {/* Transaction ID */}
-                                                <td className="cell-guid" title={row.transaction_id}>
-                                                    {row.transaction_id ? `${row.transaction_id.slice(0, 18)}…` : '—'}
-                                                </td>
+                                            {/* Buyer */}
+                                            <TableCell className="text-xs text-slate-600 max-w-[160px] truncate">{fmt(row.be_buyer_name)}</TableCell>
+                                            <TableCell className="text-xs text-slate-600 max-w-[160px] truncate">{fmt(row.ss_buyer_name)}</TableCell>
+                                            <TableCell><CompBadge value={row.buyer_name_comparison} /></TableCell>
 
-                                                {/* Property Address */}
-                                                <td className="cell-address">{row.property_address || '—'}</td>
+                                            {/* Seller */}
+                                            <TableCell className="text-xs text-slate-600 max-w-[160px] truncate">{fmt(row.be_seller_name)}</TableCell>
+                                            <TableCell className="text-xs text-slate-600 max-w-[160px] truncate">{fmt(row.ss_seller_name)}</TableCell>
+                                            <TableCell><CompBadge value={row.seller_name_comparison} /></TableCell>
 
-                                                {/* Tags */}
-                                                <td style={{ maxWidth: '200px', whiteSpace: 'normal', lineHeight: '1.4' }}>
-                                                    {row.tags
-                                                        ? row.tags.split(',').map(t => t.trim()).map((tag, ti) => (
-                                                            <span key={ti} style={{
-                                                                display: 'inline-block',
-                                                                background: 'var(--bg-card)',
-                                                                border: '1px solid var(--border)',
-                                                                borderRadius: '6px',
-                                                                padding: '2px 8px',
-                                                                marginRight: '4px',
-                                                                marginBottom: '3px',
-                                                                fontSize: '0.72rem',
-                                                                color: 'var(--text-muted)'
-                                                            }}>{tag}</span>
-                                                        ))
-                                                        : '—'}
-                                                </td>
+                                            {/* Stale */}
+                                            <TableCell className="text-right pr-6 shrink-0 select-none">
+                                                {row.is_stale ? (
+                                                    <Badge variant="destructive" className="px-1.5 py-0.5 rounded font-semibold text-[9px] capitalize">Stale</Badge>
+                                                ) : (
+                                                    <Badge variant="success" className="px-1.5 py-0.5 rounded font-semibold text-[9px] capitalize">Fresh</Badge>
+                                                )}
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })}
+                                {paginatedData.length === 0 && (
+                                    <TableRow>
+                                        <TableCell colSpan={28} className="text-center text-slate-400 py-10 font-medium">
+                                            No records found
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
 
-                                                {/* Gross Commission */}
-                                                <td>{fmtCurrency(row.be_gross_commission)}</td>
-                                                <td>{fmtCurrency(row.ss_gross_commission)}</td>
-                                                <td><CompBadge value={row.gross_commission_mismatch} /></td>
-
-                                                {/* Closed Date */}
-                                                <td>{fmtDate(row.be_closed_date)}</td>
-                                                <td>{fmtDate(row.ss_closed_date)}</td>
-                                                <td><MismatchBadge mismatch={row.closed_date_mismatch} /></td>
-
-                                                {/* Sale Price */}
-                                                <td>{fmtCurrency(row.be_sale_price)}</td>
-                                                <td>{fmtCurrency(row.ss_sale_price)}</td>
-                                                <td><MismatchBadge mismatch={row.sale_price_mismatch} /></td>
-
-                                                {/* Transaction Status */}
-                                                <td>{fmt(row.be_transaction_status)}</td>
-                                                <td>{fmt(row.ss_transaction_status)}</td>
-                                                <td><MismatchBadge mismatch={row.transaction_status_mismatch} /></td>
-
-                                                {/* Contract Date */}
-                                                <td>{fmtDate(row.be_contract_date)}</td>
-                                                <td>{fmtDate(row.ss_contract_date)}</td>
-                                                <td><MismatchBadge mismatch={row.contract_date_mismatch} /></td>
-
-                                                {/* Listing Price */}
-                                                <td>{fmtCurrency(row.be_listing_price)}</td>
-                                                <td>{fmtCurrency(row.ss_listing_price)}</td>
-                                                <td><CompBadge value={row.listing_price_mismatch} /></td>
-
-                                                {/* Buyer */}
-                                                <td style={{ maxWidth: '160px', whiteSpace: 'normal' }}>{fmt(row.be_buyer_name)}</td>
-                                                <td style={{ maxWidth: '160px', whiteSpace: 'normal' }}>{fmt(row.ss_buyer_name)}</td>
-                                                <td><CompBadge value={row.buyer_name_comparison} /></td>
-
-                                                {/* Seller */}
-                                                <td style={{ maxWidth: '160px', whiteSpace: 'normal' }}>{fmt(row.be_seller_name)}</td>
-                                                <td style={{ maxWidth: '160px', whiteSpace: 'normal' }}>{fmt(row.ss_seller_name)}</td>
-                                                <td><CompBadge value={row.seller_name_comparison} /></td>
-
-                                                {/* Stale — last */}
-                                                <td>
-                                                    {row.is_stale
-                                                        ? <span className="badge mismatch" style={{ fontSize: '0.7rem' }}>Stale</span>
-                                                        : <span className="badge match" style={{ fontSize: '0.7rem' }}>Fresh</span>}
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                    {paginatedData.length === 0 && (
-                                        <tr>
-                                            <td colSpan={28} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
-                                                No records found
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-
+                        {/* Pagination footer */}
                         {totalPages > 1 && (
-                            <div className="pagination">
-                                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>Previous</button>
-                                <span style={{ fontSize: '0.875rem' }}>Page {page} of {totalPages}</span>
-                                <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>Next</button>
+                            <div className="p-4 border-t border-slate-100 bg-slate-50/20 flex items-center justify-between">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                                    disabled={page === 1}
+                                    className="h-8 font-semibold text-xs text-slate-600"
+                                >
+                                    Previous
+                                </Button>
+                                <span className="text-xs font-semibold text-slate-500">
+                                    Page {page} of {totalPages}
+                                </span>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                                    disabled={page === totalPages}
+                                    className="h-8 font-semibold text-xs text-slate-600"
+                                >
+                                    Next
+                                </Button>
                             </div>
                         )}
                     </>
                 )}
-            </div>
+            </Card>
         </div>
     );
 }
