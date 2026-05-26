@@ -1,53 +1,127 @@
-:root {
-  font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-  color-scheme: light;
-  --bg-main: #f0f4f8; /* Light blue-gray for main background */
-  --bg-secondary: #ffffff; /* White for cards */
-  --text-main: #1e293b; /* Dark slate for text */
-  --text-muted: #64748b; /* Muted gray for secondary text */
-  --accent: #2563eb; /* Vibrant enterprise blue */
-  --accent-hover: #1d4ed8; /* Darker blue on hover */
-  --border: #e2e8f0; /* Light gray for borders */
-  --success: #059669; /* Green for matches */
-  --danger: #dc2626; /* Red for mismatches */
-  --mismatch-bg: #fef2f2; /* Light red background for mismatched rows */
+@layer base {
+  :root {
+    --background: #f8fafc; /* Slate 50 */
+    --foreground: #0f172a; /* Slate 900 */
+    
+    --card: #ffffff;
+    --card-foreground: #0f172a;
+    
+    --popover: #ffffff;
+    --popover-foreground: #0f172a;
+    
+    --primary: #2563eb; /* Blue 600 */
+    --primary-foreground: #ffffff;
+    --primary-hover: #1d4ed8;
+    
+    --secondary: #f1f5f9; /* Slate 100 */
+    --secondary-foreground: #0f172a;
+    
+    --muted: #64748b; /* Slate 500 */
+    --muted-foreground: #64748b;
+    
+    --accent: #eff6ff; /* Blue 50 */
+    --accent-foreground: #1e40af;
+    
+    --destructive: #dc2626; /* Red 600 */
+    --destructive-foreground: #ffffff;
+    
+    --success: #059669; /* Emerald 600 */
+    --success-foreground: #ffffff;
 
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+    --border: #e2e8f0; /* Slate 200 */
+    --input: #e2e8f0;
+    --ring: #3b82f6;
+    
+    --radius: 0.5rem;
+  }
 }
 
-body {
-  margin: 0;
-  display: flex;
-  min-width: 320px;
-  min-height: 100vh;
-  background-color: var(--bg-main);
-  color: var(--text-main);
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
+    margin: 0;
+    min-height: 100vh;
+  }
 }
 
-* {
-  box-sizing: border-box;
-}
-
+/* Custom scrollbars */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--bg-main);
+  @apply bg-slate-50;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 4px;
+  @apply bg-slate-300 rounded-full;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  @apply bg-slate-400;
 }
+
+/* ── Typography Enhancements ──────────────────────────────────────────────────
+   Slightly scale up body text and general labels for superior readability
+   across the entire application while locking heading texts to their original sizes.
+───────────────────────────────────────────────────────────────────────────── */
+
+/* Default base size for standard text elements */
+body {
+  font-size: 16.5px;
+}
+
+/* Non-heading utility overrides (scaled up slightly) */
+.text-xs {
+  font-size: 0.8125rem !important; /* ~13px (normally 12px) */
+}
+.text-sm {
+  font-size: 0.9375rem !important; /* ~15px (normally 14px) */
+}
+.text-base {
+  font-size: 1.0625rem !important; /* ~17px (normally 16px) */
+}
+
+/* Explicit pixel sizing overrides for labels and small metadata */
+.text-\[8px\] {
+  font-size: 9.5px !important;
+}
+.text-\[9px\] {
+  font-size: 10.5px !important;
+}
+.text-\[10px\] {
+  font-size: 11.5px !important;
+}
+.text-\[11px\] {
+  font-size: 12.5px !important;
+}
+
+/* Lock heading and display texts to their exact designed dimensions */
+h1, .text-4xl {
+  font-size: 2.25rem !important; /* 36px */
+}
+h2, .text-3xl {
+  font-size: 1.875rem !important; /* 30px */
+}
+h3, .text-2xl {
+  font-size: 1.5rem !important; /* 24px */
+}
+h4, .text-xl {
+  font-size: 1.25rem !important; /* 20px */
+}
+h5, .text-lg {
+  font-size: 1.125rem !important; /* 18px */
+}
+h6, .text-md {
+  font-size: 0.9375rem !important; /* 15px */
+}
+

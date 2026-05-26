@@ -1,5 +1,12 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import SectionedDetailView from '../components/SectionedDetailView';
+import SectionedDetailView from '../components/shared/SectionedDetailView';
+import { Button } from '../components/ui/Button';
+import { Card, CardContent } from '../components/ui/Card';
+import { Badge } from '../components/ui/Badge';
+import { Input } from '../components/ui/Input';
+import { Select } from '../components/ui/Select';
+import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogContent, DialogFooter } from '../components/ui/Dialog';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/Tabs';
 
 const BASE_URL = 'https://roa-data-backend.vercel.app';
 const fmtCurrency = v => (v != null ? `$${Number(v).toLocaleString()}` : '—');
@@ -24,11 +31,11 @@ const checkHasMismatch = (row) => {
 const COLUMNS = [
     {
         id: 'skyslope',
-        label: 'Skyslope',
-        color: '#6366f1',
-        gradientFrom: 'rgba(99,102,241,0.18)',
-        gradientTo: 'rgba(99,102,241,0.04)',
-        borderColor: 'rgba(99,102,241,0.45)',
+        label: 'SkySlope',
+        color: 'text-indigo-600',
+        borderColor: 'border-indigo-200/60',
+        badgeColor: 'bg-indigo-50 text-indigo-700 border-indigo-200/30',
+        gradientClass: 'from-indigo-50/20 to-indigo-50/5',
         apiQuery: 'skyslope=true',
         icon: (
             <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -39,10 +46,10 @@ const COLUMNS = [
     {
         id: 'pending',
         label: 'Pending',
-        color: '#f59e0b',
-        gradientFrom: 'rgba(245,158,11,0.18)',
-        gradientTo: 'rgba(245,158,11,0.04)',
-        borderColor: 'rgba(245,158,11,0.45)',
+        color: 'text-amber-500',
+        borderColor: 'border-amber-200/60',
+        badgeColor: 'bg-amber-50 text-amber-700 border-amber-200/30',
+        gradientClass: 'from-amber-50/20 to-amber-50/5',
         apiQuery: 'status=pending',
         icon: (
             <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -53,10 +60,10 @@ const COLUMNS = [
     {
         id: 'closed',
         label: 'Closed',
-        color: '#10b981',
-        gradientFrom: 'rgba(16,185,129,0.18)',
-        gradientTo: 'rgba(16,185,129,0.04)',
-        borderColor: 'rgba(16,185,129,0.45)',
+        color: 'text-emerald-500',
+        borderColor: 'border-emerald-200/60',
+        badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200/30',
+        gradientClass: 'from-emerald-50/20 to-emerald-50/5',
         apiQuery: 'status=closed',
         icon: (
             <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -67,10 +74,10 @@ const COLUMNS = [
     {
         id: 'cancelled',
         label: 'Cancelled',
-        color: '#ef4444',
-        gradientFrom: 'rgba(239,68,68,0.18)',
-        gradientTo: 'rgba(239,68,68,0.04)',
-        borderColor: 'rgba(239,68,68,0.45)',
+        color: 'text-red-500',
+        borderColor: 'border-red-200/60',
+        badgeColor: 'bg-red-50 text-red-700 border-red-200/30',
+        gradientClass: 'from-red-50/20 to-red-50/5',
         apiQuery: 'status=cancelled',
         icon: (
             <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -123,115 +130,81 @@ function SkySlopeDetailModal({ fileId, row, onClose }) {
             });
     }, [fileId, row]);
 
-    useEffect(() => {
-        const handler = e => { if (e.key === 'Escape') onClose(); };
-        window.addEventListener('keydown', handler);
-        return () => window.removeEventListener('keydown', handler);
-    }, [onClose]);
-
     return (
-        <div
-            style={{
-                position: 'fixed', inset: 0, zIndex: 1000,
-                background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(8px)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                padding: '1.5rem', animation: 'fadeIn 0.2s ease'
-            }}
-            onClick={onClose}
-        >
-            <div
-                style={{
-                    background: 'var(--bg-secondary)',
-                    border: '1px solid var(--border)',
-                    borderRadius: '16px',
-                    width: '100%', maxWidth: '880px',
-                    maxHeight: '90vh', display: 'flex', flexDirection: 'column',
-                    boxShadow: '0 32px 80px rgba(0,0,0,0.45)',
-                    overflow: 'hidden'
-                }}
-                onClick={e => e.stopPropagation()}
-            >
-                {/* Header */}
-                <div style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    padding: '1.1rem 1.5rem',
-                    borderBottom: '1px solid var(--border)',
-                    background: 'var(--bg-primary)'
-                }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-                        <span style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
-                            SkySlope Transaction Detail
-                        </span>
-                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
-                            {fileId}
-                        </span>
+        <Dialog open={true} onOpenChange={onClose} size="4xl">
+            <DialogHeader className="border-b border-slate-100 pb-3 flex flex-row items-center justify-between">
+                <div>
+                    <DialogTitle>SkySlope Transaction Detail</DialogTitle>
+                    <DialogDescription className="font-mono text-[10px] text-slate-400 mt-0.5">{fileId}</DialogDescription>
+                </div>
+            </DialogHeader>
+            <DialogContent className="p-0">
+                <Tabs className="w-full">
+                    <TabsList className="w-full rounded-none border-b border-slate-100 bg-slate-50/50 p-0 flex h-11">
+                        <TabsTrigger
+                            active={tab === 'skyslope'}
+                            onClick={() => setTab('skyslope')}
+                            className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 h-full font-bold text-xs"
+                        >
+                            SkySlope Details
+                        </TabsTrigger>
+                        <TabsTrigger
+                            active={tab === 'brokerage_engine'}
+                            onClick={() => setTab('brokerage_engine')}
+                            className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 h-full font-bold text-xs"
+                        >
+                            Brokerage Engine Record
+                        </TabsTrigger>
+                    </TabsList>
+
+                    <div className="p-5 max-h-[60vh] overflow-y-auto custom-scrollbar min-h-[250px]">
+                        {loading ? (
+                            <div className="py-12 flex flex-col items-center justify-center space-y-3">
+                                <svg className="animate-spin h-7 w-7 text-blue-600" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                </svg>
+                                <span className="text-xs font-semibold text-slate-400">Fetching transaction details…</span>
+                            </div>
+                        ) : error ? (
+                            <div className="p-8 text-center max-w-sm mx-auto bg-red-50/30 border border-red-100 rounded-xl space-y-1">
+                                <p className="font-bold text-red-600 text-sm">Failed to load details</p>
+                                <p className="text-xs text-slate-500">{error}</p>
+                            </div>
+                        ) : detailData ? (
+                            <div className="w-full">
+                                <TabsContent active={tab === 'skyslope'} className="w-full">
+                                    {detailData.skyslope ? (
+                                        <SectionedDetailView data={(() => {
+                                            const filtered = { ...detailData.skyslope };
+                                            delete filtered.transaction_specialist;
+                                            delete filtered.specialist;
+                                            delete filtered.reviewer;
+                                            delete filtered.reviewer_name;
+                                            return filtered;
+                                        })()} />
+                                    ) : (
+                                        <div className="py-12 text-center text-slate-400 text-sm font-medium">No SkySlope details found.</div>
+                                    )}
+                                </TabsContent>
+                                <TabsContent active={tab === 'brokerage_engine'} className="w-full">
+                                    {detailData.brokerage_engine ? (
+                                        <SectionedDetailView data={detailData.brokerage_engine} />
+                                    ) : (
+                                        <div className="py-12 text-center text-slate-400 text-sm font-medium">No related Brokerage Engine record found.</div>
+                                    )}
+                                </TabsContent>
+                            </div>
+                        ) : null}
                     </div>
-                    <button
-                        onClick={onClose}
-                        style={{
-                            background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border)',
-                            borderRadius: '8px', color: 'var(--text-muted)', cursor: 'pointer',
-                            width: '32px', height: '32px', display: 'flex', alignItems: 'center',
-                            justifyContent: 'center', fontSize: '1.25rem', lineHeight: 1,
-                            transition: 'background 0.15s'
-                        }}
-                    >×</button>
-                </div>
-
-                {/* Tabs */}
-                <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', background: 'var(--bg-primary)' }}>
-                    {[['skyslope', 'SkySlope Details'], ['brokerage_engine', 'Brokerage Engine Record']].map(([key, label]) => (
-                        <button
-                            key={key}
-                            onClick={() => setTab(key)}
-                            style={{
-                                flex: 1, padding: '0.85rem 1rem',
-                                background: tab === key ? 'var(--bg-secondary)' : 'transparent',
-                                border: 'none',
-                                borderBottom: tab === key ? '3px solid var(--primary)' : '3px solid transparent',
-                                color: tab === key ? 'var(--primary)' : 'var(--text-muted)',
-                                cursor: 'pointer', fontWeight: tab === key ? 600 : 500,
-                                fontSize: '0.875rem', transition: 'all 0.2s'
-                            }}
-                        >{label}</button>
-                    ))}
-                </div>
-
-                {/* Content */}
-                <div style={{ overflowY: 'auto', flex: 1, padding: '1.5rem' }}>
-                    {loading ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '3rem', gap: '1rem' }}>
-                            <div className="spinner" />
-                            <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Fetching transaction details…</span>
-                        </div>
-                    ) : error ? (
-                        <div style={{ textAlign: 'center', color: 'var(--danger)', padding: '2rem' }}>
-                            <p style={{ fontWeight: 600, fontSize: '1rem' }}>⚠️ Failed to load details</p>
-                            <p style={{ fontSize: '0.85rem', opacity: 0.75 }}>{error}</p>
-                        </div>
-                    ) : detailData ? (
-                        tab === 'skyslope' ? (
-                            detailData.skyslope ? (
-                                <SectionedDetailView data={(() => {
-                                    const filtered = { ...detailData.skyslope };
-                                    delete filtered.transaction_specialist;
-                                    delete filtered.specialist;
-                                    delete filtered.reviewer;
-                                    delete filtered.reviewer_name;
-                                    return filtered;
-                                })()} />
-                            ) : (
-                                <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '3rem' }}>No SkySlope details found.</div>
-                            )
-                        ) : (
-                            detailData.brokerage_engine
-                                ? <SectionedDetailView data={detailData.brokerage_engine} />
-                                : <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '3rem' }}>No related Brokerage Engine record found.</div>
-                        )
-                    ) : null}
-                </div>
-            </div>
-        </div>
+                </Tabs>
+            </DialogContent>
+            <DialogFooter className="p-4 border-t border-slate-100 bg-slate-50/30">
+                <Button onClick={onClose} className="h-9 font-semibold text-xs select-none">
+                    Close Details
+                </Button>
+            </DialogFooter>
+        </Dialog>
     );
 }
 
@@ -293,119 +266,86 @@ function BrokerageDetailModal({ transactionId, row, onClose }) {
             });
     }, [transactionId, row]);
 
-    useEffect(() => {
-        const handler = e => { if (e.key === 'Escape') onClose(); };
-        window.addEventListener('keydown', handler);
-        return () => window.removeEventListener('keydown', handler);
-    }, [onClose]);
-
     return (
-        <div
-            style={{
-                position: 'fixed', inset: 0, zIndex: 1000,
-                background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(8px)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                padding: '1.5rem', animation: 'fadeIn 0.2s ease'
-            }}
-            onClick={onClose}
-        >
-            <div
-                style={{
-                    background: 'var(--bg-secondary)',
-                    border: '1px solid var(--border)',
-                    borderRadius: '16px',
-                    width: '100%', maxWidth: '880px',
-                    maxHeight: '90vh', display: 'flex', flexDirection: 'column',
-                    boxShadow: '0 32px 80px rgba(0,0,0,0.45)',
-                    overflow: 'hidden'
-                }}
-                onClick={e => e.stopPropagation()}
-            >
-                {/* Header */}
-                <div style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    padding: '1.1rem 1.5rem',
-                    borderBottom: '1px solid var(--border)',
-                    background: 'var(--bg-primary)'
-                }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-                        <span style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
-                            Brokerage Engine Transaction Detail
-                        </span>
-                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
-                            {transactionId}
-                        </span>
+        <Dialog open={true} onOpenChange={onClose} size="4xl">
+            <DialogHeader className="border-b border-slate-100 pb-3 flex flex-row items-center justify-between">
+                <div>
+                    <DialogTitle>Brokerage Engine Transaction Detail</DialogTitle>
+                    <DialogDescription className="font-mono text-[10px] text-slate-400 mt-0.5">{transactionId}</DialogDescription>
+                </div>
+            </DialogHeader>
+            <DialogContent className="p-0">
+                <Tabs className="w-full">
+                    <TabsList className="w-full rounded-none border-b border-slate-100 bg-slate-50/50 p-0 flex h-11">
+                        <TabsTrigger
+                            active={tab === 'brokerage_engine'}
+                            onClick={() => setTab('brokerage_engine')}
+                            className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 h-full font-bold text-xs"
+                        >
+                            Brokerage Engine Record
+                        </TabsTrigger>
+                        <TabsTrigger
+                            active={tab === 'skyslope'}
+                            onClick={() => setTab('skyslope')}
+                            className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 h-full font-bold text-xs"
+                        >
+                            Related SkySlope Record
+                        </TabsTrigger>
+                    </TabsList>
+
+                    <div className="p-5 max-h-[60vh] overflow-y-auto custom-scrollbar min-h-[250px]">
+                        {loading ? (
+                            <div className="py-12 flex flex-col items-center justify-center space-y-3">
+                                <svg className="animate-spin h-7 w-7 text-blue-600" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                </svg>
+                                <span className="text-xs font-semibold text-slate-400">Fetching transaction details…</span>
+                            </div>
+                        ) : error ? (
+                            <div className="p-8 text-center max-w-sm mx-auto bg-red-50/30 border border-red-100 rounded-xl space-y-1">
+                                <p className="font-bold text-red-600 text-sm">Failed to load details</p>
+                                <p className="text-xs text-slate-500">{error}</p>
+                            </div>
+                        ) : detailData ? (
+                            <div className="w-full">
+                                <TabsContent active={tab === 'brokerage_engine'} className="w-full">
+                                    {detailData.brokerage_engine ? (
+                                        <SectionedDetailView data={detailData.brokerage_engine} />
+                                    ) : (
+                                        <div className="py-12 text-center text-slate-400 text-sm font-medium">No Brokerage Engine details found.</div>
+                                    )}
+                                </TabsContent>
+                                <TabsContent active={tab === 'skyslope'} className="w-full">
+                                    {detailData.skyslope && detailData.skyslope.match !== false ? (
+                                        <SectionedDetailView data={(() => {
+                                            const filtered = { ...detailData.skyslope };
+                                            delete filtered.transaction_specialist;
+                                            delete filtered.specialist;
+                                            delete filtered.reviewer;
+                                            delete filtered.reviewer_name;
+                                            return filtered;
+                                        })()} />
+                                    ) : (
+                                        <div className="py-12 text-center text-slate-400 text-sm font-medium">No related SkySlope record found.</div>
+                                    )}
+                                </TabsContent>
+                            </div>
+                        ) : null}
                     </div>
-                    <button
-                        onClick={onClose}
-                        style={{
-                            background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border)',
-                            borderRadius: '8px', color: 'var(--text-muted)', cursor: 'pointer',
-                            width: '32px', height: '32px', display: 'flex', alignItems: 'center',
-                            justifyContent: 'center', fontSize: '1.25rem', lineHeight: 1,
-                            transition: 'background 0.15s'
-                        }}
-                    >×</button>
-                </div>
-
-                {/* Tabs */}
-                <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', background: 'var(--bg-primary)' }}>
-                    {[['brokerage_engine', 'Brokerage Engine Record'], ['skyslope', 'Related SkySlope Record']].map(([key, label]) => (
-                        <button
-                            key={key}
-                            onClick={() => setTab(key)}
-                            style={{
-                                flex: 1, padding: '0.85rem 1rem',
-                                background: tab === key ? 'var(--bg-secondary)' : 'transparent',
-                                border: 'none',
-                                borderBottom: tab === key ? '3px solid var(--primary)' : '3px solid transparent',
-                                color: tab === key ? 'var(--primary)' : 'var(--text-muted)',
-                                cursor: 'pointer', fontWeight: tab === key ? 600 : 500,
-                                fontSize: '0.875rem', transition: 'all 0.2s'
-                            }}
-                        >{label}</button>
-                    ))}
-                </div>
-
-                {/* Content */}
-                <div style={{ overflowY: 'auto', flex: 1, padding: '1.5rem' }}>
-                    {loading ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '3rem', gap: '1rem' }}>
-                            <div className="spinner" />
-                            <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Fetching transaction details…</span>
-                        </div>
-                    ) : error ? (
-                        <div style={{ textAlign: 'center', color: 'var(--danger)', padding: '2rem' }}>
-                            <p style={{ fontWeight: 600, fontSize: '1rem' }}>⚠️ Failed to load details</p>
-                            <p style={{ fontSize: '0.85rem', opacity: 0.75 }}>{error}</p>
-                        </div>
-                    ) : detailData ? (
-                        tab === 'brokerage_engine' ? (
-                            detailData.brokerage_engine
-                                ? <SectionedDetailView data={detailData.brokerage_engine} />
-                                : <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '3rem' }}>No Brokerage Engine details found.</div>
-                        ) : (
-                            detailData.skyslope && detailData.skyslope.match !== false
-                                ? <SectionedDetailView data={(() => {
-                                    const filtered = { ...detailData.skyslope };
-                                    delete filtered.transaction_specialist;
-                                    delete filtered.specialist;
-                                    delete filtered.reviewer;
-                                    delete filtered.reviewer_name;
-                                    return filtered;
-                                })()} />
-                                : <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '3rem' }}>No related SkySlope record found.</div>
-                        )
-                    ) : null}
-                </div>
-            </div>
-        </div>
+                </Tabs>
+            </DialogContent>
+            <DialogFooter className="p-4 border-t border-slate-100 bg-slate-50/30">
+                <Button onClick={onClose} className="h-9 font-semibold text-xs select-none">
+                    Close Details
+                </Button>
+            </DialogFooter>
+        </Dialog>
     );
 }
 
 // ── Premium Kanban Card ──────────────────────────────────────────────────────
 function KanbanCard({ row, col, onCardClick }) {
-    // Strictly check backend comparison fields for explicit 'mismatch'
     const mismatches = {
         closeDate: row.closed_date_comparison === 'mismatch',
         contractDate: row.contract_date_comparison === 'mismatch',
@@ -445,183 +385,99 @@ function KanbanCard({ row, col, onCardClick }) {
         mismatchItems.push({ label: 'Seller Name', be: row.seller_name, ss: row.ss_seller_name });
     }
 
-    const isSkyslope = col.id === 'skyslope';
-
     return (
-        <div
-            className="kanban-card"
-            style={{
-                '--card-accent': col.color,
-                borderLeft: `3.5px solid ${hasMismatch ? 'var(--danger)' : col.color}`,
-                boxShadow: hasMismatch ? '0 2px 8px rgba(220, 38, 38, 0.08)' : 'none',
-                cursor: 'pointer',
-                padding: '0.85rem 0.95rem',
-                transition: 'transform 0.15s ease, box-shadow 0.15s ease'
-            }}
+        <Card
+            className={`cursor-pointer hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 border-l-[3.5px] overflow-hidden ${hasMismatch
+                    ? 'border-l-red-500 bg-red-50/10 hover:bg-red-50/20'
+                    : col.id === 'skyslope'
+                        ? 'border-l-indigo-500'
+                        : col.id === 'pending'
+                            ? 'border-l-amber-500'
+                            : col.id === 'closed'
+                                ? 'border-l-emerald-500'
+                                : 'border-l-red-500'
+                }`}
             onClick={() => onCardClick(row, col.id)}
             title="Click to view transaction details"
         >
-            <div className="kanban-card-header" style={{ marginBottom: '0.25rem' }}>
-                <div className="kanban-card-address" style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-primary)' }} title={row.property_address}>
-                    {row.property_address || '—'}
+            <CardContent className="p-4 space-y-3 select-none">
+                <div>
+                    <h4 className="text-xs font-bold text-slate-800 line-clamp-2 leading-tight" title={row.property_address}>
+                        {row.property_address || '—'}
+                    </h4>
                 </div>
-            </div>
-            {(col.id === 'pending' || col.id === 'closed' || col.id === 'cancelled') && (
-                <div style={{
-                    fontSize: '0.72rem',
-                    color: 'var(--text-muted)',
-                    marginBottom: '0.55rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.3rem',
-                    fontWeight: 500
-                }}>
-                    <svg width="10" height="10" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ opacity: 0.6 }}>
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                    <span
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            sessionStorage.setItem('specialist_dash_search', row.transaction_specialist || 'unassigned');
-                            window.location.hash = 'txn_specialist_dash';
-                        }}
-                        style={{
-                            cursor: 'pointer',
-                            color: row.transaction_specialist ? 'var(--primary)' : 'var(--text-muted)',
-                            transition: 'color 0.15s',
-                            fontStyle: row.transaction_specialist ? 'normal' : 'italic',
-                            opacity: row.transaction_specialist ? 1 : 0.6
-                        }}
-                        onMouseEnter={(e) => {
-                            e.currentTarget.style.color = '#818cf8';
-                            e.currentTarget.style.textDecoration = 'underline';
-                            e.currentTarget.style.opacity = '1';
-                        }}
-                        onMouseLeave={(e) => {
-                            e.currentTarget.style.color = row.transaction_specialist ? 'var(--primary)' : 'var(--text-muted)';
-                            e.currentTarget.style.textDecoration = 'none';
-                            e.currentTarget.style.opacity = row.transaction_specialist ? '1' : '0.6';
-                        }}
-                        title={`Click to view Transaction Specialist Dashboard for ${row.transaction_specialist || 'unassigned'}`}
-                    >
-                        {row.transaction_specialist || 'Unassigned'}
-                    </span>
-                </div>
-            )}
-            {col.id === 'skyslope' && (
-                <div style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '0.25rem',
-                    marginBottom: '0.55rem'
-                }}>
-                    {row.ss_status && (
-                        <div style={{
-                            fontSize: '0.72rem',
-                            color: 'var(--text-muted)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.3rem',
-                            fontWeight: 500
-                        }}>
-                            <span style={{
-                                padding: '0.1rem 0.4rem',
-                                borderRadius: '4px',
-                                fontSize: '0.65rem',
-                                fontWeight: 700,
-                                background: 'rgba(99, 102, 241, 0.12)',
-                                color: '#a5b4fc',
-                                border: '1px solid rgba(99, 102, 241, 0.25)',
-                                textTransform: 'capitalize'
-                            }}>
-                                {row.ss_status}
-                            </span>
-                        </div>
-                    )}
-                    <div style={{
-                        fontSize: '0.72rem',
-                        color: 'var(--text-muted)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.3rem',
-                        fontWeight: 500
-                    }}>
-                        <svg width="10" height="10" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ opacity: 0.6 }}>
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+
+                {col.id !== 'skyslope' ? (
+                    <div className="flex items-center gap-1 text-[10px] text-slate-400 font-semibold">
+                        <svg width="10" height="10" fill="none" stroke="currentColor" viewBox="0 0 24 24" className="opacity-60">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                         </svg>
                         <span
                             onClick={(e) => {
                                 e.stopPropagation();
-                                sessionStorage.setItem('reviewer_dash_search', row.reviewer || 'unassigned');
-                                window.location.hash = 'reviewer_dash';
+                                sessionStorage.setItem('specialist_dash_search', row.transaction_specialist || 'unassigned');
+                                window.location.hash = 'txn_specialist_dash';
                             }}
-                            style={{
-                                cursor: 'pointer',
-                                color: row.reviewer ? 'var(--primary)' : 'var(--text-muted)',
-                                transition: 'color 0.15s',
-                                fontStyle: row.reviewer ? 'normal' : 'italic',
-                                opacity: row.reviewer ? 1 : 0.6
-                            }}
-                            onMouseEnter={(e) => {
-                                e.currentTarget.style.color = '#818cf8';
-                                e.currentTarget.style.textDecoration = 'underline';
-                                e.currentTarget.style.opacity = '1';
-                            }}
-                            onMouseLeave={(e) => {
-                                e.currentTarget.style.color = row.reviewer ? 'var(--primary)' : 'var(--text-muted)';
-                                e.currentTarget.style.textDecoration = 'none';
-                                e.currentTarget.style.opacity = row.reviewer ? '1' : '0.6';
-                            }}
-                            title={`Click to view Reviewer Dashboard for ${row.reviewer || 'unassigned'}`}
+                            className={`cursor-pointer transition-colors hover:underline hover:text-blue-600 ${row.transaction_specialist ? 'text-blue-500' : 'italic text-slate-400'
+                                }`}
+                            title={`Click to view Specialist Dashboard for ${row.transaction_specialist || 'unassigned'}`}
                         >
-                            {row.reviewer || 'Unassigned'}
+                            {row.transaction_specialist || 'Unassigned'}
                         </span>
                     </div>
-                </div>
-            )}
+                ) : (
+                    <div className="space-y-1">
+                        {row.ss_status && (
+                            <div>
+                                <Badge variant="secondary" className="px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider bg-indigo-50 border border-indigo-100 text-indigo-600 rounded">
+                                    {row.ss_status}
+                                </Badge>
+                            </div>
+                        )}
+                        <div className="flex items-center gap-1 text-[10px] text-slate-400 font-semibold">
+                            <svg width="10" height="10" fill="none" stroke="currentColor" viewBox="0 0 24 24" className="opacity-60">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                            </svg>
+                            <span
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    sessionStorage.setItem('reviewer_dash_search', row.reviewer || 'unassigned');
+                                    window.location.hash = 'reviewer_dash';
+                                }}
+                                className={`cursor-pointer transition-colors hover:underline hover:text-blue-600 ${row.reviewer ? 'text-blue-500' : 'italic text-slate-400'
+                                    }`}
+                                title={`Click to view Reviewer Dashboard for ${row.reviewer || 'unassigned'}`}
+                            >
+                                {row.reviewer || 'Unassigned'}
+                            </span>
+                        </div>
+                    </div>
+                )}
 
-            {/* Mismatch items rendering — only for pending / closed / cancelled */}
-            {col.id !== 'skyslope' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
-                    {mismatchItems.map((item, index) => (
-                        <div key={index} style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '0.25rem',
-                            background: 'rgba(239, 68, 68, 0.06)',
-                            border: '1px solid rgba(239, 68, 68, 0.18)',
-                            borderRadius: '6px',
-                            padding: '0.35rem 0.5rem',
-                            fontSize: '0.72rem'
-                        }}>
-                            <div style={{ fontWeight: 700, color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                                ⚠️ {item.label} Mismatch
+                {/* Mismatches lists rendering */}
+                {col.id !== 'skyslope' && (
+                    <div className="space-y-2 pt-1 border-t border-slate-100/50">
+                        {mismatchItems.map((item, index) => (
+                            <div key={index} className="p-2 rounded bg-red-50/50 border border-red-100/60 text-[10px] space-y-1">
+                                <div className="font-bold text-red-600 flex items-center gap-1">
+                                    ⚠️ {item.label} Mismatch
+                                </div>
+                                <div className="flex justify-between text-slate-500 font-semibold font-mono text-[9px]">
+                                    <span>BE: {item.be || '—'}</span>
+                                    <span>SS: {item.ss || '—'}</span>
+                                </div>
                             </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-primary)', fontSize: '0.7rem', fontWeight: 500 }}>
-                                <span>BE: {item.be || '—'}</span>
-                                <span>SS: {item.ss || '—'}</span>
+                        ))}
+                        {mismatchItems.length === 0 && (
+                            <div className="flex items-center gap-1 text-[10px] text-emerald-600 font-semibold bg-emerald-50/40 border border-emerald-100/50 rounded p-2">
+                                <span>✅</span>
+                                <span>Matched perfectly</span>
                             </div>
-                        </div>
-                    ))}
-                    {mismatchItems.length === 0 && (
-                        <div style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.35rem',
-                            color: 'var(--success)',
-                            background: 'rgba(16, 185, 129, 0.08)',
-                            border: '1px solid rgba(16, 185, 129, 0.25)',
-                            borderRadius: '6px',
-                            padding: '0.4rem 0.5rem',
-                            fontSize: '0.72rem',
-                            fontWeight: 600
-                        }}>
-                            ✅ All matched perfectly
-                        </div>
-                    )}
-                </div>
-            )}
-        </div>
+                        )}
+                    </div>
+                )}
+            </CardContent>
+        </Card>
     );
 }
 
@@ -629,12 +485,10 @@ function KanbanCard({ row, col, onCardClick }) {
 function KanbanColumn({ col, data, loading, error, activeSpecialist, onCardClick, hasMore, loadingMore, onLoadMore, searchQuery, onSearchChange }) {
     const [search, setSearch] = useState(searchQuery || '');
 
-    // Sync local state when parent searchQuery changes (e.g. on clear all)
     useEffect(() => {
         setSearch(searchQuery || '');
     }, [searchQuery]);
 
-    // Debounce search input
     useEffect(() => {
         const timer = setTimeout(() => {
             if (search !== (searchQuery || '')) {
@@ -646,8 +500,6 @@ function KanbanColumn({ col, data, loading, error, activeSpecialist, onCardClick
 
     const filtered = useMemo(() => {
         let result = data || [];
-
-        // Display cards with mismatches first in pending, closed, and cancelled columns
         if (col.id === 'pending' || col.id === 'closed' || col.id === 'cancelled') {
             const mismatches = [];
             const matches = [];
@@ -660,7 +512,6 @@ function KanbanColumn({ col, data, loading, error, activeSpecialist, onCardClick
             }
             return [...mismatches, ...matches];
         }
-
         return result;
     }, [data, col.id]);
 
@@ -682,89 +533,78 @@ function KanbanColumn({ col, data, loading, error, activeSpecialist, onCardClick
 
     return (
         <div
-            className="kanban-column"
-            style={{
-                '--col-color': hasAnyMismatch ? '#ef4444' : col.color,
-                background: hasAnyMismatch
-                    ? 'linear-gradient(180deg, rgba(239, 68, 68, 0.08) 0%, rgba(239, 68, 68, 0.02) 100%)'
-                    : `linear-gradient(180deg, ${col.gradientFrom} 0%, ${col.gradientTo} 100%)`,
-                border: hasAnyMismatch
-                    ? '1px solid rgba(239, 68, 68, 0.35)'
-                    : `1px solid ${col.borderColor}`,
-                boxShadow: hasAnyMismatch
-                    ? '0 4px 20px rgba(239, 68, 68, 0.05)'
-                    : 'none'
-            }}
+            className={`flex flex-col h-[70vh] min-w-[280px] sm:min-w-[300px] rounded-xl border p-4 space-y-3 bg-gradient-to-b ${hasAnyMismatch
+                    ? 'border-red-200/80 from-red-50/20 to-red-50/5 shadow-sm shadow-red-500/5'
+                    : `${col.borderColor} ${col.gradientClass}`
+                }`}
         >
-            <div className="kanban-col-header">
-                <div className="kanban-col-title">
-                    <span className="kanban-col-icon" style={{ color: hasAnyMismatch ? '#ef4444' : col.color }}>{col.icon}</span>
-                    <span className="kanban-col-label">
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 font-bold text-xs text-slate-800">
+                    <span className={hasAnyMismatch ? 'text-red-500' : col.color}>{col.icon}</span>
+                    <span className="truncate max-w-[150px]">
                         {col.label}
                         {col.id === 'skyslope' && (
-                            <span style={{ fontSize: '0.72rem', fontWeight: 500, color: 'var(--text-muted)', marginLeft: '0.3rem', textTransform: 'lowercase' }}>
-                                (not in brokerage engine)
-                            </span>
+                            <span className="text-[9px] font-normal text-slate-400 block -mt-0.5">Not in Brokerage Engine</span>
                         )}
                     </span>
-                    {col.id === 'skyslope' && hasAnyMismatch && (
-                        <span className="kanban-col-mismatch-badge" style={{
-                            background: 'rgba(239, 68, 68, 0.15)',
-                            color: '#ef4444',
-                            border: '1px solid rgba(239, 68, 68, 0.35)',
-                            fontSize: '0.65rem',
-                            fontWeight: 700,
-                            padding: '0.15rem 0.45rem',
-                            borderRadius: '999px',
-                            marginLeft: '0.4rem',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '0.2rem'
-                        }}>
-                            ⚠️ Mismatch
-                        </span>
-                    )}
                 </div>
+                {col.id === 'skyslope' && hasAnyMismatch && (
+                    <Badge variant="destructive" className="px-1.5 py-0.5 rounded text-[8px] font-extrabold uppercase tracking-wider shrink-0 gap-1">
+                        ⚠️ Mismatch
+                    </Badge>
+                )}
             </div>
 
-            <div className="kanban-col-search">
-                <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ opacity: 0.5 }}>
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+            {/* Local Column Search */}
+            <div className="relative">
+                <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
-                <input
+                <Input
                     type="text"
-                    className="kanban-search-input"
                     placeholder="Filter cards…"
                     value={search}
                     onChange={e => setSearch(e.target.value)}
-                    onClick={e => e.stopPropagation()}
+                    className="pl-8 pr-7 h-8 text-[11px]"
                 />
-                {search && <button className="kanban-search-clear" onClick={() => setSearch('')}>✕</button>}
+                {search && (
+                    <button
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-[10px] font-bold"
+                        onClick={() => setSearch('')}
+                    >
+                        ✕
+                    </button>
+                )}
             </div>
 
-            <div className="kanban-cards-container" onScroll={handleScroll}>
+            {/* Scrollable Column Cards Container */}
+            <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 custom-scrollbar" onScroll={handleScroll}>
                 {loading ? (
-                    <div className="kanban-col-state">
-                        <div className="spinner" style={{ width: '24px', height: '24px', borderWidth: '2px' }} />
-                        <span>Loading…</span>
+                    <div className="py-12 flex flex-col items-center justify-center space-y-2 text-slate-400 text-xs font-medium">
+                        <svg className="animate-spin h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        <span>Loading Column…</span>
                     </div>
                 ) : error ? (
-                    <div className="kanban-col-state kanban-col-error">
-                        <span>Failed to load: {error}</span>
+                    <div className="py-8 text-center text-red-500 text-[10px] font-bold">
+                        Failed to load: {error}
                     </div>
                 ) : filtered.length === 0 ? (
-                    <div className="kanban-col-state">
-                        <span style={{ opacity: 0.4, fontSize: '0.8rem' }}>
-                            {search ? 'No matches' : 'No items'}
-                        </span>
+                    <div className="py-12 text-center text-slate-400 text-[11px] font-semibold">
+                        {search ? 'No matches' : 'No items'}
                     </div>
                 ) : (
                     <>
                         {filtered.map((row, i) => <KanbanCard key={row.id || row.transaction_id || i} row={row} col={col} onCardClick={onCardClick} />)}
                         {loadingMore && (
-                            <div style={{ display: 'flex', justifyContent: 'center', padding: '1rem', alignItems: 'center', gap: '0.5rem' }}>
-                                <div className="spinner" style={{ width: '18px', height: '18px', borderWidth: '2px' }} />
-                                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Loading more…</span>
+                            <div className="py-2 flex items-center justify-center gap-1.5 text-slate-400 text-[10px] font-semibold">
+                                <svg className="animate-spin h-3.5 w-3.5 text-blue-600" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                </svg>
+                                <span>Loading more…</span>
                             </div>
                         )}
                     </>
@@ -786,7 +626,6 @@ function MonthClosing() {
         }
     };
 
-    // Parallel fetching states per column with page, total records, and searchQuery tracking
     const [columnsState, setColumnsState] = useState({
         skyslope: { data: [], loading: true, loadingMore: false, error: null, page: 1, total: 0, hasMore: true, searchQuery: '' },
         pending: { data: [], loading: true, loadingMore: false, error: null, page: 1, total: 0, hasMore: true, searchQuery: '' },
@@ -815,14 +654,11 @@ function MonthClosing() {
         cancelled: columnsState.cancelled.error,
     }), [columnsState]);
 
-    // Options for dropdowns — populated once from the initial unfiltered load.
-    // Using a ref flag so applying filters later never overwrites these lists.
     const [stateOptions, setStateOptions] = useState([]);
     const [specialistOptions, setSpecialistOptions] = useState([]);
     const optionsPopulated = React.useRef(false);
 
     useEffect(() => {
-        // Fetch all transaction specialists from the dashboard/summary API to ensure the dropdown has everyone
         fetch(`${BASE_URL}/transaction_specialist_dashboard`)
             .then(res => res.json())
             .then(json => {
@@ -841,16 +677,13 @@ function MonthClosing() {
     }, []);
 
     useEffect(() => {
-        // Wait until all columns have finished loading
         const isLoaded = !columnsLoading.skyslope && !columnsLoading.pending &&
             !columnsLoading.closed && !columnsLoading.cancelled;
         if (!isLoaded) return;
 
-        // Only populate once — prevents filtered re-fetches from shrinking the lists
         if (optionsPopulated.current) return;
 
         const states = new Set();
-
         Object.values(columnsData).forEach(arr => {
             if (!Array.isArray(arr)) return;
             arr.forEach(row => {
@@ -859,25 +692,21 @@ function MonthClosing() {
         });
 
         if (states.size > 0) setStateOptions(Array.from(states).sort());
-
         optionsPopulated.current = true;
     }, [columnsData, columnsLoading]);
 
-    // Draft filter state
     const [draftFrom, setDraftFrom] = useState(() => sessionStorage.getItem('mc_draftFrom') || '');
     const [draftTo, setDraftTo] = useState(() => sessionStorage.getItem('mc_draftTo') || '');
     const [draftState, setDraftState] = useState(() => sessionStorage.getItem('mc_draftState') || '');
     const [draftSpecialist, setDraftSpecialist] = useState(() => sessionStorage.getItem('mc_draftSpecialist') || '');
     const [draftMismatch, setDraftMismatch] = useState(() => sessionStorage.getItem('mc_draftMismatch') === 'true');
 
-    // Applied filter state (triggers fetch)
     const [activeFrom, setActiveFrom] = useState(() => sessionStorage.getItem('mc_activeFrom') || '');
     const [activeTo, setActiveTo] = useState(() => sessionStorage.getItem('mc_activeTo') || '');
     const [activeState, setActiveState] = useState(() => sessionStorage.getItem('mc_activeState') || '');
     const [activeSpecialist, setActiveSpecialist] = useState(() => sessionStorage.getItem('mc_activeSpecialist') || '');
     const [activeMismatch, setActiveMismatch] = useState(() => sessionStorage.getItem('mc_activeMismatch') === 'true');
 
-    // Sync filters to sessionStorage to keep state across navigation unmounts
     useEffect(() => {
         sessionStorage.setItem('mc_draftFrom', draftFrom);
         sessionStorage.setItem('mc_draftTo', draftTo);
@@ -891,7 +720,6 @@ function MonthClosing() {
         sessionStorage.setItem('mc_activeMismatch', String(activeMismatch));
     }, [draftFrom, draftTo, draftState, draftSpecialist, draftMismatch, activeFrom, activeTo, activeState, activeSpecialist, activeMismatch]);
 
-    // Ref to hold search queries without triggering the main fetchData effect loop
     const searchQueriesRef = React.useRef({
         skyslope: '',
         pending: '',
@@ -899,7 +727,6 @@ function MonthClosing() {
         cancelled: ''
     });
 
-    // Helper to build URL for a single column with applied filters, page number, and search query
     const buildColumnUrl = useCallback((colQuery, pageNum, searchQuery) => {
         let url = `${BASE_URL}/month-closing/listing`;
         const params = [`page=${pageNum}`];
@@ -919,14 +746,12 @@ function MonthClosing() {
         if (activeMismatch) {
             params.push('mismatch=true');
         }
-
         if (params.length > 0) {
             url += '?' + params.join('&');
         }
         return url;
     }, [activeFrom, activeTo, activeState, activeSpecialist, activeMismatch]);
 
-    // Fetch individual column's page
     const fetchColumnPage = useCallback(async (colId, pageNum, isLoadMore = false, searchQuery = '') => {
         const col = COLUMNS.find(c => c.id === colId);
         if (!col) return;
@@ -954,7 +779,6 @@ function MonthClosing() {
 
             setColumnsState(prev => {
                 const existingData = isLoadMore ? prev[colId].data : [];
-                // Merge data and avoid duplicates
                 const merged = [...existingData];
                 fetchedData.forEach(item => {
                     const id1 = item.id || item.transaction_id || item.skyslopefileid;
@@ -992,9 +816,7 @@ function MonthClosing() {
         }
     }, [buildColumnUrl]);
 
-    // Data fetching handler
     const fetchData = useCallback(async () => {
-        // Run all column fetches for page 1 in parallel with their current search query
         await Promise.all(
             COLUMNS.map(col => {
                 const searchQ = searchQueriesRef.current[col.id];
@@ -1003,7 +825,6 @@ function MonthClosing() {
         );
     }, [fetchColumnPage]);
 
-    // Trigger initial load and loads on active filters change
     useEffect(() => {
         fetchData();
     }, [fetchData]);
@@ -1016,7 +837,6 @@ function MonthClosing() {
 
     const handleSearchChange = useCallback((colId, query) => {
         searchQueriesRef.current[colId] = query;
-
         setColumnsState(prev => {
             const currentQ = prev[colId].searchQuery || '';
             if (currentQ === query) return prev;
@@ -1033,12 +853,19 @@ function MonthClosing() {
         });
     }, [fetchColumnPage]);
 
+    // Mismatch toggle fires immediately — no need to hit Apply
+    const handleMismatchToggle = () => {
+        const next = !draftMismatch;
+        setDraftMismatch(next);
+        setActiveMismatch(next); // triggers re-fetch via buildColumnUrl dependency
+    };
+
+    // Apply only affects the other 4 draft filters; mismatch is already live
     const handleApply = () => {
         setActiveFrom(draftFrom);
         setActiveTo(draftTo);
         setActiveState(draftState.trim().toUpperCase());
         setActiveSpecialist(draftSpecialist.trim());
-        setActiveMismatch(draftMismatch);
     };
 
     const handleClear = () => {
@@ -1058,193 +885,190 @@ function MonthClosing() {
     const isAnyLoading = Object.values(columnsLoading).some(Boolean);
 
     return (
-        <>
-            <div className="dashboard">
-                {/* Header */}
-                <div className="page-header">
-                    <div>
-                        <h1>Month Closing</h1>
-                        <p>Mismatch breakdown across transactions. Click a card to expand details.</p>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                        <button className="sync-btn" onClick={fetchData} disabled={isAnyLoading} title="Refresh">
-                            <svg
-                                width="14"
-                                height="14"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                                style={{ animation: isAnyLoading ? 'spin 1s linear infinite' : 'none' }}
-                            >
-                                <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                            </svg>
-                            {isAnyLoading ? 'Loading…' : 'Refresh'}
-                        </button>
-                    </div>
+        <div className="p-8 max-w-7xl mx-auto w-full space-y-6">
+            {/* Page Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200/80 pb-5">
+                <div>
+                    <h1 className="text-2xl font-bold tracking-tight text-slate-900">Month Closing</h1>
+                    <p className="text-sm text-slate-500 mt-1">Mismatch breakdown across transactions. Click a card to expand details.</p>
                 </div>
+                <Button
+                    onClick={fetchData}
+                    disabled={isAnyLoading}
+                    className="shadow-md shadow-blue-600/10 font-semibold gap-2 h-9 select-none"
+                >
+                    <svg
+                        width="14"
+                        height="14"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                        className={isAnyLoading ? 'animate-spin' : ''}
+                    >
+                        <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    {isAnyLoading ? 'Loading…' : 'Refresh'}
+                </Button>
+            </div>
 
-                {/* Filters */}
-                <div className="mc-filter-bar">
-                    <div className="mc-filter-group">
-                        <label className="mc-filter-label">Close Date From</label>
-                        <input
-                            type="date"
-                            className="mc-filter-input"
-                            value={draftFrom}
-                            onChange={e => setDraftFrom(e.target.value)}
-                            style={{ backgroundImage: 'none' }}
-                        />
-                    </div>
-                    <div className="mc-filter-group">
-                        <label className="mc-filter-label">Close Date To</label>
-                        <input
-                            type="date"
-                            className="mc-filter-input"
-                            value={draftTo}
-                            onChange={e => setDraftTo(e.target.value)}
-                            style={{ backgroundImage: 'none' }}
-                        />
-                    </div>
-                    <div className="mc-filter-group">
-                        <label className="mc-filter-label">State</label>
-                        <select
-                            className="mc-filter-input"
-                            value={draftState}
-                            onChange={e => setDraftState(e.target.value)}
-                            style={{ appearance: 'auto', background: 'var(--bg-main, #f8fafc)', paddingRight: '1rem' }}
-                        >
-                            <option value="">All States</option>
-                            {stateOptions.map(st => (
-                                <option key={st} value={st}>{st}</option>
-                            ))}
-                        </select>
-                    </div>
-                    <div className="mc-filter-group" style={{ flex: 2 }}>
-                        <label className="mc-filter-label">Transaction Specialist</label>
-                        <select
-                            className="mc-filter-input"
-                            value={draftSpecialist}
-                            onChange={e => setDraftSpecialist(e.target.value)}
-                            style={{ appearance: 'auto', background: 'var(--bg-main, #f8fafc)', paddingRight: '1rem' }}
-                        >
-                            <option value="">All Specialists</option>
-                            <option value="UNASSIGNED">Unassigned (Null)</option>
-                            {specialistOptions.map(spec => (
-                                <option key={spec} value={spec}>{spec}</option>
-                            ))}
-                        </select>
-                    </div>
-                    <div className="mc-filter-group" style={{ flex: '0 0 auto', minWidth: '120px' }}>
-                        <label className="mc-filter-label">Mismatches Only</label>
-                        <div style={{ display: 'flex', alignItems: 'center', height: '38px' }}>
-                            <label className="switch" style={{
-                                position: 'relative',
-                                display: 'inline-block',
-                                width: '36px',
-                                height: '20px',
-                                cursor: 'pointer'
-                            }}>
-                                <input
-                                    type="checkbox"
-                                    checked={draftMismatch}
-                                    onChange={e => setDraftMismatch(e.target.checked)}
-                                    style={{
-                                        opacity: 0,
-                                        width: 0,
-                                        height: 0
-                                    }}
-                                />
-                                <span style={{
-                                    position: 'absolute',
-                                    top: 0,
-                                    left: 0,
-                                    right: 0,
-                                    bottom: 0,
-                                    backgroundColor: draftMismatch ? '#6366f1' : '#334155',
-                                    transition: '0.3s',
-                                    borderRadius: '20px',
-                                    border: '1px solid rgba(255, 255, 255, 0.1)'
-                                }}>
-                                    <span style={{
-                                        position: 'absolute',
-                                        content: '""',
-                                        height: '14px',
-                                        width: '14px',
-                                        left: draftMismatch ? '18px' : '4px',
-                                        top: '2px',
-                                        backgroundColor: 'white',
-                                        transition: '0.3s',
-                                        borderRadius: '50%',
-                                        boxShadow: '0 1px 3px rgba(0,0,0,0.4)'
-                                    }} />
+            {/* Filter Bar */}
+            <Card className="shadow-sm border-slate-100">
+                <CardContent className="p-5 space-y-3">
+                    {/* All filter controls in one aligned row */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-[1fr_1fr_1fr_1fr_auto_auto] gap-3 items-end">
+
+                        {/* Close From */}
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Close From</label>
+                            <Input
+                                type="date"
+                                value={draftFrom}
+                                onChange={e => setDraftFrom(e.target.value)}
+                                className="h-9 text-xs text-slate-700 w-full"
+                            />
+                        </div>
+
+                        {/* Close To */}
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Close To</label>
+                            <Input
+                                type="date"
+                                value={draftTo}
+                                onChange={e => setDraftTo(e.target.value)}
+                                className="h-9 text-xs text-slate-700 w-full"
+                            />
+                        </div>
+
+                        {/* State */}
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">State</label>
+                            <Select
+                                value={draftState}
+                                onChange={e => setDraftState(e.target.value)}
+                                className="h-9 text-xs w-full"
+                            >
+                                <option value="">All States</option>
+                                {stateOptions.map(st => (
+                                    <option key={st} value={st}>{st}</option>
+                                ))}
+                            </Select>
+                        </div>
+
+                        {/* Specialist */}
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Specialist</label>
+                            <Select
+                                value={draftSpecialist}
+                                onChange={e => setDraftSpecialist(e.target.value)}
+                                className="h-9 text-xs w-full"
+                            >
+                                <option value="">All Specialists</option>
+                                <option value="UNASSIGNED">Unassigned (Null)</option>
+                                {specialistOptions.map(spec => (
+                                    <option key={spec} value={spec}>{spec}</option>
+                                ))}
+                            </Select>
+                        </div>
+
+                        {/* Mismatch toggle — same row, same height */}
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Mismatches</label>
+                            <button
+                                type="button"
+                                onClick={handleMismatchToggle}
+                                disabled={isAnyLoading}
+                                className={`h-9 inline-flex items-center gap-2 px-3 rounded-md border text-xs font-semibold transition-all select-none whitespace-nowrap disabled:opacity-60 disabled:cursor-not-allowed ${draftMismatch
+                                        ? 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100/70'
+                                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                                    }`}
+                            >
+                                <span className={`relative flex-shrink-0 inline-block w-7 h-4 rounded-full transition-colors duration-200 ${draftMismatch ? 'bg-red-500' : 'bg-slate-200'}`}>
+                                    <span className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow-sm transition-all duration-200 ${draftMismatch ? 'left-3.5' : 'left-0.5'}`} />
                                 </span>
-                            </label>
+                                Only Mismatches
+                            </button>
+                        </div>
+
+                        {/* Clear + Apply — same row, bottom-aligned */}
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-transparent uppercase tracking-wider block select-none pointer-events-none">·</label>
+                            <div className="flex items-center gap-2">
+                                {(hasActive || draftFrom || draftTo || draftState || draftSpecialist || draftMismatch) && (
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={handleClear}
+                                        className="h-9 px-3 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 font-bold shrink-0"
+                                    >
+                                        Clear
+                                    </Button>
+                                )}
+                                <Button
+                                    size="sm"
+                                    onClick={handleApply}
+                                    disabled={isAnyLoading}
+                                    className="h-9 px-4 text-xs font-semibold shrink-0"
+                                >
+                                    Apply
+                                </Button>
+                            </div>
                         </div>
                     </div>
-                    <div className="mc-filter-actions">
-                        <button className="mc-apply-btn" onClick={handleApply} disabled={isAnyLoading}>Apply</button>
-                        {(hasActive || draftFrom || draftTo || draftState || draftSpecialist || draftMismatch) && (
-                            <button className="mc-clear-btn" onClick={handleClear}>Clear</button>
-                        )}
-                    </div>
-                    {hasActive && (
-                        <div className="mc-active-chips">
-                            {activeFrom && <span className="mc-chip">From: {activeFrom}</span>}
-                            {activeTo && <span className="mc-chip">To: {activeTo}</span>}
-                            {activeState && <span className="mc-chip">State: {activeState}</span>}
-                            {activeSpecialist && <span className="mc-chip">Specialist: {activeSpecialist}</span>}
-                            {activeMismatch && <span className="mc-chip" style={{ background: 'rgba(239, 68, 68, 0.15)', borderColor: 'rgba(239, 68, 68, 0.35)', color: '#ef4444' }}>⚠️ Mismatches Only</span>}
+
+                    {/* Active filter badges */}
+                    {(activeFrom || activeTo || activeState || activeSpecialist || activeMismatch) && (
+                        <div className="flex flex-wrap gap-1.5 pt-1 border-t border-slate-100/60">
+                            {activeFrom && <Badge variant="secondary" className="text-[9px] font-bold">From: {activeFrom}</Badge>}
+                            {activeTo && <Badge variant="secondary" className="text-[9px] font-bold">To: {activeTo}</Badge>}
+                            {activeState && <Badge variant="secondary" className="text-[9px] font-bold">State: {activeState}</Badge>}
+                            {activeSpecialist && <Badge variant="secondary" className="text-[9px] font-bold">Specialist: {activeSpecialist}</Badge>}
+                            {activeMismatch && <Badge variant="destructive" className="text-[9px] font-bold uppercase tracking-wider">⚠️ Mismatches Only</Badge>}
                         </div>
                     )}
-                </div>
+                </CardContent>
+            </Card>
 
-                {/* Scrollable board wrapper */}
-                <div className="kanban-scroll-wrapper">
-                    {/* Summary row */}
-                    <div className="kanban-summary-row">
-                        {COLUMNS.map(col => {
-                            const count = columnsState[col.id].total || 0;
-                            return (
-                                <div key={col.id} className="month-closing-summary-card" style={{ borderTop: `3px solid ${col.color}` }}>
-                                    <div className="month-closing-summary-icon" style={{ color: col.color }}>{col.icon}</div>
-                                    <div>
-                                        <div className="month-closing-summary-label">
-                                            {col.label}
-                                            {col.id === 'skyslope' && (
-                                                <div style={{ fontSize: '0.62rem', fontWeight: 500, color: 'var(--text-muted)', textTransform: 'lowercase', marginTop: '2px', lineHeight: 1.1 }}>
-                                                    (not in brokerage engine)
-                                                </div>
-                                            )}
-                                        </div>
-                                        <div className="month-closing-summary-value" style={{ color: col.color }}>
-                                            {columnsLoading[col.id] ? '…' : columnsError[col.id] ? 'Err' : count.toLocaleString()}
-                                        </div>
+            {/* Kanban summary numbers */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {COLUMNS.map(col => {
+                    const count = columnsState[col.id].total || 0;
+                    return (
+                        <Card key={col.id} className="hover:border-slate-300 transition-all select-none">
+                            <CardContent className="pt-5 flex items-center justify-between">
+                                <div>
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                                        {col.label}
+                                        {col.id === 'skyslope' && <span className="text-[8px] lowercase font-semibold block text-slate-400 leading-none mt-0.5">(not in BE)</span>}
+                                    </span>
+                                    <div className="text-xl font-black text-slate-800 mt-1.5">
+                                        {columnsLoading[col.id] ? '…' : columnsError[col.id] ? 'Err' : count.toLocaleString()}
                                     </div>
                                 </div>
-                            );
-                        })}
-                    </div>
+                                <span className={`p-2 rounded-lg bg-slate-50 border border-slate-100 ${col.color}`}>{col.icon}</span>
+                            </CardContent>
+                        </Card>
+                    );
+                })}
+            </div>
 
-                    {/* Kanban board */}
-                    <div className="kanban-board">
-                        {COLUMNS.map(col => (
-                            <KanbanColumn
-                                key={col.id}
-                                col={col}
-                                data={columnsData[col.id]}
-                                loading={columnsLoading[col.id]}
-                                error={columnsError[col.id]}
-                                activeSpecialist={activeSpecialist}
-                                onCardClick={handleCardClick}
-                                hasMore={columnsState[col.id].hasMore}
-                                loadingMore={columnsState[col.id].loadingMore}
-                                onLoadMore={() => handleLoadMore(col.id)}
-                                searchQuery={columnsState[col.id].searchQuery}
-                                onSearchChange={(query) => handleSearchChange(col.id, query)}
-                            />
-                        ))}
-                    </div>
-                </div>
+            {/* Kanban Board Container */}
+            <div className="flex gap-4 overflow-x-auto pb-4 custom-scrollbar select-none items-start">
+                {COLUMNS.map(col => (
+                    <KanbanColumn
+                        key={col.id}
+                        col={col}
+                        data={columnsData[col.id]}
+                        loading={columnsLoading[col.id]}
+                        error={columnsError[col.id]}
+                        activeSpecialist={activeSpecialist}
+                        onCardClick={handleCardClick}
+                        hasMore={columnsState[col.id].hasMore}
+                        loadingMore={columnsState[col.id].loadingMore}
+                        onLoadMore={() => handleLoadMore(col.id)}
+                        searchQuery={columnsState[col.id].searchQuery}
+                        onSearchChange={(query) => handleSearchChange(col.id, query)}
+                    />
+                ))}
             </div>
 
             {/* Detail Modals */}
@@ -1262,7 +1086,7 @@ function MonthClosing() {
                     onClose={() => setSelectedDetail(null)}
                 />
             )}
-        </>
+        </div>
     );
 }
 

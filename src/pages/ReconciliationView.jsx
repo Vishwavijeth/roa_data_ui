@@ -1,7 +1,19 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { utils, writeFile } from 'xlsx';
 import { PARAMETERS, API_BASE, ROWS_PER_PAGE, getResult } from '../constants';
-import { IconDownload } from '../components/Icons';
+import { Button } from '../components/ui/Button';
+import { Card, CardContent } from '../components/ui/Card';
+import { Badge } from '../components/ui/Badge';
+import { Input } from '../components/ui/Input';
+import { Skeleton } from '../components/ui/Skeleton';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '../components/ui/Table';
 
 function ReconciliationView() {
     const getInitialParam = () => {
@@ -164,7 +176,6 @@ function ReconciliationView() {
         const noSkyslope = withResult.filter(r => getResult(r) === 'no_skyslope_record').length;
         const matches = withResult.filter(r => getResult(r) === 'match').length;
         const mismatches = apiMismatchCount != null ? apiMismatchCount : withResult.filter(r => getResult(r) === 'mismatch').length;
-        // Base for percentages: only match + mismatch (exclude no_skyslope_record)
         const comparedBase = matches + mismatches || 1;
         return {
             total: data.length,
@@ -213,7 +224,6 @@ function ReconciliationView() {
     const handleDownload = async () => {
         setDownloading(true);
         try {
-            // Fetch all parameter data in parallel
             const results = await Promise.all(
                 PARAMETERS.map(async (param) => {
                     try {
@@ -253,7 +263,6 @@ function ReconciliationView() {
                 })
             );
 
-            // Build a map keyed by saleguid, merging all parameter columns
             const mergedMap = new Map();
             results.forEach(({ param, data: rows }) => {
                 rows.forEach(row => {
@@ -267,7 +276,6 @@ function ReconciliationView() {
                         });
                     }
                     const entry = mergedMap.get(key);
-                    // Use the property address from any row that has it
                     if (!entry.propertyaddress && row.propertyaddress) entry.propertyaddress = row.propertyaddress;
                     entry[`SS_${param.label}`] = row[param.skyslopeKey] != null ? String(row[param.skyslopeKey]) : '';
                     entry[`BE_${param.label}`] = row[param.beKey] != null ? String(row[param.beKey]) : '';
@@ -288,213 +296,335 @@ function ReconciliationView() {
     };
 
     return (
-        <div className="dashboard">
-            {/* Page header */}
-            <div className="page-header">
+        <div className="p-8 max-w-7xl mx-auto w-full space-y-8">
+            {/* Page Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200/80 pb-5">
                 <div>
-                    <h1>Transaction Reconciliation</h1>
-                    <p>Compare transaction data across Brokerage Engine and SkySlope.</p>
+                    <h1 className="text-2xl font-bold tracking-tight text-slate-900">Transaction Reconciliation</h1>
+                    <p className="text-sm text-slate-500 mt-1">Compare transaction data across Brokerage Engine and SkySlope.</p>
                 </div>
-                <button className="export-btn" onClick={handleDownload} disabled={downloading}>
-                    <IconDownload /> {downloading ? 'Generating Report…' : 'Download Report'}
-                </button>
+                <Button 
+                    onClick={handleDownload} 
+                    disabled={downloading}
+                    className="shadow-lg shadow-blue-600/10 font-semibold gap-2 select-none"
+                >
+                    <svg className={`h-4 w-4 ${downloading ? 'animate-bounce' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    {downloading ? 'Generating Report…' : 'Download Report'}
+                </Button>
             </div>
 
-            {/* Metric cards */}
-            <div className="metrics-container">
-                <div className="metric-card">
-                    <h3>Total Records</h3>
-                    <p className="value">
-                        {statsLoading ? (
-                            <span className="dot-elastic"><span></span><span></span><span></span></span>
-                        ) : (
-                            stats.total.toLocaleString()
-                        )}
-                    </p>
-                </div>
-                <div className="metric-card">
-                    <h3>Match Percentage</h3>
-                    <p className="value success">
-                        {statsLoading ? (
-                            <span className="dot-elastic"><span></span><span></span><span></span></span>
-                        ) : (
-                            `${stats.matchPct}%`
-                        )}
-                    </p>
-                </div>
-                <div className="metric-card">
-                    <h3>Mismatch Percentage</h3>
-                    <p className="value danger">
-                        {statsLoading ? (
-                            <span className="dot-elastic"><span></span><span></span><span></span></span>
-                        ) : (
-                            `${stats.mismatchPct}%`
-                        )}
-                    </p>
-                </div>
-                <div className="metric-card">
-                    <h3>No SkySlope File ID</h3>
-                    <p className="value warning">
-                        {statsLoading ? (
-                            <span className="dot-elastic"><span></span><span></span><span></span></span>
-                        ) : (
-                            stats.noSkyslopeCount.toLocaleString()
-                        )}
-                    </p>
-                </div>
+            {/* Metrics cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <Card className="hover:border-slate-300 transition-all select-none">
+                    <CardContent className="pt-6">
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Total Records</span>
+                        <div className="text-2xl font-bold text-slate-800 mt-2">
+                            {statsLoading ? (
+                                <Skeleton className="h-8 w-24 mt-1" />
+                            ) : (
+                                stats.total.toLocaleString()
+                            )}
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card className="hover:border-emerald-200 hover:bg-emerald-50/5 transition-all select-none">
+                    <CardContent className="pt-6">
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Match Percentage</span>
+                        <div className="text-2xl font-bold text-emerald-600 mt-2">
+                            {statsLoading ? (
+                                <Skeleton className="h-8 w-20 mt-1" />
+                            ) : (
+                                `${stats.matchPct}%`
+                            )}
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card className="hover:border-red-200 hover:bg-red-50/5 transition-all select-none">
+                    <CardContent className="pt-6">
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Mismatch Percentage</span>
+                        <div className="text-2xl font-bold text-red-600 mt-2">
+                            {statsLoading ? (
+                                <Skeleton className="h-8 w-20 mt-1" />
+                            ) : (
+                                `${stats.mismatchPct}%`
+                            )}
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card className="hover:border-amber-200 hover:bg-amber-50/5 transition-all select-none">
+                    <CardContent className="pt-6">
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">No SkySlope File ID</span>
+                        <div className="text-2xl font-bold text-amber-600 mt-2">
+                            {statsLoading ? (
+                                <Skeleton className="h-8 w-16 mt-1" />
+                            ) : (
+                                stats.noSkyslopeCount.toLocaleString()
+                            )}
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
 
-            {/* Parameter chips */}
-            <div className="parameters-section">
-                <h2>Comparison Parameters</h2>
-                <div className="chips-container">
+            {/* Comparison Parameters Chips */}
+            <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm space-y-4">
+                <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Comparison Parameters</h2>
+                <div className="flex flex-wrap gap-2">
                     {(() => {
                         const orderedIds = ['gross_commission', 'close_date', 'status', 'saleprice'];
                         const orderedParams = [
                             ...orderedIds.map(id => PARAMETERS.find(p => p.id === id)).filter(Boolean),
                             ...PARAMETERS.filter(p => !orderedIds.includes(p.id))
                         ];
-                        return orderedParams.map(param => (
-                            <button
-                                key={param.id}
-                                className={`chip ${activeParam.id === param.id ? 'active' : ''}`}
-                                onClick={() => { setActiveParam(param); setShowOnlyMismatches(false); setShowNoSkyslope(false); setSearchQuery(''); setPage(1); }}
-                            >
-                                {param.label}
-                            </button>
-                        ));
+                        return orderedParams.map(param => {
+                            const isSelected = activeParam.id === param.id;
+                            return (
+                                <Button
+                                    key={param.id}
+                                    variant={isSelected ? 'default' : 'outline'}
+                                    size="sm"
+                                    onClick={() => {
+                                        setActiveParam(param);
+                                        setShowOnlyMismatches(false);
+                                        setShowNoSkyslope(false);
+                                        setSearchQuery('');
+                                        setPage(1);
+                                    }}
+                                    className={`rounded-full px-4 h-8 text-xs font-semibold ${
+                                        isSelected 
+                                            ? 'shadow-sm' 
+                                            : 'hover:bg-slate-50'
+                                    }`}
+                                >
+                                    {param.label}
+                                </Button>
+                            );
+                        });
                     })()}
                 </div>
             </div>
 
-            {/* Table card */}
-            <div className="table-container">
-                <div className="table-header">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                        <h2>{activeParam.label}</h2>
-                        <div className="mismatch-toggle-group">
+            {/* Table Container Card */}
+            <Card className="shadow-sm border-slate-100 overflow-hidden">
+                {/* Table top filtering bar */}
+                <div className="p-5 border-b border-slate-100 bg-slate-50/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex flex-wrap items-center gap-3">
+                        <h2 className="text-md font-bold text-slate-800">{activeParam.label}</h2>
+                        
+                        {/* Mismatches filter toggle */}
+                        <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white p-0.5 overflow-hidden">
                             <button
-                                className={`toggle-btn ${showOnlyMismatches ? 'active' : ''}`}
-                                onClick={() => { setShowOnlyMismatches(!showOnlyMismatches); if (!showOnlyMismatches) setShowNoSkyslope(false); setPage(1); }}
-                            >Mismatches</button>
-                            <span className="mismatch-count-badge" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                                className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${
+                                    showOnlyMismatches 
+                                        ? 'bg-red-50 text-red-700' 
+                                        : 'hover:bg-slate-50 text-slate-600'
+                                }`}
+                                onClick={() => {
+                                    setShowOnlyMismatches(!showOnlyMismatches);
+                                    if (!showOnlyMismatches) setShowNoSkyslope(false);
+                                    setPage(1);
+                                }}
+                            >
+                                Mismatches
+                            </button>
+                            <span className="px-2 text-xs font-bold text-slate-500 border-l border-slate-200">
                                 {statsLoading ? (
-                                    <span className="dot-elastic badge-dots"><span></span><span></span><span></span></span>
+                                    <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" /><span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:0.2s]" /></span>
                                 ) : (
                                     stats.mismatchCount
                                 )}
                             </span>
                         </div>
-                        <div className="mismatch-toggle-group">
+
+                        {/* No SkySlope toggle */}
+                        <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white p-0.5 overflow-hidden">
                             <button
-                                className={`toggle-btn no-skyslope ${showNoSkyslope ? 'active' : ''}`}
-                                onClick={() => { setShowNoSkyslope(!showNoSkyslope); if (!showNoSkyslope) setShowOnlyMismatches(false); setPage(1); }}
-                            >No SkySlope File ID</button>
-                            <span className="no-skyslope-count-badge" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                                className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${
+                                    showNoSkyslope 
+                                        ? 'bg-amber-50 text-amber-700' 
+                                        : 'hover:bg-slate-50 text-slate-600'
+                                }`}
+                                onClick={() => {
+                                    setShowNoSkyslope(!showNoSkyslope);
+                                    if (!showNoSkyslope) setShowOnlyMismatches(false);
+                                    setPage(1);
+                                }}
+                            >
+                                No SkySlope File ID
+                            </button>
+                            <span className="px-2 text-xs font-bold text-slate-500 border-l border-slate-200">
                                 {statsLoading ? (
-                                    <span className="dot-elastic badge-dots"><span></span><span></span><span></span></span>
+                                    <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" /><span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:0.2s]" /></span>
                                 ) : (
                                     stats.noSkyslopeCount
                                 )}
                             </span>
                         </div>
+
                         {(showOnlyMismatches || showNoSkyslope || searchQuery) && (
-                            <button
-                                className="clear-filters-btn"
-                                onClick={() => { setShowOnlyMismatches(false); setShowNoSkyslope(false); setSearchQuery(''); setPage(1); }}
-                            >✕ Clear Filters</button>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                    setShowOnlyMismatches(false);
+                                    setShowNoSkyslope(false);
+                                    setSearchQuery('');
+                                    setPage(1);
+                                }}
+                                className="h-7 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                            >
+                                ✕ Clear Filters
+                            </Button>
                         )}
                     </div>
-                    <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+                    <span className="text-xs font-semibold text-slate-500">
                         Showing page {page} of {totalPages || 1}
                     </span>
                 </div>
 
-                {/* Search */}
-                <div className="search-filter-bar">
-                    <div className="search-input-wrapper">
-                        <svg className="search-icon" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+                {/* Search Bar */}
+                <div className="px-5 py-4 border-b border-slate-100 flex items-center">
+                    <div className="relative w-full max-w-lg">
+                        <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
-                        <input
-                            id="table-search" type="text" className="search-input"
+                        <Input
+                            id="table-search"
+                            type="text"
                             placeholder="Search by Transaction ID, Sale Guid, or Property Address…"
                             value={searchQuery}
                             onChange={e => { setSearchQuery(e.target.value); setPage(1); }}
+                            className="pl-9 pr-8 w-full"
                         />
                         {searchQuery && (
-                            <button className="search-clear-btn" onClick={() => { setSearchQuery(''); setPage(1); }} aria-label="Clear search">✕</button>
+                            <button 
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold" 
+                                onClick={() => { setSearchQuery(''); setPage(1); }}
+                            >
+                                ✕
+                            </button>
                         )}
                     </div>
                 </div>
 
-                {/* Content */}
+                {/* Main Table */}
                 {loading ? (
-                    <div className="loading">
-                        <div className="spinner"></div>
-                        <p>Loading {activeParam.label} data…</p>
+                    <div className="p-12 flex flex-col items-center justify-center space-y-4">
+                        <svg className="animate-spin h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        <p className="text-sm font-semibold text-slate-500">Loading {activeParam.label} data…</p>
                     </div>
                 ) : error ? (
-                    <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--danger)' }}>
-                        <p>⚠️ Failed to load data: {error}</p>
-                        <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
-                            Make sure the API server is running at <code>{API_BASE}</code>
+                    <div className="p-12 text-center max-w-md mx-auto space-y-2">
+                        <div className="text-3xl">⚠️</div>
+                        <h3 className="text-sm font-bold text-red-600">Failed to load data</h3>
+                        <p className="text-xs text-slate-500">{error}</p>
+                        <p className="text-[11px] text-slate-400 pt-2 border-t border-slate-100 mt-2">
+                            Verify the backend service is running at <code>{API_BASE}</code>
                         </p>
                     </div>
                 ) : (
                     <>
-                        <div className="table-responsive">
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Sale Guid</th>
-                                        <th>Transaction ID</th>
-                                        <th>Property Address</th>
-                                        <th>SkySlope {activeParam.label}</th>
-                                        <th>BE {activeParam.label}</th>
-                                        <th>Result</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {paginatedData.map((row, i) => {
-                                        const resultVal = getResult(row);
-                                        const isMismatch = resultVal === 'mismatch';
-                                        const isNoSkyslope = resultVal === 'no_skyslope_record';
-                                        const skVal = row[activeParam.skyslopeKey];
-                                        const beVal = row[activeParam.beKey];
-                                        return (
-                                            <tr key={i} className={isMismatch ? 'mismatch' : isNoSkyslope ? 'no-skyslope' : ''}>
-                                                <td className="cell-guid">{row.saleguid || '-'}</td>
-                                                <td className="cell-guid">{row.transactionId || row.transactionid || '-'}</td>
-                                                <td className="cell-address">{row.propertyaddress || '-'}</td>
-                                                <td>{skVal != null ? String(skVal) : 'null'}</td>
-                                                <td>{beVal != null ? String(beVal) : 'null'}</td>
-                                                <td>
-                                                    {resultVal
-                                                        ? <span className={`badge ${resultVal}`}>{resultVal}</span>
-                                                        : <span style={{ color: 'var(--text-muted)' }}>—</span>}
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                    {paginatedData.length === 0 && (
-                                        <tr>
-                                            <td colSpan={6} style={{ textAlign: 'center', padding: '2rem' }}>No data available</td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead className="w-1/6">Sale Guid</TableHead>
+                                    <TableHead className="w-1/6">Transaction ID</TableHead>
+                                    <TableHead className="w-1/3">Property Address</TableHead>
+                                    <TableHead className="w-1/8">SkySlope {activeParam.label}</TableHead>
+                                    <TableHead className="w-1/8">BE {activeParam.label}</TableHead>
+                                    <TableHead className="w-1/8 text-right pr-6">Result</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {paginatedData.map((row, i) => {
+                                    const resultVal = getResult(row);
+                                    const isMismatch = resultVal === 'mismatch';
+                                    const isNoSkyslope = resultVal === 'no_skyslope_record';
+                                    const skVal = row[activeParam.skyslopeKey];
+                                    const beVal = row[activeParam.beKey];
+                                    return (
+                                        <TableRow 
+                                            key={i} 
+                                            className={
+                                                isMismatch 
+                                                    ? 'bg-red-50/40 hover:bg-red-50/60 transition-colors' 
+                                                    : isNoSkyslope 
+                                                        ? 'bg-amber-50/20 hover:bg-amber-50/40 transition-colors' 
+                                                        : 'hover:bg-slate-50/40'
+                                            }
+                                        >
+                                            <TableCell className="font-mono text-xs text-slate-500 shrink-0">{row.saleguid || '-'}</TableCell>
+                                            <TableCell className="font-mono text-xs text-slate-500 shrink-0">{row.transactionId || row.transactionid || '-'}</TableCell>
+                                            <TableCell className="font-medium text-slate-800 text-xs max-w-xs truncate">{row.propertyaddress || '-'}</TableCell>
+                                            <TableCell className="text-xs font-semibold text-slate-600">{skVal != null ? String(skVal) : 'null'}</TableCell>
+                                            <TableCell className="text-xs font-semibold text-slate-600">{beVal != null ? String(beVal) : 'null'}</TableCell>
+                                            <TableCell className="text-right pr-6 shrink-0 select-none">
+                                                {resultVal ? (
+                                                    <Badge 
+                                                        variant={
+                                                            resultVal === 'match' 
+                                                                ? 'success' 
+                                                                : resultVal === 'mismatch' 
+                                                                    ? 'destructive' 
+                                                                    : 'warning'
+                                                        }
+                                                        className="capitalize px-2 py-0.5 rounded text-[10px]"
+                                                    >
+                                                        {resultVal.replace(/_/g, ' ')}
+                                                    </Badge>
+                                                ) : (
+                                                    <span className="text-slate-400 font-bold">—</span>
+                                                )}
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })}
+                                {paginatedData.length === 0 && (
+                                    <TableRow>
+                                        <TableCell colSpan={6} className="text-center text-slate-400 py-10 font-medium">
+                                            No data available
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+
+                        {/* Pagination footer */}
                         {totalPages > 1 && (
-                            <div className="pagination">
-                                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>Previous</button>
-                                <span style={{ fontSize: '0.875rem' }}>Page {page} of {totalPages}</span>
-                                <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>Next</button>
+                            <div className="p-4 border-t border-slate-100 bg-slate-50/20 flex items-center justify-between">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                                    disabled={page === 1}
+                                    className="h-8 select-none font-semibold text-xs text-slate-600"
+                                >
+                                    Previous
+                                </Button>
+                                <span className="text-xs font-semibold text-slate-500">
+                                    Page {page} of {totalPages}
+                                </span>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                                    disabled={page === totalPages}
+                                    className="h-8 select-none font-semibold text-xs text-slate-600"
+                                >
+                                    Next
+                                </Button>
                             </div>
                         )}
                     </>
                 )}
-            </div>
+            </Card>
         </div>
     );
 }

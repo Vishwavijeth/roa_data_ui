@@ -1,9 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { utils, writeFile } from 'xlsx';
 import { REVIEWER_API, ROWS_PER_PAGE } from '../constants';
-import { IconDownload } from '../components/Icons';
+import { IconDownload } from '../components/shared/Icons';
 import { extractState } from '../utils/helpers';
-import MultiSelect from '../components/MultiSelect';
+import MultiSelect from '../components/shared/MultiSelect';
+import { Button } from '../components/ui/Button';
+import { Card, CardContent } from '../components/ui/Card';
+import { Badge } from '../components/ui/Badge';
+import { Input } from '../components/ui/Input';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
 
 function ReviewerListingView() {
     const [data, setData] = useState([]);
@@ -122,186 +127,239 @@ function ReviewerListingView() {
     };
 
     return (
-        <div className="dashboard">
-            <div className="page-header">
+        <div className="p-8 max-w-7xl mx-auto w-full space-y-6">
+            {/* Page Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200/80 pb-5">
                 <div>
-                    <h1>Reviewer Listing</h1>
-                    <p>View and filter reviewer assignments and transaction statuses.</p>
+                    <h1 className="text-2xl font-bold tracking-tight text-slate-900">Reviewer Listing</h1>
+                    <p className="text-sm text-slate-500 mt-1">View and filter reviewer assignments and transaction statuses.</p>
                 </div>
-                <button className="export-btn" onClick={handleDownload} disabled={!data.length}>
+                <Button
+                    onClick={handleDownload}
+                    disabled={!data.length}
+                    className="font-semibold text-xs gap-2 h-9 shadow-md shadow-blue-600/10"
+                >
                     <IconDownload /> Download Report
-                </button>
+                </Button>
             </div>
 
-            <div className="table-container">
-                <div className="table-header">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        <h2>Transactions</h2>
+            {/* Table Card */}
+            <Card className="shadow-sm border-slate-100 overflow-hidden">
+                <div className="p-5 border-b border-slate-100 bg-slate-50/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex items-center gap-2">
+                        <h2 className="text-md font-bold text-slate-800">Transactions</h2>
                         {data.length > 0 && (
-                            <span className="record-count-badge">{filteredData.length.toLocaleString()} records</span>
+                            <Badge variant="secondary" className="px-2 py-0.5 font-bold text-[10px] rounded">
+                                {filteredData.length.toLocaleString()} records
+                            </Badge>
                         )}
                     </div>
-                    <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+                    <span className="text-xs font-semibold text-slate-500">
                         Showing page {page} of {totalPages || 1}
                     </span>
                 </div>
 
-                {/* Search */}
-                <div className="search-filter-bar">
-                    <div className="search-input-wrapper" style={{ flex: 1 }}>
-                        <svg className="search-icon" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+                {/* Search and Filters grid */}
+                <div className="p-5 border-b border-slate-100 bg-white space-y-4">
+                    <div className="relative w-full max-w-lg">
+                        <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
-                        <input
-                            id="rev-search" type="text" className="search-input"
+                        <Input
+                            id="rev-search"
+                            type="text"
                             placeholder="Search by Sale GUID or Property Address…"
                             value={searchQuery}
                             onChange={e => { setSearchQuery(e.target.value); setPage(1); }}
+                            className="pl-9 pr-8 w-full"
                         />
                         {searchQuery && (
-                            <button className="search-clear-btn" onClick={() => { setSearchQuery(''); setPage(1); }} aria-label="Clear search">✕</button>
+                            <button
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold"
+                                onClick={() => { setSearchQuery(''); setPage(1); }}
+                            >
+                                ✕
+                            </button>
                         )}
                     </div>
-                </div>
 
-                {/* Filters */}
-                <div className="txn-filters-grid">
-                    <div className="filter-group">
-                        <label htmlFor="rev-date-from" className="filter-label">Escrow Close Date From</label>
-                        <input
-                            id="rev-date-from" type="date" className="filter-select"
-                            value={dateFrom}
-                            onChange={e => { setDateFrom(e.target.value); setPage(1); }}
-                            style={{ backgroundImage: 'none' }}
-                        />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 items-end">
+                        <div className="space-y-1">
+                            <label htmlFor="rev-date-from" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Close From</label>
+                            <Input
+                                id="rev-date-from"
+                                type="date"
+                                value={dateFrom}
+                                onChange={e => { setDateFrom(e.target.value); setPage(1); }}
+                                className="h-9 text-xs text-slate-700"
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <label htmlFor="rev-date-to" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Close To</label>
+                            <Input
+                                id="rev-date-to"
+                                type="date"
+                                value={dateTo}
+                                onChange={e => { setDateTo(e.target.value); setPage(1); }}
+                                className="h-9 text-xs text-slate-700"
+                            />
+                        </div>
+                        <div className="space-y-1 z-30">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">State</label>
+                            <MultiSelect
+                                id="rev-state-filter"
+                                options={uniqueStates}
+                                selected={stateFilter}
+                                onChange={v => { setStateFilter(v); setPage(1); }}
+                                placeholder="All States"
+                                allLabel="All States"
+                            />
+                        </div>
+                        <div className="space-y-1 z-30">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">SS Status</label>
+                            <MultiSelect
+                                id="rev-ss-status-filter"
+                                options={uniqueSsStatuses}
+                                selected={ssStatusFilter}
+                                onChange={v => { setSsStatusFilter(v); setPage(1); }}
+                                placeholder="All Statuses"
+                                allLabel="All Statuses"
+                            />
+                        </div>
+                        <div className="space-y-1 z-30">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Reviewer</label>
+                            <MultiSelect
+                                id="rev-reviewer-filter"
+                                options={reviewerOptions}
+                                selected={reviewerFilter}
+                                onChange={v => { setReviewerFilter(v); setPage(1); }}
+                                placeholder="All Reviewers"
+                                allLabel="All Reviewers"
+                            />
+                        </div>
+                        <div className="space-y-1 z-30">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Stage</label>
+                            <MultiSelect
+                                id="rev-stage-filter"
+                                options={uniqueStages}
+                                selected={stageFilter}
+                                onChange={v => { setStageFilter(v); setPage(1); }}
+                                placeholder="All Stages"
+                                allLabel="All Stages"
+                            />
+                        </div>
                     </div>
-
-                    <div className="filter-group">
-                        <label htmlFor="rev-date-to" className="filter-label">Escrow Close Date To</label>
-                        <input
-                            id="rev-date-to" type="date" className="filter-select"
-                            value={dateTo}
-                            onChange={e => { setDateTo(e.target.value); setPage(1); }}
-                            style={{ backgroundImage: 'none' }}
-                        />
-                    </div>
-
-                    <div className="filter-group">
-                        <label className="filter-label">State</label>
-                        <MultiSelect
-                            id="rev-state-filter"
-                            options={uniqueStates}
-                            selected={stateFilter}
-                            onChange={v => { setStateFilter(v); setPage(1); }}
-                            placeholder="All States"
-                            allLabel="All States"
-                        />
-                    </div>
-
-                    <div className="filter-group">
-                        <label className="filter-label">SS Status</label>
-                        <MultiSelect
-                            id="rev-ss-status-filter"
-                            options={uniqueSsStatuses}
-                            selected={ssStatusFilter}
-                            onChange={v => { setSsStatusFilter(v); setPage(1); }}
-                            placeholder="All Statuses"
-                            allLabel="All Statuses"
-                        />
-                    </div>
-
-                    <div className="filter-group">
-                        <label className="filter-label">Reviewer</label>
-                        <MultiSelect
-                            id="rev-reviewer-filter"
-                            options={reviewerOptions}
-                            selected={reviewerFilter}
-                            onChange={v => { setReviewerFilter(v); setPage(1); }}
-                            placeholder="All Reviewers"
-                            allLabel="All Reviewers"
-                        />
-                    </div>
-
-                    <div className="filter-group">
-                        <label className="filter-label">Stage</label>
-                        <MultiSelect
-                            id="rev-stage-filter"
-                            options={uniqueStages}
-                            selected={stageFilter}
-                            onChange={v => { setStageFilter(v); setPage(1); }}
-                            placeholder="All Stages"
-                            allLabel="All Stages"
-                        />
-                    </div>
-
                     {hasActiveFilters && (
-                        <div className="filter-group" style={{ justifyContent: 'flex-end' }}>
-                            <button className="clear-all-btn" onClick={clearAllFilters}>Clear All Filters</button>
+                        <div className="flex justify-end pt-1">
+                            <Button
+                                variant="ghost"
+                                onClick={clearAllFilters}
+                                className="h-8.5 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 font-bold"
+                            >
+                                Clear All Filters
+                            </Button>
                         </div>
                     )}
                 </div>
 
+                {/* Main Content */}
                 {loading ? (
-                    <div className="loading"><div className="spinner"></div><p>Loading Reviewer data…</p></div>
+                    <div className="p-12 flex flex-col items-center justify-center space-y-4">
+                        <svg className="animate-spin h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        <p className="text-sm font-semibold text-slate-500">Loading Reviewer data…</p>
+                    </div>
                 ) : error ? (
-                    <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--danger)' }}>
-                        <p>⚠️ Failed to load data: {error}</p>
+                    <div className="p-12 text-center max-w-sm mx-auto space-y-2">
+                        <div className="text-3xl">⚠️</div>
+                        <h3 className="text-sm font-bold text-red-600">Failed to load data</h3>
+                        <p className="text-xs text-slate-500">{error}</p>
                     </div>
                 ) : (
                     <>
-                        <div className="table-responsive">
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Sale GUID</th>
-                                        <th>Property Address</th>
-                                        <th>Reviewer</th>
-                                        <th>Stage</th>
-                                        <th>State</th>
-                                        <th>Sale Price</th>
-                                        <th>Listing Price</th>
-                                        <th>Escrow Close Date</th>
-                                        <th>SS Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {paginatedData.map((row, i) => (
-                                        <tr key={i}>
-                                            <td className="cell-guid">{row.saleguid || '-'}</td>
-                                            <td className="cell-address">{row.propertyaddress || '-'}</td>
-                                            <td>{row.reviewer_name || '-'}</td>
-                                            <td>
-                                                {row.stage_name
-                                                    ? <span className="badge badge-stage">{row.stage_name}</span>
-                                                    : '-'}
-                                            </td>
-                                            <td>{extractState(row.propertyaddress) || '-'}</td>
-                                            <td>{row.sale_price != null ? `$${Number(row.sale_price).toLocaleString()}` : '-'}</td>
-                                            <td>{row.listing_price != null ? `$${Number(row.listing_price).toLocaleString()}` : '-'}</td>
-                                            <td>{row.escrow_close_date || '-'}</td>
-                                            <td>
-                                                {row.ss_status
-                                                    ? <span className={`badge ${row.ss_status.toLowerCase().replace(/[^a-z]/g, '-')}`}>{row.ss_status}</span>
-                                                    : '-'}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {paginatedData.length === 0 && (
-                                        <tr><td colSpan={9} style={{ textAlign: 'center', padding: '2rem' }}>No data available</td></tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Sale GUID</TableHead>
+                                    <TableHead className="min-w-[200px]">Property Address</TableHead>
+                                    <TableHead>Reviewer</TableHead>
+                                    <TableHead>Stage</TableHead>
+                                    <TableHead>State</TableHead>
+                                    <TableHead>Sale Price</TableHead>
+                                    <TableHead>Listing Price</TableHead>
+                                    <TableHead>Escrow Close Date</TableHead>
+                                    <TableHead className="text-right pr-6">SS Status</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {paginatedData.map((row, i) => (
+                                    <TableRow key={i} className="hover:bg-slate-50/55 transition-colors">
+                                        <TableCell className="font-mono text-xs text-slate-500">{row.saleguid || '-'}</TableCell>
+                                        <TableCell className="font-semibold text-slate-800 text-xs py-2.5">{row.propertyaddress || '-'}</TableCell>
+                                        <TableCell className="text-xs text-slate-600 font-medium">{row.reviewer_name || '-'}</TableCell>
+                                        <TableCell>
+                                            {row.stage_name ? (
+                                                <Badge variant="secondary" className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200/80 border border-slate-200/30">
+                                                    {row.stage_name}
+                                                </Badge>
+                                            ) : '-'}
+                                        </TableCell>
+                                        <TableCell className="text-xs text-slate-500 font-medium font-mono uppercase">{extractState(row.propertyaddress) || '-'}</TableCell>
+                                        <TableCell className="text-xs font-semibold text-slate-700">{row.sale_price != null ? `$${Number(row.sale_price).toLocaleString()}` : '-'}</TableCell>
+                                        <TableCell className="text-xs font-semibold text-slate-700">{row.listing_price != null ? `$${Number(row.listing_price).toLocaleString()}` : '-'}</TableCell>
+                                        <TableCell className="text-xs text-slate-500 font-medium">{row.escrow_close_date || '-'}</TableCell>
+                                        <TableCell className="text-right pr-6 shrink-0 select-none">
+                                            {row.ss_status ? (
+                                                <Badge variant="secondary" className="capitalize px-2 py-0.5 rounded text-[10px] font-semibold">
+                                                    {row.ss_status}
+                                                </Badge>
+                                            ) : (
+                                                <span className="text-slate-400">—</span>
+                                            )}
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                                {paginatedData.length === 0 && (
+                                    <TableRow>
+                                        <TableCell colSpan={9} className="text-center text-slate-400 py-10 font-medium">
+                                            No data available
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+
+                        {/* Pagination footer */}
                         {totalPages > 1 && (
-                            <div className="pagination">
-                                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>Previous</button>
-                                <span style={{ fontSize: '0.875rem' }}>Page {page} of {totalPages}</span>
-                                <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>Next</button>
+                            <div className="p-4 border-t border-slate-100 bg-slate-50/20 flex items-center justify-between">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                                    disabled={page === 1}
+                                    className="h-8 font-semibold text-xs text-slate-600"
+                                >
+                                    Previous
+                                </Button>
+                                <span className="text-xs font-semibold text-slate-500">
+                                    Page {page} of {totalPages}
+                                </span>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                                    disabled={page === totalPages}
+                                    className="h-8 font-semibold text-xs text-slate-600"
+                                >
+                                    Next
+                                </Button>
                             </div>
                         )}
                     </>
                 )}
-            </div>
+            </Card>
         </div>
     );
 }

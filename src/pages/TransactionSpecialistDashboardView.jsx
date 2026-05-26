@@ -1,15 +1,20 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { utils, writeFile } from 'xlsx';
 import { TXN_SPECIALIST_SUMMARY_API } from '../constants';
-import { IconDownload } from '../components/Icons';
-import MultiSelect from '../components/MultiSelect';
+import { IconDownload } from '../components/shared/Icons';
+import MultiSelect from '../components/shared/MultiSelect';
+import { Button } from '../components/ui/Button';
+import { Card, CardContent } from '../components/ui/Card';
+import { Badge } from '../components/ui/Badge';
+import { Input } from '../components/ui/Input';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
 
 // ── Sub-count color palette (within Outstanding) ──────────────────────────────
 const SUB_COUNTS = [
-    { key: 'open_count', label: 'Open', color: '#ef4444' },
-    { key: 'commission_verified_count', label: 'Commission Verified', color: '#f59e0b' },
-    { key: 'cda_sent_count', label: 'CDA Sent', color: '#6366f1' },
-    { key: 'title_payment_received_count', label: 'Title Payment Received', color: '#14b8a6' },
+    { key: 'open_count', label: 'Open', color: 'bg-red-500', hex: '#ef4444' },
+    { key: 'commission_verified_count', label: 'Commission Verified', color: 'bg-amber-500', hex: '#f59e0b' },
+    { key: 'cda_sent_count', label: 'CDA Sent', color: 'bg-indigo-500', hex: '#6366f1' },
+    { key: 'title_payment_received_count', label: 'Title Payment Received', color: 'bg-teal-500', hex: '#14b8a6' },
 ];
 
 // ── Viewport-aware tooltip (position: fixed, flips above when near bottom) ────
@@ -31,54 +36,36 @@ function OutstandingTooltip({ row, anchorRect }) {
     const left = Math.max(8, Math.min(rawLeft, window.innerWidth - TOOLTIP_WIDTH - 8));
 
     return (
-        <div style={{
-            position: 'fixed',
-            top,
-            left,
-            width: `${TOOLTIP_WIDTH}px`,
-            zIndex: 99999,
-            background: '#ffffff',
-            borderRadius: '10px',
-            border: '1px solid #e2e8f0',
-            boxShadow: '0 10px 32px rgba(0,0,0,0.14), 0 2px 8px rgba(0,0,0,0.08)',
-            padding: '0.85rem 1rem',
-            pointerEvents: 'none',
-            animation: 'fadeIn 0.15s ease',
-        }}>
+        <div 
+            style={{ top, left, width: `${TOOLTIP_WIDTH}px` }} 
+            className="fixed z-[99999] bg-white rounded-xl border border-slate-200 shadow-xl p-4 pointer-events-none animate-in fade-in duration-150"
+        >
             {/* Arrow */}
-            <div style={{
-                position: 'absolute',
-                ...(showAbove
-                    ? { bottom: '-7px', borderBottom: '1px solid #e2e8f0', borderRight: '1px solid #e2e8f0' }
-                    : { top: '-7px', borderTop: '1px solid #e2e8f0', borderLeft: '1px solid #e2e8f0' }
-                ),
-                left: `${anchorRect.left + anchorRect.width / 2 - left - 6}px`,
-                transform: 'rotate(45deg)',
-                width: '12px', height: '12px',
-                background: '#ffffff',
-            }} />
+            <div 
+                style={{
+                    position: 'absolute',
+                    ...(showAbove
+                        ? { bottom: '-7px', borderBottom: '1px solid #e2e8f0', borderRight: '1px solid #e2e8f0' }
+                        : { top: '-7px', borderTop: '1px solid #e2e8f0', borderLeft: '1px solid #e2e8f0' }
+                    ),
+                    left: `${anchorRect.left + anchorRect.width / 2 - left - 6}px`,
+                }}
+                className="w-3 h-3 rotate-45 bg-white"
+            />
 
-            <p style={{ margin: '0 0 0.6rem 0', fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.09em', color: '#64748b' }}>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2.5">
                 Outstanding Breakdown
             </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+            <div className="space-y-2.5">
                 {SUB_COUNTS.map(({ key, label, color }) => {
                     const count = row[key] || 0;
                     return (
-                        <div key={key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                                <span style={{
-                                    width: '10px', height: '10px', borderRadius: '3px',
-                                    background: color, flexShrink: 0, display: 'inline-block',
-                                }} />
-                                <span style={{ fontSize: '0.8rem', color: '#374151', fontWeight: 500 }}>{label}</span>
+                        <div key={key} className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2">
+                                <span className={`w-2.5 h-2.5 rounded ${color} shrink-0 block`} />
+                                <span className="text-xs text-slate-600 font-semibold">{label}</span>
                             </div>
-                            <span style={{
-                                fontSize: '0.88rem', fontWeight: 700,
-                                color: count > 0 ? '#111827' : '#9ca3af',
-                                fontVariantNumeric: 'tabular-nums',
-                                minWidth: '24px', textAlign: 'right',
-                            }}>
+                            <span className={`text-xs font-bold font-mono text-right min-w-[24px] ${count > 0 ? 'text-slate-800' : 'text-slate-400'}`}>
                                 {count}
                             </span>
                         </div>
@@ -86,13 +73,9 @@ function OutstandingTooltip({ row, anchorRect }) {
                 })}
             </div>
             {/* Total line */}
-            <div style={{
-                marginTop: '0.6rem', paddingTop: '0.6rem',
-                borderTop: '1px solid #e2e8f0',
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center'
-            }}>
-                <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#64748b' }}>Total Outstanding</span>
-                <span style={{ fontSize: '0.92rem', fontWeight: 800, color: '#dc2626', fontVariantNumeric: 'tabular-nums' }}>
+            <div className="mt-2.5 pt-2.5 border-t border-slate-100 flex justify-between items-center">
+                <span className="text-xs font-bold text-slate-400">Total Outstanding</span>
+                <span className="text-sm font-black text-red-600 font-mono">
                     {row.transactions_outstanding || 0}
                 </span>
             </div>
@@ -137,7 +120,6 @@ function TransactionSpecialistDashboardView() {
         const params = new URLSearchParams();
         if (dateFrom) params.append('from_date', dateFrom);
         if (dateTo) params.append('to_date', dateTo);
-        // Send single state to API; multi-state is handled client-side
         if (stateFilter.length === 1) params.append('state', stateFilter[0]);
         const queryString = params.toString();
         if (queryString) url += `?${queryString}`;
@@ -154,7 +136,6 @@ function TransactionSpecialistDashboardView() {
 
     const filteredData = useMemo(() => {
         let result = data;
-        // Client-side filter when multiple states are selected
         if (stateFilter.length > 1) {
             result = result.filter(r => stateFilter.includes(r.state));
         }
@@ -164,6 +145,12 @@ function TransactionSpecialistDashboardView() {
         }
         return result;
     }, [data, searchQuery, stateFilter]);
+
+    const totals = useMemo(() => {
+        const outstanding = data.reduce((sum, r) => sum + (r.transactions_outstanding || 0), 0);
+        const closed = data.reduce((sum, r) => sum + (r.transactions_closed || 0), 0);
+        return { specialists: data.length, outstanding, closed, total: outstanding + closed };
+    }, [data]);
 
     const handleDownload = () => {
         const ws = utils.json_to_sheet(data);
@@ -182,222 +169,303 @@ function TransactionSpecialistDashboardView() {
     };
 
     return (
-        <div className="dashboard">
-            {/* Global viewport-aware tooltip — rendered outside the table */}
+        <div className="p-8 max-w-7xl mx-auto w-full space-y-6">
+            {/* Global viewport-aware tooltip */}
             {tooltip && (
                 <OutstandingTooltip row={tooltip.row} anchorRect={tooltip.anchorRect} />
             )}
-            <div className="page-header">
+
+            {/* Page Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200/80 pb-5">
                 <div>
-                    <h1>Transaction Specialist Dashboard</h1>
-                    <p>Summary of transaction specialists — outstanding vs closed transactions.</p>
+                    <h1 className="text-2xl font-bold tracking-tight text-slate-900">Transaction Specialist Dashboard</h1>
+                    <p className="text-sm text-slate-500 mt-1">Summary of transaction specialists — outstanding vs closed transactions.</p>
                 </div>
-                <button className="export-btn" onClick={handleDownload} disabled={!data.length}>
+                <Button 
+                    onClick={handleDownload} 
+                    disabled={!data.length}
+                    className="font-semibold text-xs gap-2 h-9 shadow-md shadow-blue-600/10"
+                >
                     <IconDownload /> Download Report
-                </button>
+                </Button>
             </div>
 
-            <div className="table-container">
-                <div className="table-header">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        <h2>Specialist Breakdown</h2>
+            {/* Metrics cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <Card className="hover:border-slate-300 transition-all select-none">
+                    <CardContent className="pt-6">
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Total Specialists</span>
+                        <div className="text-2xl font-bold text-slate-800 mt-2">
+                            {totals.specialists.toLocaleString()}
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card className="hover:border-red-200 hover:bg-red-50/5 transition-all select-none">
+                    <CardContent className="pt-6">
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Outstanding Transactions</span>
+                        <div className="text-2xl font-bold text-red-600 mt-2">
+                            {totals.outstanding.toLocaleString()}
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card className="hover:border-emerald-200 hover:bg-emerald-50/5 transition-all select-none">
+                    <CardContent className="pt-6">
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Closed Transactions</span>
+                        <div className="text-2xl font-bold text-emerald-600 mt-2">
+                            {totals.closed.toLocaleString()}
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card className="hover:border-indigo-200 hover:bg-indigo-50/5 transition-all select-none">
+                    <CardContent className="pt-6">
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Total Managed</span>
+                        <div className="text-2xl font-bold text-indigo-600 mt-2">
+                            {totals.total.toLocaleString()}
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+
+            {/* Table Card */}
+            <Card className="shadow-sm border-slate-100 overflow-hidden">
+                <div className="p-5 border-b border-slate-100 bg-slate-50/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex items-center gap-2">
+                        <h2 className="text-md font-bold text-slate-800">Specialist Breakdown</h2>
                         {data.length > 0 && (
-                            <span className="record-count-badge">{filteredData.length} of {data.length} specialists</span>
+                            <Badge variant="secondary" className="px-2 py-0.5 font-bold text-[10px] rounded">
+                                {filteredData.length} of {data.length} specialists
+                            </Badge>
                         )}
                     </div>
                 </div>
 
-                {/* Search */}
-                <div className="search-filter-bar">
-                    <div className="search-input-wrapper" style={{ flex: 1 }}>
-                        <svg className="search-icon" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+                {/* Search and Filters grid */}
+                <div className="p-5 border-b border-slate-100 bg-white space-y-4">
+                    <div className="relative w-full max-w-lg">
+                        <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
-                        <input
-                            id="specialist-dash-search" type="text" className="search-input"
+                        <Input
+                            id="specialist-dash-search"
+                            type="text"
                             placeholder="Search by specialist name…"
                             value={searchQuery}
                             onChange={e => setSearchQuery(e.target.value)}
+                            className="pl-9 pr-8 w-full"
                         />
                         {searchQuery && (
-                            <button className="search-clear-btn" onClick={() => setSearchQuery('')} aria-label="Clear search">✕</button>
+                            <button 
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold" 
+                                onClick={() => setSearchQuery('')}
+                            >
+                                ✕
+                            </button>
+                        )}
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 items-end">
+                        <div className="space-y-1">
+                            <label htmlFor="txn-dash-date-from" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Close From</label>
+                            <Input
+                                id="txn-dash-date-from"
+                                type="date"
+                                value={dateFrom}
+                                onChange={e => setDateFrom(e.target.value)}
+                                className="h-9 text-xs text-slate-700"
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <label htmlFor="txn-dash-date-to" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Close To</label>
+                            <Input
+                                id="txn-dash-date-to"
+                                type="date"
+                                value={dateTo}
+                                onChange={e => setDateTo(e.target.value)}
+                                className="h-9 text-xs text-slate-700"
+                            />
+                        </div>
+                        <div className="space-y-1 z-20">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">State</label>
+                            <MultiSelect
+                                id="txn-dash-state-filter"
+                                options={uniqueStates}
+                                selected={stateFilter}
+                                onChange={v => setStateFilter(v)}
+                                placeholder="All States"
+                                allLabel="All States"
+                            />
+                        </div>
+                        
+                        {hasActiveFilters && (
+                            <div>
+                                <Button
+                                    variant="ghost"
+                                    onClick={clearAllFilters}
+                                    className="h-9 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 font-bold w-full md:w-auto"
+                                >
+                                    Clear Filters
+                                </Button>
+                            </div>
                         )}
                     </div>
                 </div>
 
-                {/* Filters */}
-                <div className="txn-filters-grid">
-                    <div className="filter-group">
-                        <label htmlFor="txn-dash-date-from" className="filter-label">Close Date From</label>
-                        <input
-                            id="txn-dash-date-from" type="date" className="filter-select"
-                            value={dateFrom}
-                            onChange={e => setDateFrom(e.target.value)}
-                            style={{ backgroundImage: 'none' }}
-                        />
-                    </div>
-                    <div className="filter-group">
-                        <label htmlFor="txn-dash-date-to" className="filter-label">Close Date To</label>
-                        <input
-                            id="txn-dash-date-to" type="date" className="filter-select"
-                            value={dateTo}
-                            onChange={e => setDateTo(e.target.value)}
-                            style={{ backgroundImage: 'none' }}
-                        />
-                    </div>
-                    <div className="filter-group">
-                        <label className="filter-label">State</label>
-                        <MultiSelect
-                            id="txn-dash-state-filter"
-                            options={uniqueStates}
-                            selected={stateFilter}
-                            onChange={v => setStateFilter(v)}
-                            placeholder="All States"
-                            allLabel="All States"
-                        />
-                    </div>
-                    {hasActiveFilters && (
-                        <div className="filter-group" style={{ justifyContent: 'flex-end' }}>
-                            <button className="clear-all-btn" onClick={clearAllFilters}>Clear Filters</button>
-                        </div>
-                    )}
-                </div>
-
+                {/* Main Content */}
                 {loading ? (
-                    <div className="loading"><div className="spinner"></div><p>Loading specialist summary…</p></div>
+                    <div className="p-12 flex flex-col items-center justify-center space-y-4">
+                        <svg className="animate-spin h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        <p className="text-sm font-semibold text-slate-500">Loading specialist summary…</p>
+                    </div>
                 ) : error ? (
-                    <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--danger)' }}>
-                        <p>⚠️ Failed to load data: {error}</p>
+                    <div className="p-12 text-center max-w-sm mx-auto space-y-2">
+                        <div className="text-3xl">⚠️</div>
+                        <h3 className="text-sm font-bold text-red-600">Failed to load data</h3>
+                        <p className="text-xs text-slate-500">{error}</p>
                     </div>
                 ) : (
                     <>
-                        <div className="table-responsive">
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th style={{ width: '40px' }}>#</th>
-                                        <th>Transaction Specialist</th>
-                                        <th style={{ width: '160px' }}>
-                                            Outstanding
-                                            <span style={{ display: 'block', fontSize: '0.65rem', fontWeight: 400, color: 'var(--text-muted)', marginTop: '2px' }}>hover for breakdown</span>
-                                        </th>
-                                        <th style={{ width: '160px' }}>Closed</th>
-                                        <th style={{ width: '120px' }}>Total</th>
-                                        <th style={{ minWidth: '280px' }}>Distribution</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {filteredData.map((row, i) => {
-                                        const outstanding = row.transactions_outstanding || 0;
-                                        const closed = row.transactions_closed || 0;
-                                        const total = outstanding + closed || 1;
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead className="w-12 text-center">#</TableHead>
+                                    <TableHead>Transaction Specialist</TableHead>
+                                    <TableHead className="w-44">
+                                        Outstanding
+                                        <span className="block text-[8px] font-normal text-slate-400 lowercase leading-none mt-0.5">hover for breakdown</span>
+                                    </TableHead>
+                                    <TableHead className="w-40">Closed</TableHead>
+                                    <TableHead className="w-28">Total</TableHead>
+                                    <TableHead className="min-w-[280px]">Distribution</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {filteredData.map((row, i) => {
+                                    const outstanding = row.transactions_outstanding || 0;
+                                    const closed = row.transactions_closed || 0;
+                                    const total = outstanding + closed || 1;
 
-                                        // Sub-counts for distribution bar
-                                        const openCount = row.open_count || 0;
-                                        const commissionCount = row.commission_verified_count || 0;
-                                        const cdaCount = row.cda_sent_count || 0;
-                                        const titleCount = row.title_payment_received_count || 0;
+                                    const openCount = row.open_count || 0;
+                                    const commissionCount = row.commission_verified_count || 0;
+                                    const cdaCount = row.cda_sent_count || 0;
+                                    const titleCount = row.title_payment_received_count || 0;
 
-                                        const openPct = (openCount / total * 100).toFixed(1);
-                                        const commissionPct = (commissionCount / total * 100).toFixed(1);
-                                        const cdaPct = (cdaCount / total * 100).toFixed(1);
-                                        const titlePct = (titleCount / total * 100).toFixed(1);
-                                        const closedPct = (closed / total * 100).toFixed(1);
-                                        const outstandingPct = (outstanding / total * 100).toFixed(0);
+                                    const openPct = (openCount / total * 100).toFixed(1);
+                                    const commissionPct = (commissionCount / total * 100).toFixed(1);
+                                    const cdaPct = (cdaCount / total * 100).toFixed(1);
+                                    const titlePct = (titleCount / total * 100).toFixed(1);
+                                    const closedPct = (closed / total * 100).toFixed(1);
 
-                                        return (
-                                            <tr key={i}>
-                                                <td style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>{i + 1}</td>
-                                                <td style={{ fontWeight: 600 }}>{row.transaction_specialist || '-'}</td>
+                                    return (
+                                        <TableRow key={i}>
+                                            <TableCell className="text-center font-mono text-xs text-slate-400">{i + 1}</TableCell>
+                                            <TableCell className="font-semibold text-slate-800 text-xs">{row.transaction_specialist || '-'}</TableCell>
+                                            
+                                            {/* Outstanding badge */}
+                                            <TableCell>
+                                                <span
+                                                    className={`badge warning w-9 justify-center rounded font-semibold text-xs transition-all ${
+                                                        tooltip?.rowIndex === i 
+                                                            ? 'ring-2 ring-amber-500 ring-offset-2' 
+                                                            : ''
+                                                    }`}
+                                                    onMouseEnter={e => {
+                                                        const rect = e.currentTarget.getBoundingClientRect();
+                                                        setTooltip({ rowIndex: i, row, anchorRect: rect });
+                                                    }}
+                                                    onMouseLeave={() => setTooltip(null)}
+                                                >
+                                                    {outstanding}
+                                                </span>
+                                            </TableCell>
 
-                                                {/* Outstanding badge with viewport-aware tooltip */}
-                                                <td>
-                                                    <span
-                                                        className="badge warning"
-                                                        style={{
-                                                            minWidth: '36px', textAlign: 'center',
-                                                            cursor: 'default',
-                                                            outline: tooltip?.rowIndex === i ? '2px solid #f97316' : 'none',
-                                                            outlineOffset: '2px',
-                                                            transition: 'outline 0.15s ease',
-                                                            display: 'inline-block',
-                                                        }}
-                                                        onMouseEnter={e => {
-                                                            const rect = e.currentTarget.getBoundingClientRect();
-                                                            setTooltip({ rowIndex: i, row, anchorRect: rect });
-                                                        }}
-                                                        onMouseLeave={() => setTooltip(null)}
-                                                    >
-                                                        {outstanding}
-                                                    </span>
-                                                </td>
+                                            <TableCell>
+                                                <Badge variant="success" className="w-9 justify-center rounded font-semibold text-xs">
+                                                    {closed}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell className="font-semibold text-slate-800 text-xs">{outstanding + closed}</TableCell>
 
-                                                <td>
-                                                    <span className="badge match" style={{ minWidth: '36px', textAlign: 'center' }}>{closed}</span>
-                                                </td>
-                                                <td style={{ fontWeight: 600 }}>{outstanding + closed}</td>
-
-                                                {/* Distribution bar — 4 outstanding sub-segments + closed */}
-                                                <td>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                        <div style={{
-                                                            display: 'flex', height: '22px', borderRadius: '6px',
-                                                            overflow: 'hidden', flex: 1, minWidth: '160px',
-                                                            background: 'var(--bg-secondary)',
-                                                        }}>
-                                                            {openCount > 0 && (
-                                                                <div style={{ width: `${openPct}%`, background: '#f97316', transition: 'width 0.6s ease', flexShrink: 0 }}
-                                                                    title={`Open: ${openCount} (${openPct}%)`} />
-                                                            )}
-                                                            {commissionCount > 0 && (
-                                                                <div style={{ width: `${commissionPct}%`, background: '#eab308', transition: 'width 0.6s ease', flexShrink: 0 }}
-                                                                    title={`Commission Verified: ${commissionCount} (${commissionPct}%)`} />
-                                                            )}
-                                                            {cdaCount > 0 && (
-                                                                <div style={{ width: `${cdaPct}%`, background: '#8b5cf6', transition: 'width 0.6s ease', flexShrink: 0 }}
-                                                                    title={`CDA Sent: ${cdaCount} (${cdaPct}%)`} />
-                                                            )}
-                                                            {titleCount > 0 && (
-                                                                <div style={{ width: `${titlePct}%`, background: '#10b981', transition: 'width 0.6s ease', flexShrink: 0 }}
-                                                                    title={`Title Payment Received: ${titleCount} (${titlePct}%)`} />
-                                                            )}
-                                                            {closed > 0 && (
-                                                                <div style={{ width: `${closedPct}%`, background: '#3b82f6', transition: 'width 0.6s ease', flexShrink: 0 }}
-                                                                    title={`Closed: ${closed} (${closedPct}%)`} />
-                                                            )}
-                                                        </div>
-                                                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-                                                            {closedPct}% closed
-                                                        </span>
+                                            {/* Distribution bar — 4 outstanding sub-segments + closed */}
+                                            <TableCell>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="flex h-5 rounded-md overflow-hidden flex-1 min-w-[160px] bg-slate-100">
+                                                        {openCount > 0 && (
+                                                            <div 
+                                                                style={{ width: `${openPct}%` }} 
+                                                                className="bg-red-500 transition-all duration-500 ease-out shrink-0"
+                                                                title={`Open: ${openCount} (${openPct}%)`} 
+                                                            />
+                                                        )}
+                                                        {commissionCount > 0 && (
+                                                            <div 
+                                                                style={{ width: `${commissionPct}%` }} 
+                                                                className="bg-amber-500 transition-all duration-500 ease-out shrink-0"
+                                                                title={`Commission Verified: ${commissionCount} (${commissionPct}%)`} 
+                                                            />
+                                                        )}
+                                                        {cdaCount > 0 && (
+                                                            <div 
+                                                                style={{ width: `${cdaPct}%` }} 
+                                                                className="bg-indigo-500 transition-all duration-500 ease-out shrink-0"
+                                                                title={`CDA Sent: ${cdaCount} (${cdaPct}%)`} 
+                                                            />
+                                                        )}
+                                                        {titleCount > 0 && (
+                                                            <div 
+                                                                style={{ width: `${titlePct}%` }} 
+                                                                className="bg-teal-500 transition-all duration-500 ease-out shrink-0"
+                                                                title={`Title Payment Received: ${titleCount} (${titlePct}%)`} 
+                                                            />
+                                                        )}
+                                                        {closed > 0 && (
+                                                            <div 
+                                                                style={{ width: `${closedPct}%` }} 
+                                                                className="bg-blue-500 transition-all duration-500 ease-out shrink-0"
+                                                                title={`Closed: ${closed} (${closedPct}%)`} 
+                                                            />
+                                                        )}
                                                     </div>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                    {filteredData.length === 0 && (
-                                        <tr><td colSpan={6} style={{ textAlign: 'center', padding: '2rem' }}>No data available</td></tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
+                                                    <span className="text-[10px] text-slate-400 font-bold white-space-nowrap shrink-0">
+                                                        {closedPct}% closed
+                                                    </span>
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })}
+                                {filteredData.length === 0 && (
+                                    <TableRow>
+                                        <TableCell colSpan={6} className="text-center text-slate-400 py-10 font-medium">
+                                            No data available
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
 
                         {/* Legend */}
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem 1.5rem', padding: '1rem 1.5rem', fontSize: '0.78rem', color: 'var(--text-muted)', borderTop: '1px solid var(--border)' }}>
-                            <span style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', alignSelf: 'center', color: 'var(--text-muted)', marginRight: '0.25rem' }}>Outstanding:</span>
+                        <div className="flex flex-wrap gap-4 p-4 px-6 border-t border-slate-100 bg-slate-50/20 text-xs font-bold text-slate-400 select-none items-center">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-2">Outstanding:</span>
                             {SUB_COUNTS.map(({ label, color }) => (
-                                <span key={label} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                    <span style={{ width: '10px', height: '10px', borderRadius: '3px', background: color, display: 'inline-block', flexShrink: 0 }}></span>
+                                <span key={label} className="flex items-center gap-1.5">
+                                    <span className={`w-3 h-3 rounded ${color} block shrink-0`} />
                                     {label}
                                 </span>
                             ))}
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginLeft: '0.5rem' }}>
-                                <span style={{ width: '10px', height: '10px', borderRadius: '3px', background: '#3b82f6', display: 'inline-block', flexShrink: 0 }}></span>
+                            <span className="flex items-center gap-1.5 border-l border-slate-200 pl-4 ml-2">
+                                <span className="w-3 h-3 rounded bg-blue-500 block shrink-0" />
                                 Closed
                             </span>
                         </div>
                     </>
                 )}
-            </div>
+            </Card>
         </div>
     );
 }

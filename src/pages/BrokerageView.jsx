@@ -1,8 +1,33 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { utils, writeFile } from 'xlsx';
-import { BE_API, ROWS_PER_PAGE } from '../constants';
-import { IconDownload, IconArrowLeft } from '../components/Icons';
-import SectionedDetailView from '../components/SectionedDetailView';
+import { BE_API } from '../constants';
+import { IconDownload, IconArrowLeft } from '../components/shared/Icons';
+import SectionedDetailView from '../components/shared/SectionedDetailView';
+import { Button } from '../components/ui/Button';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '../components/ui/Card';
+import { Badge } from '../components/ui/Badge';
+import { Input } from '../components/ui/Input';
+import { Select } from '../components/ui/Select';
+import { Skeleton } from '../components/ui/Skeleton';
+import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogContent, DialogFooter } from '../components/ui/Dialog';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/Tabs';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
+
+// Helper to display data completely and split comma-separated values into lines
+const renderCellData = (val) => {
+    if (val == null || val === '') return '—';
+    const str = String(val);
+    if (str.includes(',')) {
+        return (
+            <div className="flex flex-col gap-0.5 whitespace-normal">
+                {str.split(',').map((item, idx) => (
+                    <div key={idx} className="block leading-tight py-0.5">{item.trim()}</div>
+                ))}
+            </div>
+        );
+    }
+    return <span className="whitespace-normal block leading-tight">{str}</span>;
+};
 
 function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, setSyncBEResult }) {
     const [data, setData] = useState([]);
@@ -181,16 +206,6 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
         };
     }, [page, brokerHold, closeDateFrom, closeDateTo, contractDateFrom, contractDateTo, statusFilter, searchQuery]);
 
-    const stats = useMemo(() => {
-        if (!data.length) return { total: 0, complete: 0, withSpecialist: 0 };
-        return {
-            total: totalCount,
-            complete: data.filter(r => r.status === 'Complete').length,
-            withSpecialist: data.filter(r => r.transaction_specialist).length,
-        };
-    }, [data, totalCount]);
-
-
     const totalPages = Math.ceil(totalCount / 50);
 
     const handleDownload = () => {
@@ -202,351 +217,192 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
 
     if (selectedRecord) {
         return (
-            <div className="dashboard detail-view">
-                <div className="page-header" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', marginBottom: '2rem' }}>
-                    <button
-                        className="back-btn"
+            <div className="p-8 max-w-7xl mx-auto w-full space-y-6">
+                <div className="flex flex-col items-start gap-4">
+                    <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => setSelectedRecord(null)}
-                        style={{
-                            background: 'none',
-                            border: 'none',
-                            color: 'var(--primary)',
-                            cursor: 'pointer',
-                            fontWeight: 500,
-                            padding: 0,
-                            marginBottom: '1.5rem',
-                            fontSize: '0.9rem',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.5rem',
-                            transition: 'color 0.2s'
-                        }}
+                        className="text-slate-600 hover:text-slate-900 gap-2 font-semibold h-9 -ml-2"
                     >
                         <IconArrowLeft /> Back to brokerage engine
-                    </button>
-                    <div style={{ width: '100%', padding: '1.5rem', background: 'linear-gradient(to right, rgba(14, 165, 233, 0.05), transparent)', borderLeft: '4px solid var(--primary)', borderRadius: '0 8px 8px 0' }}>
-                        <h1 style={{ margin: '0 0 0.5rem 0', fontSize: '1.75rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    </Button>
+                    <div className="w-full p-6 bg-gradient-to-r from-blue-50/60 to-transparent border-l-4 border-blue-600 rounded-r-xl">
+                        <h1 className="text-xl font-bold tracking-tight text-slate-900 mb-1">
                             {selectedRecord.property_address || 'No Address Provided'}
                         </h1>
-                        <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Transaction ID:</span> {selectedRecord.transactionid || 'Unknown'}
+                        <p className="text-sm text-slate-500 flex items-center gap-1.5 font-medium">
+                            <span className="font-semibold text-slate-700">Transaction ID:</span> {selectedRecord.transactionid || 'Unknown'}
                         </p>
-                        <div style={{ marginTop: '0.75rem' }}>
+                        <div className="mt-3">
                             {(loadingDetail ? !!selectedRecord.skyslopefileid : detailData?.skyslope?.match !== false) ? (
-                                <span style={{
-                                    display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
-                                    padding: '0.3rem 0.75rem', borderRadius: '999px',
-                                    fontSize: '0.78rem', fontWeight: 600,
-                                    background: 'rgba(16, 185, 129, 0.12)', color: '#10b981',
-                                    border: '1px solid rgba(16, 185, 129, 0.3)'
-                                }}>
-                                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', display: 'inline-block' }} />
+                                <Badge variant="success" className="gap-1.5 px-3 py-1 font-semibold text-xs rounded-full">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
                                     Matched with SkySlope data
-                                </span>
+                                </Badge>
                             ) : (
-                                <span style={{
-                                    display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
-                                    padding: '0.3rem 0.75rem', borderRadius: '999px',
-                                    fontSize: '0.78rem', fontWeight: 600,
-                                    background: 'rgba(239, 68, 68, 0.12)', color: '#ef4444',
-                                    border: '1px solid rgba(239, 68, 68, 0.3)'
-                                }}>
-                                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444', display: 'inline-block' }} />
+                                <Badge variant="destructive" className="gap-1.5 px-3 py-1 font-semibold text-xs rounded-full">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
                                     No related SkySlope data
-                                </span>
+                                </Badge>
                             )}
                         </div>
                     </div>
                 </div>
 
-                <div className="detail-card" style={{ background: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border)', overflow: 'hidden', boxShadow: '0 8px 16px -4px rgba(0, 0, 0, 0.1), 0 4px 8px -4px rgba(0, 0, 0, 0.06)' }}>
-                    <div className="tabs-container" style={{ display: 'flex', borderBottom: '1px solid var(--border)', background: 'var(--bg-primary)' }}>
-                        <button
-                            className={`tab-btn ${detailTab === 'details' ? 'active' : ''}`}
-                            onClick={() => setDetailTab('details')}
-                            style={{
-                                flex: 1,
-                                padding: '1.25rem 1.5rem',
-                                background: detailTab === 'details' ? 'var(--bg-secondary)' : 'transparent',
-                                border: 'none',
-                                borderBottom: detailTab === 'details' ? '3px solid var(--primary)' : '3px solid transparent',
-                                color: detailTab === 'details' ? 'var(--primary)' : 'var(--text-muted)',
-                                cursor: 'pointer',
-                                fontWeight: detailTab === 'details' ? 600 : 500,
-                                fontSize: '1rem',
-                                transition: 'all 0.2s ease',
-                                outline: 'none'
-                            }}
-                        >
-                            Details
-                        </button>
-                        <button
-                            className={`tab-btn ${detailTab === 'skyslope' ? 'active' : ''}`}
-                            onClick={() => setDetailTab('skyslope')}
-                            style={{
-                                flex: 1,
-                                padding: '1.25rem 1.5rem',
-                                background: detailTab === 'skyslope' ? 'var(--bg-secondary)' : 'transparent',
-                                border: 'none',
-                                borderBottom: detailTab === 'skyslope' ? '3px solid var(--primary)' : '3px solid transparent',
-                                color: detailTab === 'skyslope' ? 'var(--primary)' : 'var(--text-muted)',
-                                cursor: 'pointer',
-                                fontWeight: detailTab === 'skyslope' ? 600 : 500,
-                                fontSize: '1rem',
-                                transition: 'all 0.2s ease',
-                                outline: 'none'
-                            }}
-                        >
-                            Related Skyslope Record
-                        </button>
-                    </div>
+                <Card className="shadow-sm border-slate-100 overflow-hidden">
+                    <Tabs className="w-full">
+                        <TabsList className="w-full rounded-none border-b border-slate-100 bg-slate-50/50 p-0 flex h-12">
+                            <TabsTrigger
+                                active={detailTab === 'details'}
+                                onClick={() => setDetailTab('details')}
+                                className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 h-full font-bold text-xs"
+                            >
+                                Details
+                            </TabsTrigger>
+                            <TabsTrigger
+                                active={detailTab === 'skyslope'}
+                                onClick={() => setDetailTab('skyslope')}
+                                className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 h-full font-bold text-xs"
+                            >
+                                Related SkySlope Record
+                            </TabsTrigger>
+                        </TabsList>
 
-                    <div className="detail-content" style={{ padding: '1.5rem', minHeight: '300px', display: 'flex', flexDirection: 'column', alignItems: loadingDetail || (detailData && detailData._error) ? 'center' : 'stretch', justifyContent: loadingDetail || (detailData && detailData._error) ? 'center' : 'flex-start' }}>
-                        {loadingDetail ? (
-                            <div className="loading" style={{ margin: '0 auto' }}><div className="spinner"></div><p style={{ marginTop: '1rem', color: 'var(--text-muted)' }}>Fetching transaction details…</p></div>
-                        ) : detailData && detailData._error ? (
-                            <div style={{ textAlign: 'center', color: 'var(--danger)', background: 'rgba(239, 68, 68, 0.1)', padding: '2rem', borderRadius: '8px' }}>
-                                <p style={{ fontWeight: 600, fontSize: '1.1rem' }}>Failed to load details</p>
-                                <p style={{ fontSize: '0.9rem' }}>{detailData._error}</p>
-                            </div>
-                        ) : detailData ? (
-                            <div style={{ width: '100%', animation: 'fadeIn 0.3s ease-in-out' }}>
-                                {detailTab === 'details' && (
-                                    detailData.brokerage_engine
-                                        ? <SectionedDetailView data={detailData.brokerage_engine} />
-                                        : <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '3rem' }}><p style={{ fontSize: '1.1rem' }}>No Brokerage Engine details found.</p></div>
-                                )}
-                                {detailTab === 'skyslope' && (
-                                    detailData.skyslope && detailData.skyslope.match !== false
-                                        ? <SectionedDetailView data={detailData.skyslope} />
-                                        : <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '3rem' }}><p style={{ fontSize: '1.1rem' }}>No related SkySlope record found for this transaction.</p></div>
-                                )}
-                            </div>
-                        ) : null}
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
-    if (showSyncLogs) {
-        return (
-            <div className="dashboard">
-                <div className="page-header" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', marginBottom: '2rem' }}>
-                    <button
-                        className="back-btn"
-                        onClick={() => setShowSyncLogs(false)}
-                        style={{
-                            background: 'none', border: 'none', color: 'var(--primary)',
-                            cursor: 'pointer', fontWeight: 500, padding: 0,
-                            marginBottom: '1.5rem', fontSize: '0.9rem',
-                            display: 'flex', alignItems: 'center', gap: '0.5rem',
-                            transition: 'color 0.2s'
-                        }}
-                    >
-                        <IconArrowLeft /> Back to brokerage engine
-                    </button>
-                </div>
-
-                <div className="table-container">
-                    {loadingSyncLogs ? (
-                        <div className="loading"><div className="spinner" /><p>Fetching sync logs…</p></div>
-                    ) : syncLogsError ? (
-                        <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--danger)' }}>
-                            <p>⚠️ Failed to load sync logs: {syncLogsError}</p>
-                        </div>
-                    ) : syncLogs ? (
-                        <>
-                            <div className="table-header">
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                    <h2>Sync History</h2>
-                                    <span className="record-count-badge">{syncLogs.count} {syncLogs.count === 1 ? 'entry' : 'entries'}</span>
+                        <div className="p-6 min-h-[300px] flex flex-col justify-start">
+                            {loadingDetail ? (
+                                <div className="py-12 flex flex-col items-center justify-center space-y-3">
+                                    <svg className="animate-spin h-7 w-7 text-blue-600" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                    </svg>
+                                    <p className="text-xs font-semibold text-slate-400">Fetching transaction details…</p>
                                 </div>
-                            </div>
-                            <div className="table-responsive">
-                                <table>
-                                    <thead>
-                                        <tr>
-                                            <th>Sync Date</th>
-                                            <th>Sync Time</th>
-                                            <th>Status</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {syncLogs.data.map((log, idx) => (
-                                            <tr key={idx}>
-                                                <td style={{ fontWeight: 500 }}>{log.sync_date}</td>
-                                                <td style={{ fontFamily: 'monospace' }}>{log.sync_time}</td>
-                                                <td>
-                                                    <span style={{
-                                                        display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
-                                                        padding: '0.25rem 0.65rem', borderRadius: '999px',
-                                                        fontSize: '0.775rem', fontWeight: 600,
-                                                        ...(log.status === 'success'
-                                                            ? { background: 'rgba(16,185,129,0.12)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)' }
-                                                            : { background: 'rgba(239,68,68,0.12)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }
-                                                        ),
-                                                    }}>
-                                                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', display: 'inline-block', background: log.status === 'success' ? '#10b981' : '#ef4444' }} />
-                                                        {log.status.charAt(0).toUpperCase() + log.status.slice(1)}
-                                                    </span>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </>
-                    ) : null}
-                </div>
+                            ) : detailData && detailData._error ? (
+                                <div className="p-8 text-center max-w-sm mx-auto bg-red-50/30 border border-red-100 rounded-xl space-y-1">
+                                    <p className="font-bold text-red-600 text-sm">Failed to load details</p>
+                                    <p className="text-xs text-slate-500">{detailData._error}</p>
+                                </div>
+                            ) : detailData ? (
+                                <div className="w-full">
+                                    <TabsContent active={detailTab === 'details'} className="w-full">
+                                        {detailData.brokerage_engine ? (
+                                            <SectionedDetailView data={detailData.brokerage_engine} />
+                                        ) : (
+                                            <div className="py-12 text-center text-slate-400 text-sm font-medium">No Brokerage Engine details found.</div>
+                                        )}
+                                    </TabsContent>
+                                    <TabsContent active={detailTab === 'skyslope'} className="w-full">
+                                        {detailData.skyslope && detailData.skyslope.match !== false ? (
+                                            <SectionedDetailView data={detailData.skyslope} />
+                                        ) : (
+                                            <div className="py-12 text-center text-slate-400 text-sm font-medium">No related SkySlope record found for this transaction.</div>
+                                        )}
+                                    </TabsContent>
+                                </div>
+                            ) : null}
+                        </div>
+                    </Tabs>
+                </Card>
             </div>
         );
     }
 
     return (
-        <div className="dashboard">
-            <div className="page-header" style={{ flexWrap: 'nowrap', alignItems: 'flex-start' }}>
-                <div style={{ minWidth: 0 }}>
-                    <h1>Brokerage Engine</h1>
-                    <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                        Transaction data sourced from Brokerage Engine.
-                    </p>
+        <div className="p-8 max-w-7xl mx-auto w-full space-y-6">
+            <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-5 border-b border-slate-200/80 pb-5">
+                <div>
+                    <h1 className="text-2xl font-bold tracking-tight text-slate-900">Brokerage Engine</h1>
+                    <p className="text-sm text-slate-500 mt-1">Transaction data sourced from Brokerage Engine.</p>
                     {syncInfo && (
-                        <div style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '0.5rem',
-                            marginTop: '0.5rem',
-                            padding: '0.35rem 0.85rem 0.35rem 0.65rem',
-                            borderRadius: '999px',
-                            background: 'rgba(99,102,241,0.07)',
-                            border: '1px solid rgba(99,102,241,0.18)',
-                            backdropFilter: 'blur(4px)',
-                        }}>
-                            <svg width="13" height="13" fill="none" stroke="#6366f1" viewBox="0 0 24 24" style={{ flexShrink: 0, opacity: 0.85 }}>
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                                    d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" />
+                        <div className="inline-flex items-center gap-2 mt-3 px-3 py-1.5 rounded-full bg-indigo-50/40 border border-indigo-100/50 backdrop-blur-sm">
+                            <svg width="13" height="13" fill="none" stroke="#6366f1" viewBox="0 0 24 24" className="shrink-0 opacity-80">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" />
                             </svg>
-                            <span style={{ fontSize: '0.75rem', fontWeight: 400, color: 'var(--text-muted)', letterSpacing: '0.01em' }}>
-                                Updated at
-                            </span>
-                            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.02em', fontVariantNumeric: 'tabular-nums' }}>
-                                {syncInfo.sync_date}
-                            </span>
-                            <span style={{ width: '3px', height: '3px', borderRadius: '50%', background: 'var(--text-muted)', opacity: 0.4, flexShrink: 0 }} />
-                            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.02em', fontVariantNumeric: 'tabular-nums' }}>
-                                {syncInfo.sync_timestamp}
-                            </span>
-                            <span style={{
-                                fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.06em',
-                                color: '#6366f1', background: 'rgba(99,102,241,0.12)',
-                                border: '1px solid rgba(99,102,241,0.25)',
-                                borderRadius: '4px', padding: '0.05rem 0.35rem',
-                                textTransform: 'uppercase',
-                            }}>IST</span>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Updated at</span>
+                            <span className="text-xs font-bold text-slate-700 font-mono">{syncInfo.sync_date}</span>
+                            <span className="w-1 h-1 rounded-full bg-slate-300" />
+                            <span className="text-xs font-bold text-slate-700 font-mono">{syncInfo.sync_timestamp}</span>
+                            <span className="text-[9px] font-extrabold tracking-wider text-indigo-600 bg-indigo-100/50 border border-indigo-200/30 rounded px-1 uppercase">IST</span>
                         </div>
                     )}
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexShrink: 0 }}>
-                    <button
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                    <Button
                         id="sync-be-data-btn"
-                        className="export-btn"
                         onClick={handleSyncBE}
                         disabled={syncingBE}
-                        style={{
-                            background: syncingBE
-                                ? 'linear-gradient(135deg, #4b4d8f, #3b3880)'
-                                : 'linear-gradient(135deg, #6366f1, #4f46e5)',
-                            boxShadow: '0 4px 12px rgba(99, 102, 241, 0.35)',
-                            display: 'flex', alignItems: 'center', gap: '0.5rem',
-                            opacity: syncingBE ? 0.75 : 1,
-                            cursor: syncingBE ? 'not-allowed' : 'pointer',
-                        }}
+                        className={`font-semibold text-xs shadow-md select-none gap-2 h-9 ${syncingBE
+                                ? 'bg-indigo-700/80'
+                                : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/10'
+                            }`}
                     >
                         {syncingBE ? (
-                            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                                style={{ animation: 'spin 1s linear infinite' }}>
-                                <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                                    d="M4 4v5h.582M20 20v-5h-.581M5.635 15A9 9 0 1 0 6 6.071" />
+                            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24" className="animate-spin">
+                                <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582M20 20v-5h-.581M5.635 15A9 9 0 1 0 6 6.071" />
                             </svg>
                         ) : (
                             <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                                    d="M4 4v5h.582M20 20v-5h-.581M5.635 15A9 9 0 1 0 6 6.071" />
+                                <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582M20 20v-5h-.581M5.635 15A9 9 0 1 0 6 6.071" />
                             </svg>
                         )}
                         {syncingBE ? 'Syncing…' : 'Sync BE Data'}
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                         id="view-sync-logs-btn"
-                        className="export-btn"
                         onClick={handleViewSyncLogs}
-                        style={{
-                            background: 'linear-gradient(135deg, #0ea5e9, #0284c7)',
-                            boxShadow: '0 4px 12px rgba(14, 165, 233, 0.35)',
-                            display: 'flex', alignItems: 'center', gap: '0.5rem',
-                        }}
+                        className="bg-sky-600 hover:bg-sky-700 shadow-md shadow-sky-600/10 font-semibold text-xs gap-2 h-9"
                     >
                         <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                                d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2" />
+                            <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2" />
                         </svg>
                         View Sync Logs
-                    </button>
-                    <button className="export-btn" onClick={handleDownload} disabled={!data.length}>
+                    </Button>
+                    <Button
+                        variant="outline"
+                        onClick={handleDownload}
+                        disabled={!data.length}
+                        className="font-semibold text-xs gap-2 h-9 hover:bg-slate-50"
+                    >
                         <IconDownload /> Download Report
-                    </button>
+                    </Button>
                 </div>
             </div>
 
             {/* Sync progress indicator */}
             {syncingBE && (
-                <div style={{
-                    margin: '0 0 1.25rem 0',
-                    padding: '1.25rem 1.5rem',
-                    borderRadius: '12px',
-                    background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(79, 70, 229, 0.03))',
-                    border: '1px solid rgba(99, 102, 241, 0.2)',
-                    animation: 'fadeIn 0.3s ease-in-out',
-                    backdropFilter: 'blur(8px)',
-                }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                <div className="p-5 rounded-xl bg-gradient-to-br from-indigo-50/50 to-indigo-50/10 border border-indigo-100 shadow-sm space-y-3">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
                             {syncProgress < 100 ? (
-                                <svg width="18" height="18" fill="none" stroke="#6366f1" viewBox="0 0 24 24"
-                                    style={{ animation: 'spin 1s linear infinite' }}>
-                                    <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                                        d="M4 4v5h.582M20 20v-5h-.581M5.635 15A9 9 0 1 0 6 6.071" />
+                                <svg width="18" height="18" fill="none" stroke="#6366f1" viewBox="0 0 24 24" className="animate-spin shrink-0">
+                                    <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582M20 20v-5h-.581M5.635 15A9 9 0 1 0 6 6.071" />
                                 </svg>
                             ) : (
-                                <svg width="18" height="18" fill="none" stroke="#10b981" viewBox="0 0 24 24">
+                                <svg width="18" height="18" fill="none" stroke="#10b981" viewBox="0 0 24 24" className="shrink-0 text-emerald-500">
                                     <path strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                                 </svg>
                             )}
-                            <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+                            <span className="font-semibold text-sm text-slate-800">
                                 {syncProgress < 100 ? 'Syncing Brokerage Engine Data…' : 'Sync Complete!'}
                             </span>
                         </div>
-                        <span style={{
-                            fontWeight: 700, fontSize: '1.25rem',
-                            color: syncProgress === 100 ? '#10b981' : '#6366f1',
-                            fontVariantNumeric: 'tabular-nums',
-                            minWidth: '3.5rem',
-                            textAlign: 'right',
-                        }}>
+                        <span className="font-bold text-lg text-indigo-600 font-mono">
                             {syncProgress}%
                         </span>
                     </div>
-                    <div className="progress-bar-wrap" style={{ height: '10px', background: 'rgba(99, 102, 241, 0.1)', marginBottom: '0.6rem' }}>
-                        <div className="progress-bar-fill" style={{
-                            width: `${syncProgress}%`,
-                            background: syncProgress === 100
-                                ? 'linear-gradient(90deg, #10b981, #34d399)'
-                                : 'linear-gradient(90deg, #6366f1, #818cf8)',
-                            transition: 'width 0.4s ease, background 0.3s ease',
-                        }} />
+                    <div className="w-full h-2.5 bg-indigo-100/50 rounded-full overflow-hidden">
+                        <div
+                            className="h-full rounded-full transition-all duration-300 ease-out"
+                            style={{
+                                width: `${syncProgress}%`,
+                                background: syncProgress === 100
+                                    ? 'linear-gradient(90deg, #10b981, #34d399)'
+                                    : 'linear-gradient(90deg, #6366f1, #818cf8)',
+                            }}
+                        />
                     </div>
-                    <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                    <p className="text-xs text-slate-400 font-medium">
                         {syncProgress < 20
                             ? 'Connecting to Brokerage Engine API…'
                             : syncProgress < 50
@@ -562,207 +418,283 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
 
             {/* Sync success banner */}
             {!syncingBE && syncBEResult && syncBEResult.ok && (
-                <div style={{
-                    margin: '0 0 1.25rem 0',
-                    padding: '0.75rem 1.25rem',
-                    borderRadius: '10px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '1rem',
-                    background: 'rgba(16, 185, 129, 0.08)',
-                    border: '1px solid rgba(16,185,129,0.3)',
-                    color: '#10b981',
-                    fontWeight: 500,
-                    fontSize: '0.875rem',
-                    animation: 'fadeIn 0.3s ease-in-out',
-                }}
-                >
-                    <span style={{ fontSize: '1rem' }}>✅</span>
+                <div className="p-3.5 rounded-lg bg-emerald-50/50 border border-emerald-200/60 text-emerald-700 font-medium text-xs flex items-center gap-2 shadow-sm">
+                    <span>✅</span>
                     <span>{syncBEResult.message}</span>
                 </div>
             )}
 
             {/* Table card */}
-            <div className="table-container">
-                <div className="table-header">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        <h2>Transactions</h2>
+            <Card className="shadow-sm border-slate-100 overflow-hidden">
+                <div className="p-5 border-b border-slate-100 bg-slate-50/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                        <h2 className="text-md font-bold text-slate-800">Transactions</h2>
                         {data.length > 0 && (
-                            <span className="record-count-badge">{totalCount.toLocaleString()} records</span>
+                            <Badge variant="secondary" className="px-2 py-0.5 font-bold text-[10px] rounded">
+                                {totalCount.toLocaleString()} records
+                            </Badge>
                         )}
                     </div>
-                    <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+                    <span className="text-xs font-semibold text-slate-500">
                         Showing page {page} of {totalPages || 1}
                     </span>
                 </div>
 
-                {/* Search + filter */}
-                <div className="search-filter-bar">
-                    <div className="search-input-wrapper">
-                        <svg className="search-icon" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+                {/* Filters Grid */}
+                <div className="p-5 border-b border-slate-100 bg-white space-y-4">
+                    {/* Search */}
+                    <div className="relative w-full max-w-lg">
+                        <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
-                        <input
-                            id="be-search" type="text" className="search-input"
+                        <Input
+                            id="be-search"
+                            type="text"
                             placeholder="Search by Transaction ID, Property Address, or Buying Agent…"
                             value={searchInput}
                             onChange={e => setSearchInput(e.target.value)}
+                            className="pl-9 pr-8 w-full"
                         />
                         {searchInput && (
-                            <button className="search-clear-btn" onClick={() => { setSearchInput(''); setSearchQuery(''); setPage(1); }} aria-label="Clear search">✕</button>
+                            <button
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold"
+                                onClick={() => { setSearchInput(''); setSearchQuery(''); setPage(1); }}
+                            >
+                                ✕
+                            </button>
                         )}
                     </div>
-                </div>
 
-                {/* Date filters */}
-                <div className="txn-filters-grid">
-                    <div className="filter-group">
-                        <label htmlFor="be-close-from" className="filter-label">Close Date From</label>
-                        <input id="be-close-from" type="date" className="filter-select"
-                            value={closeDateFrom} onChange={e => { setCloseDateFrom(e.target.value); setPage(1); }}
-                            style={{ backgroundImage: 'none' }} />
-                    </div>
-                    <div className="filter-group">
-                        <label htmlFor="be-close-to" className="filter-label">Close Date To</label>
-                        <input id="be-close-to" type="date" className="filter-select"
-                            value={closeDateTo} onChange={e => { setCloseDateTo(e.target.value); setPage(1); }}
-                            style={{ backgroundImage: 'none' }} />
-                    </div>
-                    <div className="filter-group">
-                        <label htmlFor="be-contract-from" className="filter-label">Contract Date From</label>
-                        <input id="be-contract-from" type="date" className="filter-select"
-                            value={contractDateFrom} onChange={e => { setContractDateFrom(e.target.value); setPage(1); }}
-                            style={{ backgroundImage: 'none' }} />
-                    </div>
-                    <div className="filter-group">
-                        <label htmlFor="be-contract-to" className="filter-label">Contract Date To</label>
-                        <input id="be-contract-to" type="date" className="filter-select"
-                            value={contractDateTo} onChange={e => { setContractDateTo(e.target.value); setPage(1); }}
-                            style={{ backgroundImage: 'none' }} />
-                    </div>
-                    <div className="filter-group">
-                        <label htmlFor="be-status-filter" className="filter-label">Status</label>
-                        <select id="be-status-filter" className="filter-select"
-                            value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }}>
-                            <option value="">All Statuses</option>
-                            {availableStatuses.map(s => <option key={s} value={s}>{s}</option>)}
-                        </select>
-                    </div>
+                    {/* Date and dropdown filters */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-[1fr_1fr_1fr_1fr_1.2fr_1.2fr] gap-3 pt-1">
+                        <div className="space-y-1">
+                            <label htmlFor="be-close-from" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Close From</label>
+                            <Input id="be-close-from" type="date" value={closeDateFrom} onChange={e => { setCloseDateFrom(e.target.value); setPage(1); }} className="h-8.5 text-xs text-slate-700" />
+                        </div>
+                        <div className="space-y-1">
+                            <label htmlFor="be-close-to" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Close To</label>
+                            <Input id="be-close-to" type="date" value={closeDateTo} onChange={e => { setCloseDateTo(e.target.value); setPage(1); }} className="h-8.5 text-xs text-slate-700" />
+                        </div>
+                        <div className="space-y-1">
+                            <label htmlFor="be-contract-from" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Contract From</label>
+                            <Input id="be-contract-from" type="date" value={contractDateFrom} onChange={e => { setContractDateFrom(e.target.value); setPage(1); }} className="h-8.5 text-xs text-slate-700" />
+                        </div>
+                        <div className="space-y-1">
+                            <label htmlFor="be-contract-to" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Contract To</label>
+                            <Input id="be-contract-to" type="date" value={contractDateTo} onChange={e => { setContractDateTo(e.target.value); setPage(1); }} className="h-8.5 text-xs text-slate-700" />
+                        </div>
+                        <div className="space-y-1">
+                            <label htmlFor="be-status-filter" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Status</label>
+                            <Select id="be-status-filter" value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }} className="h-8.5 text-xs">
+                                <option value="">All Statuses</option>
+                                {availableStatuses.map(s => <option key={s} value={s}>{s}</option>)}
+                            </Select>
+                        </div>
 
-                    {/* Broker Hold toggle */}
-                    <div className="filter-group" style={{ justifyContent: 'flex-end' }}>
-                        <label className="filter-label">Broker Hold</label>
-                        <button
-                            id="be-brokerhold-toggle"
-                            onClick={() => { setBrokerHold(v => !v); setPage(1); }}
-                            style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '0.45rem',
-                                padding: '0.42rem 0.9rem',
-                                borderRadius: '8px',
-                                border: brokerHold ? '1px solid rgba(239,68,68,0.5)' : '1px solid var(--border)',
-                                background: brokerHold
-                                    ? 'linear-gradient(135deg,rgba(239,68,68,0.15),rgba(239,68,68,0.05))'
-                                    : 'transparent',
-                                color: brokerHold ? '#ef4444' : 'var(--text-muted)',
-                                fontWeight: 700,
-                                fontSize: '0.8rem',
-                                fontFamily: 'inherit',
-                                cursor: 'pointer',
-                                transition: 'all 0.15s ease',
-                                whiteSpace: 'nowrap',
-                            }}
-                        >
-                            {/* toggle track */}
-                            <span style={{
-                                position: 'relative', display: 'inline-block',
-                                width: '28px', height: '16px',
-                                background: brokerHold ? '#ef4444' : 'rgba(150,150,150,0.3)',
-                                borderRadius: '999px',
-                                transition: 'background 0.2s',
-                                flexShrink: 0,
-                            }}>
-                                <span style={{
-                                    position: 'absolute', top: '2px',
-                                    left: brokerHold ? '14px' : '2px',
-                                    width: '12px', height: '12px',
-                                    borderRadius: '50%', background: '#fff',
-                                    transition: 'left 0.2s',
-                                    boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-                                }} />
-                            </span>
-                            Broker Hold
-                        </button>
+                        {/* Broker Hold toggle */}
+                        <div className="space-y-1 flex flex-col justify-end">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Hold Status</label>
+                            <Button
+                                id="be-brokerhold-toggle"
+                                variant={brokerHold ? 'destructive' : 'outline'}
+                                onClick={() => { setBrokerHold(v => !v); setPage(1); }}
+                                className={`h-8.5 text-xs font-bold gap-2 px-3 justify-start w-full border rounded-md transition-all select-none ${brokerHold
+                                        ? 'bg-red-50 text-red-600 hover:bg-red-100/60 border-red-200'
+                                        : 'hover:bg-slate-50'
+                                    }`}
+                            >
+                                <span className={`relative inline-block w-6 h-3.5 rounded-full shrink-0 transition-colors duration-200 ${brokerHold ? 'bg-red-500' : 'bg-slate-200'
+                                    }`}>
+                                    <span className={`absolute top-0.5 w-2.5 h-2.5 rounded-full bg-white transition-all duration-200 shadow-sm ${brokerHold ? 'left-3' : 'left-0.5'
+                                        }`} />
+                                </span>
+                                Broker Hold
+                            </Button>
+                        </div>
                     </div>
 
+                    {/* Reset Button */}
                     {(searchInput || searchQuery || statusFilter || closeDateFrom || closeDateTo || contractDateFrom || contractDateTo || brokerHold) && (
-                        <div className="filter-group" style={{ justifyContent: 'flex-end' }}>
-                            <button className="clear-all-btn" onClick={() => {
-                                setSearchInput(''); setSearchQuery(''); setStatusFilter(''); setCloseDateFrom(''); setCloseDateTo('');
-                                setContractDateFrom(''); setContractDateTo(''); setBrokerHold(false); setPage(1);
-                            }}>Clear All Filters</button>
+                        <div className="flex justify-end pt-1">
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                    setSearchInput(''); setSearchQuery(''); setStatusFilter(''); setCloseDateFrom(''); setCloseDateTo('');
+                                    setContractDateFrom(''); setContractDateTo(''); setBrokerHold(false); setPage(1);
+                                }}
+                                className="h-8 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 font-bold"
+                            >
+                                Clear All Filters
+                            </Button>
                         </div>
                     )}
                 </div>
 
+                {/* Grid Table */}
                 {loading ? (
-                    <div className="loading"><div className="spinner"></div><p>Loading Brokerage Engine data…</p></div>
+                    <div className="p-12 flex flex-col items-center justify-center space-y-4">
+                        <svg className="animate-spin h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        <p className="text-sm font-semibold text-slate-500">Loading Brokerage Engine data…</p>
+                    </div>
                 ) : error ? (
-                    <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--danger)' }}>
-                        <p>⚠️ Failed to load data: {error}</p>
+                    <div className="p-12 text-center max-w-sm mx-auto space-y-2">
+                        <div className="text-3xl">⚠️</div>
+                        <h3 className="text-sm font-bold text-red-600">Failed to load data</h3>
+                        <p className="text-xs text-slate-500">{error}</p>
                     </div>
                 ) : (
                     <>
-                        <div className="table-responsive">
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Transaction ID</th>
-                                        <th>Property Address</th>
-                                        <th>Sale Price</th>
-                                        <th>Status</th>
-                                        <th>Close Date</th>
-                                        <th>Contract Date</th>
-                                        <th>Buying Agent</th>
-                                        <th>Transaction Specialist</th>
-                                        <th>Skyslope FileID</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {data.map((row, i) => (
-                                        <tr key={i} onClick={() => { setSelectedRecord(row); setDetailTab('details'); }} style={{ cursor: 'pointer' }} className="clickable-row">
-                                            <td className="cell-guid">{row.transactionid || '-'}</td>
-                                            <td className="cell-address">{row.property_address || '-'}</td>
-                                            <td>{row.sale_price != null ? `$${Number(row.sale_price).toLocaleString()}` : '-'}</td>
-                                            <td>
-                                                {row.status
-                                                    ? <span className={`badge ${row.status.toLowerCase()}`}>{row.status}</span>
-                                                    : '-'}
-                                            </td>
-                                            <td>{row.close_date || '-'}</td>
-                                            <td>{row.contract_date || '-'}</td>
-                                            <td>{row.buying_agent_name || '-'}</td>
-                                            <td>{row.transaction_specialist || '-'}</td>
-                                            <td>{row.skyslopefileid || '-'}</td>
-                                        </tr>
-                                    ))}
-                                    {data.length === 0 && (
-                                        <tr><td colSpan={9} style={{ textAlign: 'center', padding: '2rem' }}>No data available</td></tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead className="w-1/8">Transaction ID</TableHead>
+                                    <TableHead className="w-1/4">Property Address</TableHead>
+                                    <TableHead className="w-1/10">Sale Price</TableHead>
+                                    <TableHead className="w-1/10">Status</TableHead>
+                                    <TableHead className="w-1/10">Close Date</TableHead>
+                                    <TableHead className="w-1/10">Contract Date</TableHead>
+                                    <TableHead className="w-1/8">Buying Agent</TableHead>
+                                    <TableHead className="w-1/8">Specialist</TableHead>
+                                    <TableHead className="w-1/10 text-right pr-6">SkySlope ID</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {data.map((row, i) => (
+                                    <TableRow
+                                        key={i}
+                                        onClick={() => { setSelectedRecord(row); setDetailTab('details'); }}
+                                        className="cursor-pointer hover:bg-slate-50/50 transition-colors"
+                                    >
+                                        <TableCell className="font-mono text-xs text-slate-600 shrink-0">{row.transactionid || '-'}</TableCell>
+                                        <TableCell className="font-medium text-slate-800 text-xs">{renderCellData(row.property_address)}</TableCell>
+                                        <TableCell className="text-xs font-semibold text-slate-600">{row.sale_price != null ? `$${Number(row.sale_price).toLocaleString()}` : '-'}</TableCell>
+                                        <TableCell className="shrink-0 select-none">
+                                            {row.status ? (
+                                                <Badge
+                                                    variant={row.status.toLowerCase() === 'complete' ? 'success' : 'secondary'}
+                                                    className="capitalize px-2 py-0.5 rounded text-[10px] font-semibold"
+                                                >
+                                                    {row.status}
+                                                </Badge>
+                                            ) : (
+                                                <span className="text-slate-400">—</span>
+                                            )}
+                                        </TableCell>
+                                        <TableCell className="text-xs text-slate-500 font-medium">{row.close_date || '-'}</TableCell>
+                                        <TableCell className="text-xs text-slate-500 font-medium">{row.contract_date || '-'}</TableCell>
+                                        <TableCell className="text-xs text-slate-600">{renderCellData(row.buying_agent_name)}</TableCell>
+                                        <TableCell className="text-xs text-slate-600">{renderCellData(row.transaction_specialist)}</TableCell>
+                                        <TableCell className="text-right pr-6 font-mono text-xs text-slate-500 shrink-0">{row.skyslopefileid || '-'}</TableCell>
+                                    </TableRow>
+                                ))}
+                                {data.length === 0 && (
+                                    <TableRow>
+                                        <TableCell colSpan={9} className="text-center text-slate-400 py-10 font-medium">
+                                            No data available
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+
+                        {/* Pagination */}
                         {totalPages > 1 && (
-                            <div className="pagination">
-                                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>Previous</button>
-                                <span style={{ fontSize: '0.875rem' }}>Page {page} of {totalPages}</span>
-                                <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>Next</button>
+                            <div className="p-4 border-t border-slate-100 bg-slate-50/20 flex items-center justify-between">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                                    disabled={page === 1}
+                                    className="h-8 font-semibold text-xs text-slate-600"
+                                >
+                                    Previous
+                                </Button>
+                                <span className="text-xs font-semibold text-slate-500">
+                                    Page {page} of {totalPages}
+                                </span>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                                    disabled={page === totalPages}
+                                    className="h-8 font-semibold text-xs text-slate-600"
+                                >
+                                    Next
+                                </Button>
                             </div>
                         )}
                     </>
                 )}
-            </div>
+            </Card>
+
+            {/* Sync logs dialog */}
+            <Dialog open={showSyncLogs} onOpenChange={setShowSyncLogs}>
+                <DialogHeader>
+                    <DialogTitle>Sync History Log</DialogTitle>
+                    <DialogDescription>
+                        Audit logs for Brokerage Engine synchronization tasks.
+                    </DialogDescription>
+                </DialogHeader>
+                <DialogContent>
+                    {loadingSyncLogs ? (
+                        <div className="py-8 flex flex-col items-center justify-center space-y-3">
+                            <svg className="animate-spin h-7 w-7 text-blue-600" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                            </svg>
+                            <p className="text-xs font-semibold text-slate-400">Loading sync history logs…</p>
+                        </div>
+                    ) : syncLogsError ? (
+                        <div className="p-4 text-center text-red-600 text-xs font-bold">
+                            ⚠️ Failed to load sync logs: {syncLogsError}
+                        </div>
+                    ) : syncLogs ? (
+                        <div className="space-y-4">
+                            <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-lg border border-slate-100/50">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Sync Summary</span>
+                                <Badge variant="secondary" className="font-bold text-[10px]">{syncLogs.count} entries</Badge>
+                            </div>
+                            <div className="border border-slate-100 rounded-lg overflow-hidden max-h-80 overflow-y-auto custom-scrollbar">
+                                <Table>
+                                    <TableHeader className="bg-slate-50/70 sticky top-0 z-10">
+                                        <TableRow>
+                                            <TableHead className="text-xs">Sync Date</TableHead>
+                                            <TableHead className="text-xs">Sync Time</TableHead>
+                                            <TableHead className="text-xs text-right pr-6">Status</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {syncLogs.data.map((log, idx) => (
+                                            <TableRow key={idx}>
+                                                <TableCell className="text-xs font-medium text-slate-700">{log.sync_date}</TableCell>
+                                                <TableCell className="text-xs font-mono text-slate-500">{log.sync_time}</TableCell>
+                                                <TableCell className="text-right pr-6 select-none">
+                                                    <Badge
+                                                        variant={log.status === 'success' ? 'success' : 'destructive'}
+                                                        className="px-2 py-0.5 rounded text-[10px] font-semibold gap-1.5 inline-flex items-center"
+                                                    >
+                                                        <span className={`w-1 h-1 rounded-full shrink-0 ${log.status === 'success' ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                                                        {log.status}
+                                                    </Badge>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                        </div>
+                    ) : null}
+                </DialogContent>
+                <DialogFooter>
+                    <Button onClick={() => setShowSyncLogs(false)} className="h-9 font-semibold text-xs select-none">
+                        Close Log
+                    </Button>
+                </DialogFooter>
+            </Dialog>
         </div>
     );
 }

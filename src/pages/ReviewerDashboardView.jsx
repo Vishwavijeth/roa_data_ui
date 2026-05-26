@@ -1,8 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { utils, writeFile } from 'xlsx';
 import { REVIEWER_SUMMARY_API } from '../constants';
-import { IconDownload } from '../components/Icons';
-import MultiSelect from '../components/MultiSelect';
+import { IconDownload } from '../components/shared/Icons';
+import MultiSelect from '../components/shared/MultiSelect';
+import { Button } from '../components/ui/Button';
+import { Card, CardContent } from '../components/ui/Card';
+import { Badge } from '../components/ui/Badge';
+import { Input } from '../components/ui/Input';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
 
 function ReviewerDashboardView() {
     const [data, setData] = useState([]);
@@ -38,7 +43,6 @@ function ReviewerDashboardView() {
         const params = new URLSearchParams();
         if (dateFrom) params.append('from_date', dateFrom);
         if (dateTo) params.append('to_date', dateTo);
-        // Send each selected state as a separate param; server handles multi or we filter client-side
         if (stateFilter.length === 1) params.append('state', stateFilter[0]);
         const queryString = params.toString();
         if (queryString) url += `?${queryString}`;
@@ -55,7 +59,6 @@ function ReviewerDashboardView() {
 
     const filteredData = useMemo(() => {
         let result = data;
-        // When multiple states selected, filter client-side (data already filtered server-side for single)
         if (stateFilter.length > 1) {
             result = result.filter(r => stateFilter.includes(r.state));
         }
@@ -89,173 +92,245 @@ function ReviewerDashboardView() {
     };
 
     return (
-        <div className="dashboard">
-            <div className="page-header">
+        <div className="p-8 max-w-7xl mx-auto w-full space-y-6">
+            {/* Page Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200/80 pb-5">
                 <div>
-                    <h1>Reviewer Dashboard</h1>
-                    <p>Summary of reviewers — outstanding vs closed transactions.</p>
+                    <h1 className="text-2xl font-bold tracking-tight text-slate-900">Reviewer Dashboard</h1>
+                    <p className="text-sm text-slate-500 mt-1">Summary of reviewers — outstanding vs closed transactions.</p>
                 </div>
-                <button className="export-btn" onClick={handleDownload} disabled={!data.length}>
+                <Button 
+                    onClick={handleDownload} 
+                    disabled={!data.length}
+                    className="font-semibold text-xs gap-2 h-9 shadow-md shadow-blue-600/10"
+                >
                     <IconDownload /> Download Report
-                </button>
+                </Button>
             </div>
 
-            <div className="table-container">
-                <div className="table-header">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        <h2>Reviewer Breakdown</h2>
+            {/* Metrics cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <Card className="hover:border-slate-300 transition-all select-none">
+                    <CardContent className="pt-6">
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Total Reviewers</span>
+                        <div className="text-2xl font-bold text-slate-800 mt-2">
+                            {totals.reviewers.toLocaleString()}
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card className="hover:border-amber-200 hover:bg-amber-50/5 transition-all select-none">
+                    <CardContent className="pt-6">
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Outstanding Transactions</span>
+                        <div className="text-2xl font-bold text-amber-600 mt-2">
+                            {totals.outstanding.toLocaleString()}
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card className="hover:border-emerald-200 hover:bg-emerald-50/5 transition-all select-none">
+                    <CardContent className="pt-6">
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Closed Transactions</span>
+                        <div className="text-2xl font-bold text-emerald-600 mt-2">
+                            {totals.closed.toLocaleString()}
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card className="hover:border-indigo-200 hover:bg-indigo-50/5 transition-all select-none">
+                    <CardContent className="pt-6">
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Total Managed</span>
+                        <div className="text-2xl font-bold text-indigo-600 mt-2">
+                            {totals.total.toLocaleString()}
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+
+            {/* Table Card */}
+            <Card className="shadow-sm border-slate-100 overflow-hidden">
+                <div className="p-5 border-b border-slate-100 bg-slate-50/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex items-center gap-2">
+                        <h2 className="text-md font-bold text-slate-800">Reviewer Breakdown</h2>
                         {data.length > 0 && (
-                            <span className="record-count-badge">{filteredData.length} of {data.length} reviewers</span>
+                            <Badge variant="secondary" className="px-2 py-0.5 font-bold text-[10px] rounded">
+                                {filteredData.length} of {data.length} reviewers
+                            </Badge>
                         )}
                     </div>
                 </div>
 
-                {/* Search */}
-                <div className="search-filter-bar">
-                    <div className="search-input-wrapper" style={{ flex: 1 }}>
-                        <svg className="search-icon" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+                {/* Search and Filters grid */}
+                <div className="p-5 border-b border-slate-100 bg-white space-y-4">
+                    <div className="relative w-full max-w-lg">
+                        <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
-                        <input
-                            id="reviewer-dash-search" type="text" className="search-input"
+                        <Input
+                            id="reviewer-dash-search"
+                            type="text"
                             placeholder="Search by reviewer name…"
                             value={searchQuery}
                             onChange={e => setSearchQuery(e.target.value)}
+                            className="pl-9 pr-8 w-full"
                         />
                         {searchQuery && (
-                            <button className="search-clear-btn" onClick={() => setSearchQuery('')} aria-label="Clear search">✕</button>
+                            <button 
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold" 
+                                onClick={() => setSearchQuery('')}
+                            >
+                                ✕
+                            </button>
+                        )}
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 items-end">
+                        <div className="space-y-1">
+                            <label htmlFor="rev-dash-date-from" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Close From</label>
+                            <Input
+                                id="rev-dash-date-from"
+                                type="date"
+                                value={dateFrom}
+                                onChange={e => setDateFrom(e.target.value)}
+                                className="h-9 text-xs text-slate-700"
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <label htmlFor="rev-dash-date-to" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Close To</label>
+                            <Input
+                                id="rev-dash-date-to"
+                                type="date"
+                                value={dateTo}
+                                onChange={e => setDateTo(e.target.value)}
+                                className="h-9 text-xs text-slate-700"
+                            />
+                        </div>
+                        <div className="space-y-1 z-20">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">State</label>
+                            <MultiSelect
+                                id="rev-dash-state-filter"
+                                options={uniqueStates}
+                                selected={stateFilter}
+                                onChange={v => setStateFilter(v)}
+                                placeholder="All States"
+                                allLabel="All States"
+                            />
+                        </div>
+                        
+                        {hasActiveFilters && (
+                            <div>
+                                <Button
+                                    variant="ghost"
+                                    onClick={clearAllFilters}
+                                    className="h-9 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 font-bold w-full md:w-auto"
+                                >
+                                    Clear Filters
+                                </Button>
+                            </div>
                         )}
                     </div>
                 </div>
 
-                {/* Filters */}
-                <div className="txn-filters-grid">
-                    <div className="filter-group">
-                        <label htmlFor="rev-dash-date-from" className="filter-label">Escrow Close Date From</label>
-                        <input
-                            id="rev-dash-date-from" type="date" className="filter-select"
-                            value={dateFrom}
-                            onChange={e => setDateFrom(e.target.value)}
-                            style={{ backgroundImage: 'none' }}
-                        />
-                    </div>
-
-                    <div className="filter-group">
-                        <label htmlFor="rev-dash-date-to" className="filter-label">Escrow Close Date To</label>
-                        <input
-                            id="rev-dash-date-to" type="date" className="filter-select"
-                            value={dateTo}
-                            onChange={e => setDateTo(e.target.value)}
-                            style={{ backgroundImage: 'none' }}
-                        />
-                    </div>
-
-                    <div className="filter-group">
-                        <label className="filter-label">State</label>
-                        <MultiSelect
-                            id="rev-dash-state-filter"
-                            options={uniqueStates}
-                            selected={stateFilter}
-                            onChange={v => setStateFilter(v)}
-                            placeholder="All States"
-                            allLabel="All States"
-                        />
-                    </div>
-
-                    {hasActiveFilters && (
-                        <div className="filter-group" style={{ justifyContent: 'flex-end' }}>
-                            <button className="clear-all-btn" onClick={clearAllFilters}>Clear Filters</button>
-                        </div>
-                    )}
-                </div>
-
+                {/* Main Content */}
                 {loading ? (
-                    <div className="loading"><div className="spinner"></div><p>Loading reviewer summary…</p></div>
+                    <div className="p-12 flex flex-col items-center justify-center space-y-4">
+                        <svg className="animate-spin h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        <p className="text-sm font-semibold text-slate-500">Loading reviewer summary…</p>
+                    </div>
                 ) : error ? (
-                    <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--danger)' }}>
-                        <p>⚠️ Failed to load data: {error}</p>
+                    <div className="p-12 text-center max-w-sm mx-auto space-y-2">
+                        <div className="text-3xl">⚠️</div>
+                        <h3 className="text-sm font-bold text-red-600">Failed to load data</h3>
+                        <p className="text-xs text-slate-500">{error}</p>
                     </div>
                 ) : (
                     <>
-                        <div className="table-responsive">
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th style={{ width: '40px' }}>#</th>
-                                        <th>Reviewer</th>
-                                        <th style={{ width: '160px' }}>Outstanding</th>
-                                        <th style={{ width: '160px' }}>Closed</th>
-                                        <th style={{ width: '120px' }}>Total</th>
-                                        <th style={{ minWidth: '220px' }}>Distribution</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {filteredData.map((row, i) => {
-                                        const outstanding = row.transactions_outstanding || 0;
-                                        const closed = row.transactions_closed || 0;
-                                        const total = outstanding + closed;
-                                        const outPct = total > 0 ? (outstanding / total * 100).toFixed(0) : 0;
-                                        const closedPct = total > 0 ? (closed / total * 100).toFixed(0) : 0;
-                                        return (
-                                            <tr key={i}>
-                                                <td style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>{i + 1}</td>
-                                                <td style={{ fontWeight: 600 }}>{row.reviewer_full_name || '-'}</td>
-                                                <td>
-                                                    <span className="badge warning" style={{ minWidth: '36px', textAlign: 'center' }}>{outstanding}</span>
-                                                </td>
-                                                <td>
-                                                    <span className="badge match" style={{ minWidth: '36px', textAlign: 'center' }}>{closed}</span>
-                                                </td>
-                                                <td style={{ fontWeight: 600 }}>{total}</td>
-                                                <td>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                        <div style={{
-                                                            display: 'flex', height: '22px', borderRadius: '6px',
-                                                            overflow: 'hidden', flex: 1, minWidth: '120px',
-                                                            background: 'var(--bg-secondary)'
-                                                        }}>
-                                                            {outstanding > 0 && (
-                                                                <div style={{
-                                                                    width: `${outPct}%`, background: '#ef4444',
-                                                                    transition: 'width 0.6s ease'
-                                                                }} title={`Outstanding: ${outstanding} (${outPct}%)`} />
-                                                            )}
-                                                            {closed > 0 && (
-                                                                <div style={{
-                                                                    width: `${closedPct}%`, background: '#3b82f6',
-                                                                    transition: 'width 0.6s ease'
-                                                                }} title={`Closed: ${closed} (${closedPct}%)`} />
-                                                            )}
-                                                        </div>
-                                                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-                                                            {closedPct}% closed
-                                                        </span>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead className="w-12 text-center">#</TableHead>
+                                    <TableHead>Reviewer</TableHead>
+                                    <TableHead className="w-40">Outstanding</TableHead>
+                                    <TableHead className="w-40">Closed</TableHead>
+                                    <TableHead className="w-28">Total</TableHead>
+                                    <TableHead className="min-w-[220px]">Distribution</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {filteredData.map((row, i) => {
+                                    const outstanding = row.transactions_outstanding || 0;
+                                    const closed = row.transactions_closed || 0;
+                                    const total = outstanding + closed;
+                                    const outPct = total > 0 ? (outstanding / total * 100).toFixed(0) : 0;
+                                    const closedPct = total > 0 ? (closed / total * 100).toFixed(0) : 0;
+                                    return (
+                                        <TableRow key={i}>
+                                            <TableCell className="text-center font-mono text-xs text-slate-400">{i + 1}</TableCell>
+                                            <TableCell className="font-semibold text-slate-800 text-xs">{row.reviewer_full_name || '-'}</TableCell>
+                                            <TableCell>
+                                                <Badge variant="warning" className="w-9 justify-center rounded font-semibold text-xs">
+                                                    {outstanding}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Badge variant="success" className="w-9 justify-center rounded font-semibold text-xs">
+                                                    {closed}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell className="font-semibold text-slate-800 text-xs">{total}</TableCell>
+                                            <TableCell>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="flex h-5 rounded-md overflow-hidden flex-1 min-w-[120px] bg-slate-100">
+                                                        {outstanding > 0 && (
+                                                            <div 
+                                                                style={{ width: `${outPct}%` }} 
+                                                                className="bg-red-500 transition-all duration-500 ease-out"
+                                                                title={`Outstanding: ${outstanding} (${outPct}%)`} 
+                                                            />
+                                                        )}
+                                                        {closed > 0 && (
+                                                            <div 
+                                                                style={{ width: `${closedPct}%` }} 
+                                                                className="bg-blue-500 transition-all duration-500 ease-out"
+                                                                title={`Closed: ${closed} (${closedPct}%)`} 
+                                                            />
+                                                        )}
                                                     </div>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                    {filteredData.length === 0 && (
-                                        <tr><td colSpan={6} style={{ textAlign: 'center', padding: '2rem' }}>No data available</td></tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
+                                                    <span className="text-[10px] text-slate-400 font-bold white-space-nowrap shrink-0">
+                                                        {closedPct}% closed
+                                                    </span>
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })}
+                                {filteredData.length === 0 && (
+                                    <TableRow>
+                                        <TableCell colSpan={6} className="text-center text-slate-400 py-10 font-medium">
+                                            No data available
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
 
                         {/* Legend */}
-                        <div style={{ display: 'flex', gap: '1.5rem', padding: '1rem 1.5rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                <span style={{ width: '12px', height: '12px', borderRadius: '3px', background: '#ef4444', display: 'inline-block' }}></span>
+                        <div className="flex gap-4 p-4 px-6 border-t border-slate-100 bg-slate-50/20 text-xs font-bold text-slate-400 select-none">
+                            <span className="flex items-center gap-1.5">
+                                <span className="w-3 h-3 rounded bg-red-500 block shrink-0" />
                                 Outstanding
                             </span>
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                <span style={{ width: '12px', height: '12px', borderRadius: '3px', background: '#3b82f6', display: 'inline-block' }}></span>
+                            <span className="flex items-center gap-1.5">
+                                <span className="w-3 h-3 rounded bg-blue-500 block shrink-0" />
                                 Closed
                             </span>
                         </div>
                     </>
                 )}
-            </div>
+            </Card>
         </div>
     );
 }
