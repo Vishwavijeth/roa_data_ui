@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import SectionedDetailView from '../components/shared/SectionedDetailView';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Input } from '../components/ui/Input';
-import { Select } from '../components/ui/Select';
+
 import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogContent, DialogFooter } from '../components/ui/Dialog';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/Tabs';
 
@@ -565,7 +565,7 @@ function KanbanColumn({
                     <span className={hasAnyMismatch ? 'text-red-500' : col.color}>{col.icon}</span>
                     <span className="truncate max-w-[170px] flex items-center gap-1">
                         <span>{col.label}</span>
-                        {col.id === 'pending' && pendingSubfilter && (
+                        {col.id === 'pending' && pendingSubfilter.length > 0 && (
                             <Badge variant="secondary" className="px-2 py-0.5 bg-amber-100 text-amber-800 border border-amber-200/40 font-extrabold text-[10px] rounded-full">
                                 {total || 0}
                             </Badge>
@@ -606,19 +606,18 @@ function KanbanColumn({
 
             {/* Dropdown Filter for Pending Column */}
             {col.id === 'pending' && (
-                <div className="space-y-1">
-                    <Select
-                        value={pendingSubfilter}
-                        onChange={e => onPendingSubfilterChange(e.target.value)}
-                        className="h-8 text-[11px] py-1 pl-2 pr-7 font-medium text-slate-700 focus:ring-amber-500/20 border-slate-200"
-                    >
-                        <option value="">All Pending</option>
-                        <option value="open">Open</option>
-                        <option value="commissionverified">Commission Verified</option>
-                        <option value="cdasent">CDA Sent</option>
-                        <option value="titlepaymentreceived">Title Payment Received</option>
-                    </Select>
-                </div>
+                <MultiSelectDropdown
+                    options={[
+                        { value: 'open', label: 'Open' },
+                        { value: 'commissionverified', label: 'Commission Verified' },
+                        { value: 'cdasent', label: 'CDA Sent' },
+                        { value: 'titlepaymentreceived', label: 'Title Payment Received' },
+                    ]}
+                    value={pendingSubfilter}
+                    onChange={onPendingSubfilterChange}
+                    placeholder="All Pending"
+                    className="w-full"
+                />
             )}
 
             {/* Scrollable Column Cards Container */}
@@ -654,6 +653,74 @@ function KanbanColumn({
                     </>
                 )}
             </div>
+        </div>
+    );
+}
+
+// ── Multi-Select Dropdown ────────────────────────────────────────────────────
+function MultiSelectDropdown({ options, value = [], onChange, placeholder, className }) {
+    const normalizedOptions = options.map(opt =>
+        typeof opt === 'string' ? { value: opt, label: opt } : opt
+    );
+    const [open, setOpen] = useState(false);
+    const ref = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const toggle = (optValue) => {
+        if (value.includes(optValue)) {
+            onChange(value.filter(v => v !== optValue));
+        } else {
+            onChange([...value, optValue]);
+        }
+    };
+
+    const displayLabel = value.length === 0
+        ? (placeholder || 'Select…')
+        : value.length === 1
+            ? (normalizedOptions.find(o => o.value === value[0])?.label || value[0])
+            : `${value.length} selected`;
+
+    return (
+        <div ref={ref} className={`relative ${className || ''}`}>
+            <button
+                type="button"
+                onClick={() => setOpen(o => !o)}
+                className={`w-full h-9 flex items-center justify-between gap-2 px-3 rounded-md border text-xs font-medium transition-all bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${
+                    value.length > 0 ? 'border-blue-300 text-slate-800' : 'border-slate-200 text-slate-400'
+                }`}
+            >
+                <span className="truncate">{displayLabel}</span>
+                <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                    className={`shrink-0 transition-transform duration-150 ${open ? 'rotate-180' : ''}`}>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                </svg>
+            </button>
+            {open && (
+                <div className="absolute z-50 top-full mt-1 left-0 min-w-full w-max max-w-[240px] bg-white border border-slate-200 rounded-lg shadow-lg py-1 max-h-52 overflow-y-auto custom-scrollbar">
+                    {normalizedOptions.length === 0 ? (
+                        <div className="px-3 py-2 text-[11px] text-slate-400 italic">No options available</div>
+                    ) : (
+                        normalizedOptions.map(opt => (
+                            <label key={opt.value} className="flex items-center gap-2.5 px-3 py-1.5 hover:bg-slate-50 cursor-pointer select-none">
+                                <input
+                                    type="checkbox"
+                                    checked={value.includes(opt.value)}
+                                    onChange={() => toggle(opt.value)}
+                                    className="accent-blue-600 w-3 h-3 shrink-0 cursor-pointer"
+                                />
+                                <span className="text-xs text-slate-700 font-medium truncate">{opt.label}</span>
+                            </label>
+                        ))
+                    )}
+                </div>
+            )}
         </div>
     );
 }
@@ -741,30 +808,30 @@ function MonthClosing() {
 
     const [draftFrom, setDraftFrom] = useState(() => sessionStorage.getItem('mc_draftFrom') || '');
     const [draftTo, setDraftTo] = useState(() => sessionStorage.getItem('mc_draftTo') || '');
-    const [draftState, setDraftState] = useState(() => sessionStorage.getItem('mc_draftState') || '');
-    const [draftSpecialist, setDraftSpecialist] = useState(() => sessionStorage.getItem('mc_draftSpecialist') || '');
+    const [draftState, setDraftState] = useState(() => { try { return JSON.parse(sessionStorage.getItem('mc_draftState') || '[]'); } catch { return []; } });
+    const [draftSpecialist, setDraftSpecialist] = useState(() => { try { return JSON.parse(sessionStorage.getItem('mc_draftSpecialist') || '[]'); } catch { return []; } });
     const [draftMismatch, setDraftMismatch] = useState(() => sessionStorage.getItem('mc_draftMismatch') === 'true');
 
     const [activeFrom, setActiveFrom] = useState(() => sessionStorage.getItem('mc_activeFrom') || '');
     const [activeTo, setActiveTo] = useState(() => sessionStorage.getItem('mc_activeTo') || '');
-    const [activeState, setActiveState] = useState(() => sessionStorage.getItem('mc_activeState') || '');
-    const [activeSpecialist, setActiveSpecialist] = useState(() => sessionStorage.getItem('mc_activeSpecialist') || '');
+    const [activeState, setActiveState] = useState(() => { try { return JSON.parse(sessionStorage.getItem('mc_activeState') || '[]'); } catch { return []; } });
+    const [activeSpecialist, setActiveSpecialist] = useState(() => { try { return JSON.parse(sessionStorage.getItem('mc_activeSpecialist') || '[]'); } catch { return []; } });
     const [activeMismatch, setActiveMismatch] = useState(() => sessionStorage.getItem('mc_activeMismatch') === 'true');
-    const [pendingSubfilter, setPendingSubfilter] = useState(() => sessionStorage.getItem('mc_pendingSubfilter') || '');
+    const [pendingSubfilter, setPendingSubfilter] = useState(() => { try { return JSON.parse(sessionStorage.getItem('mc_pendingSubfilter') || '[]'); } catch { return []; } });
     const [unfilteredPendingCount, setUnfilteredPendingCount] = useState(0);
 
     useEffect(() => {
         sessionStorage.setItem('mc_draftFrom', draftFrom);
         sessionStorage.setItem('mc_draftTo', draftTo);
-        sessionStorage.setItem('mc_draftState', draftState);
-        sessionStorage.setItem('mc_draftSpecialist', draftSpecialist);
+        sessionStorage.setItem('mc_draftState', JSON.stringify(draftState));
+        sessionStorage.setItem('mc_draftSpecialist', JSON.stringify(draftSpecialist));
         sessionStorage.setItem('mc_draftMismatch', String(draftMismatch));
         sessionStorage.setItem('mc_activeFrom', activeFrom);
         sessionStorage.setItem('mc_activeTo', activeTo);
-        sessionStorage.setItem('mc_activeState', activeState);
-        sessionStorage.setItem('mc_activeSpecialist', activeSpecialist);
+        sessionStorage.setItem('mc_activeState', JSON.stringify(activeState));
+        sessionStorage.setItem('mc_activeSpecialist', JSON.stringify(activeSpecialist));
         sessionStorage.setItem('mc_activeMismatch', String(activeMismatch));
-        sessionStorage.setItem('mc_pendingSubfilter', pendingSubfilter);
+        sessionStorage.setItem('mc_pendingSubfilter', JSON.stringify(pendingSubfilter));
     }, [draftFrom, draftTo, draftState, draftSpecialist, draftMismatch, activeFrom, activeTo, activeState, activeSpecialist, activeMismatch, pendingSubfilter]);
 
     const searchQueriesRef = React.useRef({
@@ -779,8 +846,8 @@ function MonthClosing() {
         const params = [`page=${pageNum}`];
         if (colQuery) {
             params.push(colQuery);
-            if (colQuery === 'status=pending' && pendingSubfilter) {
-                params.push(`pending_subfilter=${encodeURIComponent(pendingSubfilter)}`);
+            if (colQuery === 'status=pending' && pendingSubfilter.length > 0) {
+                pendingSubfilter.forEach(sf => params.push(`pending_subfilter=${encodeURIComponent(sf)}`));
             }
         }
         if (searchQuery) {
@@ -788,11 +855,11 @@ function MonthClosing() {
         }
         if (activeFrom) params.push(`from_close_date=${encodeURIComponent(activeFrom)}`);
         if (activeTo) params.push(`to_close_date=${encodeURIComponent(activeTo)}`);
-        if (activeState) params.push(`state=${encodeURIComponent(activeState)}`);
-        if (activeSpecialist) {
-            const specVal = activeSpecialist === 'UNASSIGNED' ? 'Unassigned' : activeSpecialist;
+        activeState.forEach(s => params.push(`state=${encodeURIComponent(s)}`));
+        activeSpecialist.forEach(spec => {
+            const specVal = spec === 'UNASSIGNED' ? 'Unassigned' : spec;
             params.push(`transaction_specialist=${encodeURIComponent(specVal)}`);
-        }
+        });
         if (activeMismatch) {
             params.push('mismatch=true');
         }
@@ -838,7 +905,7 @@ function MonthClosing() {
                     }
                 });
 
-                if (colId === 'pending' && !pendingSubfilter) {
+                if (colId === 'pending' && !pendingSubfilter.length) {
                     setUnfilteredPendingCount(total);
                 }
 
@@ -858,7 +925,7 @@ function MonthClosing() {
             });
 
             // If colId is pending and a subfilter is active, fetch the unfiltered total count in the background!
-            if (colId === 'pending' && pendingSubfilter) {
+            if (colId === 'pending' && pendingSubfilter.length > 0) {
                 let unfilteredUrl = `${BASE_URL}/month-closing/listing?page=1&status=pending`;
                 if (searchQuery) unfilteredUrl += `&search=${encodeURIComponent(searchQuery)}`;
                 if (activeFrom) unfilteredUrl += `&from_close_date=${encodeURIComponent(activeFrom)}`;
@@ -940,14 +1007,14 @@ function MonthClosing() {
     const handleApply = () => {
         setActiveFrom(draftFrom);
         setActiveTo(draftTo);
-        setActiveState(draftState.trim().toUpperCase());
-        setActiveSpecialist(draftSpecialist.trim());
+        setActiveState([...draftState]);
+        setActiveSpecialist([...draftSpecialist]);
     };
 
     const handleClear = () => {
-        setDraftFrom(''); setDraftTo(''); setDraftState(''); setDraftSpecialist(''); setDraftMismatch(false);
-        setActiveFrom(''); setActiveTo(''); setActiveState(''); setActiveSpecialist(''); setActiveMismatch(false);
-        setPendingSubfilter('');
+        setDraftFrom(''); setDraftTo(''); setDraftState([]); setDraftSpecialist([]); setDraftMismatch(false);
+        setActiveFrom(''); setActiveTo(''); setActiveState([]); setActiveSpecialist([]); setActiveMismatch(false);
+        setPendingSubfilter([]);
         setUnfilteredPendingCount(0);
 
         searchQueriesRef.current = { skyslope: '', pending: '', closed: '', cancelled: '' };
@@ -959,7 +1026,7 @@ function MonthClosing() {
         }));
     };
 
-    const hasActive = !!(activeFrom || activeTo || activeState || activeSpecialist || activeMismatch);
+    const hasActive = !!(activeFrom || activeTo || activeState.length > 0 || activeSpecialist.length > 0 || activeMismatch);
     const isAnyLoading = Object.values(columnsLoading).some(Boolean);
 
     return (
@@ -1020,32 +1087,28 @@ function MonthClosing() {
                         {/* State */}
                         <div className="space-y-1">
                             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">State</label>
-                            <Select
+                            <MultiSelectDropdown
+                                options={stateOptions}
                                 value={draftState}
-                                onChange={e => setDraftState(e.target.value)}
-                                className="h-9 text-xs w-full"
-                            >
-                                <option value="">All States</option>
-                                {stateOptions.map(st => (
-                                    <option key={st} value={st}>{st}</option>
-                                ))}
-                            </Select>
+                                onChange={setDraftState}
+                                placeholder="All States"
+                                className="w-full"
+                            />
                         </div>
 
                         {/* Specialist */}
                         <div className="space-y-1">
                             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Specialist</label>
-                            <Select
+                            <MultiSelectDropdown
+                                options={[
+                                    { value: 'UNASSIGNED', label: 'Unassigned (Null)' },
+                                    ...specialistOptions.map(s => ({ value: s, label: s }))
+                                ]}
                                 value={draftSpecialist}
-                                onChange={e => setDraftSpecialist(e.target.value)}
-                                className="h-9 text-xs w-full"
-                            >
-                                <option value="">All Specialists</option>
-                                <option value="UNASSIGNED">Unassigned (Null)</option>
-                                {specialistOptions.map(spec => (
-                                    <option key={spec} value={spec}>{spec}</option>
-                                ))}
-                            </Select>
+                                onChange={setDraftSpecialist}
+                                placeholder="All Specialists"
+                                className="w-full"
+                            />
                         </div>
 
                         {/* Mismatch toggle — same row, same height */}
@@ -1071,7 +1134,7 @@ function MonthClosing() {
                         <div className="space-y-1">
                             <label className="text-[10px] font-bold text-transparent uppercase tracking-wider block select-none pointer-events-none">·</label>
                             <div className="flex items-center gap-2">
-                                {(hasActive || draftFrom || draftTo || draftState || draftSpecialist || draftMismatch) && (
+                                {(hasActive || draftFrom || draftTo || draftState.length > 0 || draftSpecialist.length > 0 || draftMismatch) && (
                                     <Button
                                         variant="ghost"
                                         size="sm"
@@ -1098,8 +1161,8 @@ function MonthClosing() {
                         <div className="flex flex-wrap gap-1.5 pt-1 border-t border-slate-100/60">
                             {activeFrom && <Badge variant="secondary" className="text-[9px] font-bold">From: {activeFrom}</Badge>}
                             {activeTo && <Badge variant="secondary" className="text-[9px] font-bold">To: {activeTo}</Badge>}
-                            {activeState && <Badge variant="secondary" className="text-[9px] font-bold">State: {activeState}</Badge>}
-                            {activeSpecialist && <Badge variant="secondary" className="text-[9px] font-bold">Specialist: {activeSpecialist}</Badge>}
+                            {activeState.map(s => <Badge key={s} variant="secondary" className="text-[9px] font-bold">State: {s}</Badge>)}
+                            {activeSpecialist.map(sp => <Badge key={sp} variant="secondary" className="text-[9px] font-bold">Specialist: {sp === 'UNASSIGNED' ? 'Unassigned (Null)' : sp}</Badge>)}
                             {activeMismatch && <Badge variant="destructive" className="text-[9px] font-bold uppercase tracking-wider">⚠️ Mismatches Only</Badge>}
                         </div>
                     )}
