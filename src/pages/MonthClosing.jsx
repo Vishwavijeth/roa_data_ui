@@ -405,6 +405,13 @@ function KanbanCard({ row, col, onCardClick }) {
                     <h4 className="text-xs font-bold text-slate-800 line-clamp-2 leading-tight" title={row.property_address}>
                         {row.property_address || '—'}
                     </h4>
+                    {row.be_stage && (
+                        <div className="mt-1.5">
+                            <span className="inline-block text-[10px] font-bold uppercase tracking-wider text-slate-600 bg-slate-100 border border-slate-200/60 px-1.5 py-0.5 rounded">
+                                {row.be_stage}
+                            </span>
+                        </div>
+                    )}
                 </div>
 
                 {col.id !== 'skyslope' ? (
@@ -482,7 +489,22 @@ function KanbanCard({ row, col, onCardClick }) {
 }
 
 // ── Kanban Column ────────────────────────────────────────────────────────────
-function KanbanColumn({ col, data, loading, error, activeSpecialist, onCardClick, hasMore, loadingMore, onLoadMore, searchQuery, onSearchChange }) {
+function KanbanColumn({
+    col,
+    data,
+    loading,
+    error,
+    activeSpecialist,
+    onCardClick,
+    hasMore,
+    loadingMore,
+    onLoadMore,
+    searchQuery,
+    onSearchChange,
+    pendingSubfilter,
+    onPendingSubfilterChange,
+    total
+}) {
     const [search, setSearch] = useState(searchQuery || '');
 
     useEffect(() => {
@@ -541,8 +563,13 @@ function KanbanColumn({ col, data, loading, error, activeSpecialist, onCardClick
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5 font-bold text-xs text-slate-800">
                     <span className={hasAnyMismatch ? 'text-red-500' : col.color}>{col.icon}</span>
-                    <span className="truncate max-w-[150px]">
-                        {col.label}
+                    <span className="truncate max-w-[170px] flex items-center gap-1">
+                        <span>{col.label}</span>
+                        {col.id === 'pending' && pendingSubfilter && (
+                            <Badge variant="secondary" className="px-2 py-0.5 bg-amber-100 text-amber-800 border border-amber-200/40 font-extrabold text-[10px] rounded-full">
+                                {total || 0}
+                            </Badge>
+                        )}
                         {col.id === 'skyslope' && (
                             <span className="text-[9px] font-normal text-slate-400 block -mt-0.5">Not in Brokerage Engine</span>
                         )}
@@ -576,6 +603,23 @@ function KanbanColumn({ col, data, loading, error, activeSpecialist, onCardClick
                     </button>
                 )}
             </div>
+
+            {/* Dropdown Filter for Pending Column */}
+            {col.id === 'pending' && (
+                <div className="space-y-1">
+                    <Select
+                        value={pendingSubfilter}
+                        onChange={e => onPendingSubfilterChange(e.target.value)}
+                        className="h-8 text-[11px] py-1 pl-2 pr-7 font-medium text-slate-700 focus:ring-amber-500/20 border-slate-200"
+                    >
+                        <option value="">All Pending</option>
+                        <option value="open">Open</option>
+                        <option value="commissionverified">Commission Verified</option>
+                        <option value="cdasent">CDA Sent</option>
+                        <option value="titlepaymentreceived">Title Payment Received</option>
+                    </Select>
+                </div>
+            )}
 
             {/* Scrollable Column Cards Container */}
             <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 custom-scrollbar" onScroll={handleScroll}>
@@ -706,6 +750,8 @@ function MonthClosing() {
     const [activeState, setActiveState] = useState(() => sessionStorage.getItem('mc_activeState') || '');
     const [activeSpecialist, setActiveSpecialist] = useState(() => sessionStorage.getItem('mc_activeSpecialist') || '');
     const [activeMismatch, setActiveMismatch] = useState(() => sessionStorage.getItem('mc_activeMismatch') === 'true');
+    const [pendingSubfilter, setPendingSubfilter] = useState(() => sessionStorage.getItem('mc_pendingSubfilter') || '');
+    const [unfilteredPendingCount, setUnfilteredPendingCount] = useState(0);
 
     useEffect(() => {
         sessionStorage.setItem('mc_draftFrom', draftFrom);
@@ -718,7 +764,8 @@ function MonthClosing() {
         sessionStorage.setItem('mc_activeState', activeState);
         sessionStorage.setItem('mc_activeSpecialist', activeSpecialist);
         sessionStorage.setItem('mc_activeMismatch', String(activeMismatch));
-    }, [draftFrom, draftTo, draftState, draftSpecialist, draftMismatch, activeFrom, activeTo, activeState, activeSpecialist, activeMismatch]);
+        sessionStorage.setItem('mc_pendingSubfilter', pendingSubfilter);
+    }, [draftFrom, draftTo, draftState, draftSpecialist, draftMismatch, activeFrom, activeTo, activeState, activeSpecialist, activeMismatch, pendingSubfilter]);
 
     const searchQueriesRef = React.useRef({
         skyslope: '',
@@ -732,6 +779,9 @@ function MonthClosing() {
         const params = [`page=${pageNum}`];
         if (colQuery) {
             params.push(colQuery);
+            if (colQuery === 'status=pending' && pendingSubfilter) {
+                params.push(`pending_subfilter=${encodeURIComponent(pendingSubfilter)}`);
+            }
         }
         if (searchQuery) {
             params.push(`search=${encodeURIComponent(searchQuery)}`);
@@ -750,7 +800,7 @@ function MonthClosing() {
             url += '?' + params.join('&');
         }
         return url;
-    }, [activeFrom, activeTo, activeState, activeSpecialist, activeMismatch]);
+    }, [activeFrom, activeTo, activeState, activeSpecialist, activeMismatch, pendingSubfilter]);
 
     const fetchColumnPage = useCallback(async (colId, pageNum, isLoadMore = false, searchQuery = '') => {
         const col = COLUMNS.find(c => c.id === colId);
@@ -788,6 +838,10 @@ function MonthClosing() {
                     }
                 });
 
+                if (colId === 'pending' && !pendingSubfilter) {
+                    setUnfilteredPendingCount(total);
+                }
+
                 return {
                     ...prev,
                     [colId]: {
@@ -802,6 +856,28 @@ function MonthClosing() {
                     }
                 };
             });
+
+            // If colId is pending and a subfilter is active, fetch the unfiltered total count in the background!
+            if (colId === 'pending' && pendingSubfilter) {
+                let unfilteredUrl = `${BASE_URL}/month-closing/listing?page=1&status=pending`;
+                if (searchQuery) unfilteredUrl += `&search=${encodeURIComponent(searchQuery)}`;
+                if (activeFrom) unfilteredUrl += `&from_close_date=${encodeURIComponent(activeFrom)}`;
+                if (activeTo) unfilteredUrl += `&to_close_date=${encodeURIComponent(activeTo)}`;
+                if (activeState) unfilteredUrl += `&state=${encodeURIComponent(activeState)}`;
+                if (activeSpecialist) {
+                    const specVal = activeSpecialist === 'UNASSIGNED' ? 'Unassigned' : activeSpecialist;
+                    unfilteredUrl += `&transaction_specialist=${encodeURIComponent(specVal)}`;
+                }
+                if (activeMismatch) unfilteredUrl += '&mismatch=true';
+
+                fetch(unfilteredUrl)
+                    .then(res => res.json())
+                    .then(json => {
+                        const unfilteredTotal = json.total != null ? json.total : 0;
+                        setUnfilteredPendingCount(unfilteredTotal);
+                    })
+                    .catch(err => console.error('Failed to fetch unfiltered pending total:', err));
+            }
         } catch (e) {
             console.error(`Error fetching column ${colId} page ${pageNum}:`, e);
             setColumnsState(prev => ({
@@ -814,7 +890,7 @@ function MonthClosing() {
                 }
             }));
         }
-    }, [buildColumnUrl]);
+    }, [buildColumnUrl, pendingSubfilter, activeFrom, activeTo, activeState, activeSpecialist, activeMismatch]);
 
     const fetchData = useCallback(async () => {
         await Promise.all(
@@ -871,6 +947,8 @@ function MonthClosing() {
     const handleClear = () => {
         setDraftFrom(''); setDraftTo(''); setDraftState(''); setDraftSpecialist(''); setDraftMismatch(false);
         setActiveFrom(''); setActiveTo(''); setActiveState(''); setActiveSpecialist(''); setActiveMismatch(false);
+        setPendingSubfilter('');
+        setUnfilteredPendingCount(0);
 
         searchQueriesRef.current = { skyslope: '', pending: '', closed: '', cancelled: '' };
         setColumnsState(prev => ({
@@ -1031,7 +1109,9 @@ function MonthClosing() {
             {/* Kanban summary numbers */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {COLUMNS.map(col => {
-                    const count = columnsState[col.id].total || 0;
+                    const count = (col.id === 'pending' && pendingSubfilter)
+                        ? unfilteredPendingCount
+                        : (columnsState[col.id].total || 0);
                     return (
                         <Card key={col.id} className="hover:border-slate-300 transition-all select-none">
                             <CardContent className="pt-5 flex items-center justify-between">
@@ -1067,6 +1147,9 @@ function MonthClosing() {
                         onLoadMore={() => handleLoadMore(col.id)}
                         searchQuery={columnsState[col.id].searchQuery}
                         onSearchChange={(query) => handleSearchChange(col.id, query)}
+                        pendingSubfilter={pendingSubfilter}
+                        onPendingSubfilterChange={setPendingSubfilter}
+                        total={columnsState[col.id].total}
                     />
                 ))}
             </div>
