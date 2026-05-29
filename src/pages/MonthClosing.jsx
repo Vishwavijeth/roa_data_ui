@@ -820,6 +820,7 @@ function MonthClosing() {
     const [activeMismatch, setActiveMismatch] = useState(() => sessionStorage.getItem('mc_activeMismatch') === 'true');
     const [pendingSubfilter, setPendingSubfilter] = useState(() => { try { return JSON.parse(sessionStorage.getItem('mc_pendingSubfilter') || '[]'); } catch { return []; } });
     const [unfilteredPendingCount, setUnfilteredPendingCount] = useState(0);
+    const [downloading, setDownloading] = useState(false);
 
     useEffect(() => {
         sessionStorage.setItem('mc_draftFrom', draftFrom);
@@ -1027,6 +1028,58 @@ function MonthClosing() {
         }));
     };
 
+    const handleDownload = async () => {
+        setDownloading(true);
+        try {
+            let url = `${BASE_URL}/month-closing/download`;
+            const params = [];
+            
+            if (activeFrom) params.push(`from_close_date=${encodeURIComponent(activeFrom)}`);
+            if (activeTo) params.push(`to_close_date=${encodeURIComponent(activeTo)}`);
+            activeState.forEach(s => params.push(`state=${encodeURIComponent(s)}`));
+            activeSpecialist.forEach(spec => {
+                const specVal = spec === 'UNASSIGNED' ? 'Unassigned' : spec;
+                params.push(`transaction_specialist=${encodeURIComponent(specVal)}`);
+            });
+            if (activeMismatch) params.push('mismatch=true');
+            if (pendingSubfilter.length > 0) {
+                pendingSubfilter.forEach(sf => params.push(`pending_subfilter=${encodeURIComponent(sf)}`));
+            }
+
+            if (params.length > 0) {
+                url += '?' + params.join('&');
+            }
+
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`Download API error: ${response.status}`);
+
+            const blob = await response.blob();
+            const downloadUrl = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = downloadUrl;
+
+            // Try to extract filename from Content-Disposition header if available
+            const contentDisposition = response.headers.get('content-disposition');
+            let filename = 'ROA_Month_Closing_Report.xlsx';
+            if (contentDisposition) {
+                const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
+                if (filenameMatch && filenameMatch[1]) {
+                    filename = filenameMatch[1];
+                }
+            }
+
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(downloadUrl);
+        } catch (err) {
+            console.error('Month Closing download failed:', err);
+        } finally {
+            setDownloading(false);
+        }
+    };
+
     const hasActive = !!(activeFrom || activeTo || activeState.length > 0 || activeSpecialist.length > 0 || activeMismatch);
     const isAnyLoading = Object.values(columnsLoading).some(Boolean);
 
@@ -1038,23 +1091,35 @@ function MonthClosing() {
                     <h1 className="text-2xl font-bold tracking-tight text-slate-900">Month Closing</h1>
                     <p className="text-sm text-slate-500 mt-1">Mismatch breakdown across transactions. Click a card to expand details.</p>
                 </div>
-                <Button
-                    onClick={fetchData}
-                    disabled={isAnyLoading}
-                    className="shadow-md shadow-blue-600/10 font-semibold gap-2 h-9 select-none"
-                >
-                    <svg
-                        width="14"
-                        height="14"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                        className={isAnyLoading ? 'animate-spin' : ''}
+                <div className="flex items-center gap-3">
+                    <Button
+                        onClick={handleDownload}
+                        disabled={downloading}
+                        className="shadow-lg shadow-blue-600/10 font-semibold gap-2 h-9 select-none"
                     >
-                        <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                    {isAnyLoading ? 'Loading…' : 'Refresh'}
-                </Button>
+                        <svg className={`h-4 w-4 ${downloading ? 'animate-bounce' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        {downloading ? 'Generating Report…' : 'Download Report'}
+                    </Button>
+                    <Button
+                        onClick={fetchData}
+                        disabled={isAnyLoading}
+                        className="shadow-md shadow-blue-600/10 font-semibold gap-2 h-9 select-none"
+                    >
+                        <svg
+                            width="14"
+                            height="14"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                            className={isAnyLoading ? 'animate-spin' : ''}
+                        >
+                            <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        {isAnyLoading ? 'Loading…' : 'Refresh'}
+                    </Button>
+                </div>
             </div>
 
             {/* Filter Bar */}

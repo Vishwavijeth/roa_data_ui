@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { utils, writeFile } from 'xlsx';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
@@ -58,12 +57,7 @@ const CompBadge = ({ value }) => {
     return <span className="text-slate-400 text-[10px] font-bold">N/A</span>;
 };
 
-// Plain-text formatter for Excel export (no JSX)
-const fmtForExport = (val) => (val === null || val === undefined ? '' : String(val));
-const fmtCurrencyForExport = (val) => (val === null || val === undefined ? '' : `$${Number(val).toLocaleString()}`);
-const fmtDateForExport = (val) => (val ? formatDateUS(val) : '');
-const fmtBoolMismatch = (val) => (val === true ? 'Mismatch' : val === false ? 'Match' : 'N/A');
-const fmtCompMismatch = (val) => (val === 'match' ? 'Match' : val === 'mismatch' ? 'Mismatch' : 'N/A');
+
 
 function CdaSent() {
     const [filter, setFilter] = useState('all'); // 'all' | 'mismatch' | 'no_skyslope'
@@ -80,63 +74,33 @@ function CdaSent() {
     const handleDownload = async () => {
         setDownloading(true);
         try {
-            // Always fetch ALL data (no filter) page-by-page so the export is
-            // never limited by the currently selected on-screen filter.
-            const res1 = await fetch(`${CDA_SENT_API}?page=1`);
-            if (!res1.ok) throw new Error(`API error: ${res1.status}`);
-            const json1 = await res1.json();
-            let rows = Array.isArray(json1.data) ? json1.data : [];
-            const tPages = json1.total_pages || 1;
+            const url = filter === 'all'
+                ? 'https://roa-data-backend.vercel.app/cda-sent/download'
+                : `https://roa-data-backend.vercel.app/cda-sent/download?filter=${filter}`;
 
-            if (tPages > 1) {
-                const pagePromises = [];
-                for (let p = 2; p <= tPages; p++) {
-                    pagePromises.push(
-                        fetch(`${CDA_SENT_API}?page=${p}`)
-                            .then(r => r.ok ? r.json() : { data: [] })
-                            .then(j => Array.isArray(j.data) ? j.data : [])
-                            .catch(() => [])
-                    );
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`Download API error: ${response.status}`);
+
+            const blob = await response.blob();
+            const downloadUrl = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = downloadUrl;
+
+            // Try to extract filename from Content-Disposition header if available
+            const contentDisposition = response.headers.get('content-disposition');
+            let filename = 'ROA_CDA_Sent_Report.xlsx';
+            if (contentDisposition) {
+                const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
+                if (filenameMatch && filenameMatch[1]) {
+                    filename = filenameMatch[1];
                 }
-                const remaining = await Promise.all(pagePromises);
-                remaining.forEach(pageData => { rows = rows.concat(pageData); });
             }
 
-            const exportData = rows.map(row => ({
-                'Transaction ID':         fmtForExport(row.transaction_id),
-                'Property Address':       fmtForExport(row.property_address),
-                'Tags':                   fmtForExport(row.tags),
-                'BE Gross Commission':    fmtCurrencyForExport(row.be_gross_commission),
-                'SS Gross Commission':    fmtCurrencyForExport(row.ss_gross_commission),
-                'Gross Commission':       fmtCompMismatch(row.gross_commission_mismatch),
-                'BE Closed Date':         fmtDateForExport(row.be_closed_date),
-                'SS Closed Date':         fmtDateForExport(row.ss_closed_date),
-                'Closed Date':            fmtBoolMismatch(row.closed_date_mismatch),
-                'BE Sale Price':          fmtCurrencyForExport(row.be_sale_price),
-                'SS Sale Price':          fmtCurrencyForExport(row.ss_sale_price),
-                'Sale Price':             fmtBoolMismatch(row.sale_price_mismatch),
-                'BE Status':              fmtForExport(row.be_transaction_status),
-                'SS Status':              fmtForExport(row.ss_transaction_status),
-                'Status':                 fmtBoolMismatch(row.transaction_status_mismatch),
-                'BE Contract Date':       fmtDateForExport(row.be_contract_date),
-                'SS Contract Date':       fmtDateForExport(row.ss_contract_date),
-                'Contract Date':          fmtBoolMismatch(row.contract_date_mismatch),
-                'BE Listing Price':       fmtCurrencyForExport(row.be_listing_price),
-                'SS Listing Price':       fmtCurrencyForExport(row.ss_listing_price),
-                'Listing Price':          fmtCompMismatch(row.listing_price_mismatch),
-                'BE Buyer Name':          fmtForExport(row.be_buyer_name),
-                'SS Buyer Name':          fmtForExport(row.ss_buyer_name),
-                'Buyer Name':             fmtCompMismatch(row.buyer_name_comparison),
-                'BE Seller Name':         fmtForExport(row.be_seller_name),
-                'SS Seller Name':         fmtForExport(row.ss_seller_name),
-                'Seller Name':            fmtCompMismatch(row.seller_name_comparison),
-                'Stale':                  row.is_stale ? 'Yes' : 'No',
-            }));
-
-            const ws = utils.json_to_sheet(exportData);
-            const wb = utils.book_new();
-            utils.book_append_sheet(wb, ws, 'CDA Sent Report');
-            writeFile(wb, 'ROA_CDA_Sent_Report.xlsx');
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(downloadUrl);
         } catch (err) {
             console.error('CDA Sent download failed:', err);
         } finally {
