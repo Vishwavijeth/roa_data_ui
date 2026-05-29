@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { utils, writeFile } from 'xlsx';
 import { TXN_SPECIALIST_API, ROWS_PER_PAGE } from '../constants';
 import { IconDownload } from '../components/shared/Icons';
-import { extractState } from '../utils/helpers';
+import { extractState, formatDateUS } from '../utils/helpers';
+import DateFilterInput from '../components/shared/DateFilterInput';
 import MultiSelect from '../components/shared/MultiSelect';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
@@ -129,8 +130,8 @@ function TransactionSpecialistListingView() {
                     <h1 className="text-2xl font-bold tracking-tight text-slate-900">Transaction Specialist Listing</h1>
                     <p className="text-sm text-slate-500 mt-1">View and filter transaction specialist assignments and statuses.</p>
                 </div>
-                <Button 
-                    onClick={handleDownload} 
+                <Button
+                    onClick={handleDownload}
                     disabled={!data.length}
                     className="font-semibold text-xs gap-2 h-9 shadow-md shadow-blue-600/10"
                 >
@@ -169,8 +170,8 @@ function TransactionSpecialistListingView() {
                             className="pl-9 pr-8 w-full"
                         />
                         {searchQuery && (
-                            <button 
-                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold" 
+                            <button
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold"
                                 onClick={() => { setSearchQuery(''); setPage(1); }}
                             >
                                 ✕
@@ -181,21 +182,19 @@ function TransactionSpecialistListingView() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 items-end">
                         <div className="space-y-1">
                             <label htmlFor="txn-date-from" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Close From</label>
-                            <Input
+                            <DateFilterInput
                                 id="txn-date-from"
-                                type="date"
                                 value={dateFrom}
-                                onChange={e => { setDateFrom(e.target.value); setPage(1); }}
+                                onChange={val => { setDateFrom(val); setPage(1); }}
                                 className="h-9 text-xs text-slate-700"
                             />
                         </div>
                         <div className="space-y-1">
                             <label htmlFor="txn-date-to" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Close To</label>
-                            <Input
+                            <DateFilterInput
                                 id="txn-date-to"
-                                type="date"
                                 value={dateTo}
-                                onChange={e => { setDateTo(e.target.value); setPage(1); }}
+                                onChange={val => { setDateTo(val); setPage(1); }}
                                 className="h-9 text-xs text-slate-700"
                             />
                         </div>
@@ -285,7 +284,7 @@ function TransactionSpecialistListingView() {
                                         <TableCell className="text-xs text-slate-500 font-medium font-mono uppercase">{extractState(row.propertyaddress) || '-'}</TableCell>
                                         <TableCell className="text-xs font-semibold text-slate-700">{row.be_sale_price != null ? `$${Number(row.be_sale_price).toLocaleString()}` : '-'}</TableCell>
                                         <TableCell className="text-xs font-semibold text-slate-700">{row.listing_price != null ? `$${Number(row.listing_price).toLocaleString()}` : '-'}</TableCell>
-                                        <TableCell className="text-xs text-slate-500 font-medium">{row.be_closed_date || '-'}</TableCell>
+                                        <TableCell className="text-xs text-slate-500 font-medium">{formatDateUS(row.be_closed_date)}</TableCell>
                                         <TableCell className="text-right pr-6 shrink-0 select-none">
                                             {row.be_workflow_status ? (
                                                 <Badge variant="secondary" className="capitalize px-2 py-0.5 rounded text-[10px] font-semibold">

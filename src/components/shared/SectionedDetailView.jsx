@@ -1,5 +1,6 @@
 import React from 'react';
 import { DETAIL_SECTION_MAP } from '../../constants';
+import { formatDateUS } from '../../utils/helpers';
 
 function SectionedDetailView({ data }) {
     if (!data || typeof data !== 'object') return null;
@@ -30,24 +31,27 @@ function SectionedDetailView({ data }) {
 
                     {/* Section Grid */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                        {section.items.map(([key, value]) => (
-                            <div 
-                                key={key}
-                                className="bg-white p-3.5 rounded-lg border border-slate-100 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:border-slate-200/80 group"
-                            >
-                                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1.5">
-                                    <div className="w-1.5 h-1.5 rounded-full opacity-60 shrink-0" style={{ backgroundColor: section.color }} />
-                                    {key.replace(/_/g, ' ')}
+                        {section.items.map(([key, value]) => {
+                            const isDateKey = key.toLowerCase().includes('date') || key.toLowerCase().includes('timestamp') || section.title === 'Dates';
+                            return (
+                                <div 
+                                    key={key}
+                                    className="bg-white p-3.5 rounded-lg border border-slate-100 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:border-slate-200/80 group"
+                                >
+                                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                                        <div className="w-1.5 h-1.5 rounded-full opacity-60 shrink-0" style={{ backgroundColor: section.color }} />
+                                        {key.replace(/_/g, ' ')}
+                                    </div>
+                                    <div className="font-semibold text-sm text-slate-800 break-words leading-relaxed">
+                                        {value !== null && value !== '' ? (
+                                            isDateKey ? formatDateUS(value) : String(value)
+                                        ) : (
+                                            <span className="text-slate-400 italic font-normal">Not provided</span>
+                                        )}
+                                    </div>
                                 </div>
-                                <div className="font-semibold text-sm text-slate-800 break-words leading-relaxed">
-                                    {value !== null && value !== '' ? (
-                                        String(value)
-                                    ) : (
-                                        <span className="text-slate-400 italic font-normal">Not provided</span>
-                                    )}
-                                </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 </div>
             ))}
@@ -56,3 +60,4 @@ function SectionedDetailView({ data }) {
 }
 
 export default SectionedDetailView;
+

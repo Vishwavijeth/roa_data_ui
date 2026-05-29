@@ -4,6 +4,7 @@ import { Card, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Input } from '../components/ui/Input';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
+import { formatDateUS } from '../utils/helpers';
 
 const CDA_SENT_API = 'https://roa-data-backend.vercel.app/cda-sent/listing';
 const ROWS_PER_PAGE = 50;
@@ -21,7 +22,7 @@ const fmtCurrency = (val) => {
 
 const fmtDate = (val) => {
     if (!val) return <span className="text-slate-400 font-bold">—</span>;
-    return val;
+    return formatDateUS(val);
 };
 
 // Checks whether a record has ANY field-level mismatch

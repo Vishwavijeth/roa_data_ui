@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { utils, writeFile } from 'xlsx';
 import { PARAMETERS, API_BASE, ROWS_PER_PAGE, getResult } from '../constants';
+import { formatDateUS } from '../utils/helpers';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
@@ -572,8 +573,8 @@ function ReconciliationView() {
                                             <TableCell className="font-mono text-xs text-slate-500 shrink-0">{row.saleguid || '-'}</TableCell>
                                             <TableCell className="font-mono text-xs text-slate-500 shrink-0">{row.transactionId || row.transactionid || '-'}</TableCell>
                                             <TableCell className="font-medium text-slate-800 text-xs max-w-xs truncate">{row.propertyaddress || '-'}</TableCell>
-                                            <TableCell className="text-xs font-semibold text-slate-600">{skVal != null ? String(skVal) : 'null'}</TableCell>
-                                            <TableCell className="text-xs font-semibold text-slate-600">{beVal != null ? String(beVal) : 'null'}</TableCell>
+                                            <TableCell className="text-xs font-semibold text-slate-600">{activeParam.id.includes('date') && skVal != null && skVal !== 'null' ? formatDateUS(skVal) : (skVal != null ? String(skVal) : 'null')}</TableCell>
+                                            <TableCell className="text-xs font-semibold text-slate-600">{activeParam.id.includes('date') && beVal != null && beVal !== 'null' ? formatDateUS(beVal) : (beVal != null ? String(beVal) : 'null')}</TableCell>
                                             <TableCell className="text-right pr-6 shrink-0 select-none">
                                                 {resultVal ? (
                                                     <Badge

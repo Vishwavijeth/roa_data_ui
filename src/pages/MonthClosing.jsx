@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import SectionedDetailView from '../components/shared/SectionedDetailView';
+import { formatDateUS } from '../utils/helpers';
+import DateFilterInput from '../components/shared/DateFilterInput';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
@@ -361,10 +363,10 @@ function KanbanCard({ row, col, onCardClick }) {
 
     const mismatchItems = [];
     if (mismatches.closeDate) {
-        mismatchItems.push({ label: 'Close Date', be: row.be_closed_date, ss: row.ss_closed_date });
+        mismatchItems.push({ label: 'Close Date', be: formatDateUS(row.be_closed_date), ss: formatDateUS(row.ss_closed_date) });
     }
     if (mismatches.contractDate) {
-        mismatchItems.push({ label: 'Contract Date', be: row.be_contract_date, ss: row.ss_contract_date });
+        mismatchItems.push({ label: 'Contract Date', be: formatDateUS(row.be_contract_date), ss: formatDateUS(row.ss_contract_date) });
     }
     if (mismatches.salePrice) {
         mismatchItems.push({ label: 'Sale Price', be: fmtCurrency(row.be_sale_price), ss: fmtCurrency(row.ss_sale_price) });
@@ -1065,10 +1067,9 @@ function MonthClosing() {
                         {/* Close From */}
                         <div className="space-y-1">
                             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Close From</label>
-                            <Input
-                                type="date"
+                            <DateFilterInput
                                 value={draftFrom}
-                                onChange={e => setDraftFrom(e.target.value)}
+                                onChange={val => setDraftFrom(val)}
                                 className="h-9 text-xs text-slate-700 w-full"
                             />
                         </div>
@@ -1076,10 +1077,9 @@ function MonthClosing() {
                         {/* Close To */}
                         <div className="space-y-1">
                             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Close To</label>
-                            <Input
-                                type="date"
+                            <DateFilterInput
                                 value={draftTo}
-                                onChange={e => setDraftTo(e.target.value)}
+                                onChange={val => setDraftTo(val)}
                                 className="h-9 text-xs text-slate-700 w-full"
                             />
                         </div>

@@ -3,6 +3,7 @@ import { utils, writeFile } from 'xlsx';
 import { REVIEWER_SUMMARY_API } from '../constants';
 import { IconDownload } from '../components/shared/Icons';
 import MultiSelect from '../components/shared/MultiSelect';
+import DateFilterInput from '../components/shared/DateFilterInput';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
@@ -187,21 +188,19 @@ function ReviewerDashboardView() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 items-end">
                         <div className="space-y-1">
                             <label htmlFor="rev-dash-date-from" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Close From</label>
-                            <Input
+                            <DateFilterInput
                                 id="rev-dash-date-from"
-                                type="date"
                                 value={dateFrom}
-                                onChange={e => setDateFrom(e.target.value)}
+                                onChange={val => setDateFrom(val)}
                                 className="h-9 text-xs text-slate-700"
                             />
                         </div>
                         <div className="space-y-1">
                             <label htmlFor="rev-dash-date-to" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Close To</label>
-                            <Input
+                            <DateFilterInput
                                 id="rev-dash-date-to"
-                                type="date"
                                 value={dateTo}
-                                onChange={e => setDateTo(e.target.value)}
+                                onChange={val => setDateTo(val)}
                                 className="h-9 text-xs text-slate-700"
                             />
                         </div>

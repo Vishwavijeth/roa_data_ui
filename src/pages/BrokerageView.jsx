@@ -3,6 +3,8 @@ import { utils, writeFile } from 'xlsx';
 import { BE_API } from '../constants';
 import { IconDownload, IconArrowLeft } from '../components/shared/Icons';
 import SectionedDetailView from '../components/shared/SectionedDetailView';
+import { formatDateUS } from '../utils/helpers';
+import DateFilterInput from '../components/shared/DateFilterInput';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
@@ -320,7 +322,7 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" />
                             </svg>
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Updated at</span>
-                            <span className="text-xs font-bold text-slate-700 font-mono">{syncInfo.sync_date}</span>
+                            <span className="text-xs font-bold text-slate-700 font-mono">{formatDateUS(syncInfo.sync_date)}</span>
                             <span className="w-1 h-1 rounded-full bg-slate-300" />
                             <span className="text-xs font-bold text-slate-700 font-mono">{syncInfo.sync_timestamp}</span>
                             <span className="text-[9px] font-extrabold tracking-wider text-indigo-600 bg-indigo-100/50 border border-indigo-200/30 rounded px-1 uppercase">IST</span>
@@ -333,8 +335,8 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
                         onClick={handleSyncBE}
                         disabled={syncingBE}
                         className={`font-semibold text-xs shadow-md select-none gap-2 h-9 ${syncingBE
-                                ? 'bg-indigo-700/80'
-                                : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/10'
+                            ? 'bg-indigo-700/80'
+                            : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/10'
                             }`}
                     >
                         {syncingBE ? (
@@ -469,19 +471,19 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-[1fr_1fr_1fr_1fr_1.2fr_1.2fr] gap-3 pt-1">
                         <div className="space-y-1">
                             <label htmlFor="be-close-from" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Close From</label>
-                            <Input id="be-close-from" type="date" value={closeDateFrom} onChange={e => { setCloseDateFrom(e.target.value); setPage(1); }} className="h-8.5 text-xs text-slate-700" />
+                            <DateFilterInput id="be-close-from" value={closeDateFrom} onChange={val => { setCloseDateFrom(val); setPage(1); }} className="h-8.5 text-xs text-slate-700" />
                         </div>
                         <div className="space-y-1">
                             <label htmlFor="be-close-to" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Close To</label>
-                            <Input id="be-close-to" type="date" value={closeDateTo} onChange={e => { setCloseDateTo(e.target.value); setPage(1); }} className="h-8.5 text-xs text-slate-700" />
+                            <DateFilterInput id="be-close-to" value={closeDateTo} onChange={val => { setCloseDateTo(val); setPage(1); }} className="h-8.5 text-xs text-slate-700" />
                         </div>
                         <div className="space-y-1">
                             <label htmlFor="be-contract-from" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Contract From</label>
-                            <Input id="be-contract-from" type="date" value={contractDateFrom} onChange={e => { setContractDateFrom(e.target.value); setPage(1); }} className="h-8.5 text-xs text-slate-700" />
+                            <DateFilterInput id="be-contract-from" value={contractDateFrom} onChange={val => { setContractDateFrom(val); setPage(1); }} className="h-8.5 text-xs text-slate-700" />
                         </div>
                         <div className="space-y-1">
                             <label htmlFor="be-contract-to" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Contract To</label>
-                            <Input id="be-contract-to" type="date" value={contractDateTo} onChange={e => { setContractDateTo(e.target.value); setPage(1); }} className="h-8.5 text-xs text-slate-700" />
+                            <DateFilterInput id="be-contract-to" value={contractDateTo} onChange={val => { setContractDateTo(val); setPage(1); }} className="h-8.5 text-xs text-slate-700" />
                         </div>
                         <div className="space-y-1">
                             <label htmlFor="be-status-filter" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Status</label>
@@ -499,8 +501,8 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
                                 variant={brokerHold ? 'destructive' : 'outline'}
                                 onClick={() => { setBrokerHold(v => !v); setPage(1); }}
                                 className={`h-8.5 text-xs font-bold gap-2 px-3 justify-start w-full border rounded-md transition-all select-none ${brokerHold
-                                        ? 'bg-red-50 text-red-600 hover:bg-red-100/60 border-red-200'
-                                        : 'hover:bg-slate-50'
+                                    ? 'bg-red-50 text-red-600 hover:bg-red-100/60 border-red-200'
+                                    : 'hover:bg-slate-50'
                                     }`}
                             >
                                 <span className={`relative inline-block w-6 h-3.5 rounded-full shrink-0 transition-colors duration-200 ${brokerHold ? 'bg-red-500' : 'bg-slate-200'
@@ -584,8 +586,8 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
                                                 <span className="text-slate-400">—</span>
                                             )}
                                         </TableCell>
-                                        <TableCell className="text-xs text-slate-500 font-medium">{row.close_date || '-'}</TableCell>
-                                        <TableCell className="text-xs text-slate-500 font-medium">{row.contract_date || '-'}</TableCell>
+                                        <TableCell className="text-xs text-slate-500 font-medium">{formatDateUS(row.close_date)}</TableCell>
+                                        <TableCell className="text-xs text-slate-500 font-medium">{formatDateUS(row.contract_date)}</TableCell>
                                         <TableCell className="text-xs text-slate-600">{renderCellData(row.buying_agent_name)}</TableCell>
                                         <TableCell className="text-xs text-slate-600">{renderCellData(row.transaction_specialist)}</TableCell>
                                         <TableCell className="text-right pr-6 font-mono text-xs text-slate-500 shrink-0">{row.skyslopefileid || '-'}</TableCell>
@@ -670,7 +672,7 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
                                     <TableBody>
                                         {syncLogs.data.map((log, idx) => (
                                             <TableRow key={idx}>
-                                                <TableCell className="text-xs font-medium text-slate-700">{log.sync_date}</TableCell>
+                                                <TableCell className="text-xs font-medium text-slate-700">{formatDateUS(log.sync_date)}</TableCell>
                                                 <TableCell className="text-xs font-mono text-slate-500">{log.sync_time}</TableCell>
                                                 <TableCell className="text-right pr-6 select-none">
                                                     <Badge

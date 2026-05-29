@@ -3,6 +3,8 @@ import { utils, writeFile } from 'xlsx';
 import { SS_API } from '../constants';
 import { IconDownload, IconArrowLeft } from '../components/shared/Icons';
 import SectionedDetailView from '../components/shared/SectionedDetailView';
+import { formatDateUS } from '../utils/helpers';
+import DateFilterInput from '../components/shared/DateFilterInput';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
@@ -330,7 +332,7 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" />
                             </svg>
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Updated at</span>
-                            <span className="text-xs font-bold text-slate-700 font-mono">{syncInfo.sync_date}</span>
+                            <span className="text-xs font-bold text-slate-700 font-mono">{formatDateUS(syncInfo.sync_date)}</span>
                             <span className="w-1 h-1 rounded-full bg-slate-300" />
                             <span className="text-xs font-bold text-slate-700 font-mono">{syncInfo.sync_timestamp}</span>
                             <span className="text-[9px] font-extrabold tracking-wider text-sky-600 bg-sky-100/50 border border-sky-200/30 rounded px-1 uppercase">IST</span>
@@ -343,8 +345,8 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
                         onClick={handleSyncSS}
                         disabled={syncingSS}
                         className={`font-semibold text-xs shadow-md select-none gap-2 h-9 ${syncingSS
-                                ? 'bg-sky-700/80'
-                                : 'bg-sky-600 hover:bg-sky-700 shadow-sky-600/10'
+                            ? 'bg-sky-700/80'
+                            : 'bg-sky-600 hover:bg-sky-700 shadow-sky-600/10'
                             }`}
                     >
                         {syncingSS ? (
@@ -481,19 +483,19 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-[1fr_1fr_1fr_1fr_1.2fr] gap-3 pt-1">
                         <div className="space-y-1">
                             <label htmlFor="ss-close-from" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Close From</label>
-                            <Input id="ss-close-from" type="date" value={closeDateFrom} onChange={e => { setCloseDateFrom(e.target.value); setPage(1); }} className="h-8.5 text-xs text-slate-700" />
+                            <DateFilterInput id="ss-close-from" value={closeDateFrom} onChange={val => { setCloseDateFrom(val); setPage(1); }} className="h-8.5 text-xs text-slate-700" />
                         </div>
                         <div className="space-y-1">
                             <label htmlFor="ss-close-to" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Close To</label>
-                            <Input id="ss-close-to" type="date" value={closeDateTo} onChange={e => { setCloseDateTo(e.target.value); setPage(1); }} className="h-8.5 text-xs text-slate-700" />
+                            <DateFilterInput id="ss-close-to" value={closeDateTo} onChange={val => { setCloseDateTo(val); setPage(1); }} className="h-8.5 text-xs text-slate-700" />
                         </div>
                         <div className="space-y-1">
                             <label htmlFor="ss-contract-from" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Contract From</label>
-                            <Input id="ss-contract-from" type="date" value={contractDateFrom} onChange={e => { setContractDateFrom(e.target.value); setPage(1); }} className="h-8.5 text-xs text-slate-700" />
+                            <DateFilterInput id="ss-contract-from" value={contractDateFrom} onChange={val => { setContractDateFrom(val); setPage(1); }} className="h-8.5 text-xs text-slate-700" />
                         </div>
                         <div className="space-y-1">
                             <label htmlFor="ss-contract-to" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Contract To</label>
-                            <Input id="ss-contract-to" type="date" value={contractDateTo} onChange={e => { setContractDateTo(e.target.value); setPage(1); }} className="h-8.5 text-xs text-slate-700" />
+                            <DateFilterInput id="ss-contract-to" value={contractDateTo} onChange={val => { setContractDateTo(val); setPage(1); }} className="h-8.5 text-xs text-slate-700" />
                         </div>
                         <div className="space-y-1">
                             <label htmlFor="ss-status-filter" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Status</label>
@@ -564,7 +566,7 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
                                         <TableCell className="font-medium text-slate-800 text-xs py-2.5">
                                             {renderCellData(row.propertyaddress)}
                                         </TableCell>
-                                        <TableCell className="text-xs text-slate-500 font-medium">{row.close_date || '-'}</TableCell>
+                                        <TableCell className="text-xs text-slate-500 font-medium">{formatDateUS(row.close_date)}</TableCell>
                                         <TableCell className="shrink-0 select-none">
                                             {row.status ? (
                                                 <Badge
@@ -580,7 +582,7 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
                                         <TableCell className="font-mono text-xs text-slate-600 shrink-0">{row.transaction_id || 'No related BE data'}</TableCell>
                                         <TableCell className="text-xs text-slate-600">{renderCellData(row.buyer_name)}</TableCell>
                                         <TableCell className="text-xs text-slate-600">{renderCellData(row.buyer_agent_name)}</TableCell>
-                                        <TableCell className="text-xs text-slate-500 font-medium">{row.contract_date || '-'}</TableCell>
+                                        <TableCell className="text-xs text-slate-500 font-medium">{formatDateUS(row.contract_date)}</TableCell>
                                         <TableCell className="text-right pr-6 text-xs text-slate-600">{renderCellData(row.reviewer)}</TableCell>
                                     </TableRow>
                                 ))}
@@ -663,7 +665,7 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
                                     <TableBody>
                                         {syncLogs.data.map((log, idx) => (
                                             <TableRow key={idx}>
-                                                <TableCell className="text-xs font-medium text-slate-700">{log.sync_date}</TableCell>
+                                                <TableCell className="text-xs font-medium text-slate-700">{formatDateUS(log.sync_date)}</TableCell>
                                                 <TableCell className="text-xs font-mono text-slate-500">{log.sync_time}</TableCell>
                                                 <TableCell className="text-right pr-6 select-none">
                                                     <Badge

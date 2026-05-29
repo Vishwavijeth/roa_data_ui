@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { utils, writeFile } from 'xlsx';
 import { REVIEWER_API, ROWS_PER_PAGE } from '../constants';
 import { IconDownload } from '../components/shared/Icons';
-import { extractState } from '../utils/helpers';
+import { extractState, formatDateUS } from '../utils/helpers';
+import DateFilterInput from '../components/shared/DateFilterInput';
 import MultiSelect from '../components/shared/MultiSelect';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
@@ -186,21 +187,19 @@ function ReviewerListingView() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 items-end">
                         <div className="space-y-1">
                             <label htmlFor="rev-date-from" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Close From</label>
-                            <Input
+                            <DateFilterInput
                                 id="rev-date-from"
-                                type="date"
                                 value={dateFrom}
-                                onChange={e => { setDateFrom(e.target.value); setPage(1); }}
+                                onChange={val => { setDateFrom(val); setPage(1); }}
                                 className="h-9 text-xs text-slate-700"
                             />
                         </div>
                         <div className="space-y-1">
                             <label htmlFor="rev-date-to" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Close To</label>
-                            <Input
+                            <DateFilterInput
                                 id="rev-date-to"
-                                type="date"
                                 value={dateTo}
-                                onChange={e => { setDateTo(e.target.value); setPage(1); }}
+                                onChange={val => { setDateTo(val); setPage(1); }}
                                 className="h-9 text-xs text-slate-700"
                             />
                         </div>
@@ -309,7 +308,7 @@ function ReviewerListingView() {
                                         <TableCell className="text-xs text-slate-500 font-medium font-mono uppercase">{extractState(row.propertyaddress) || '-'}</TableCell>
                                         <TableCell className="text-xs font-semibold text-slate-700">{row.sale_price != null ? `$${Number(row.sale_price).toLocaleString()}` : '-'}</TableCell>
                                         <TableCell className="text-xs font-semibold text-slate-700">{row.listing_price != null ? `$${Number(row.listing_price).toLocaleString()}` : '-'}</TableCell>
-                                        <TableCell className="text-xs text-slate-500 font-medium">{row.escrow_close_date || '-'}</TableCell>
+                                        <TableCell className="text-xs text-slate-500 font-medium">{formatDateUS(row.escrow_close_date)}</TableCell>
                                         <TableCell className="text-right pr-6 shrink-0 select-none">
                                             {row.ss_status ? (
                                                 <Badge variant="secondary" className="capitalize px-2 py-0.5 rounded text-[10px] font-semibold">
