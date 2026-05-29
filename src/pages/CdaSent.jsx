@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { utils, writeFile } from 'xlsx';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
@@ -57,6 +58,13 @@ const CompBadge = ({ value }) => {
     return <span className="text-slate-400 text-[10px] font-bold">N/A</span>;
 };
 
+// Plain-text formatter for Excel export (no JSX)
+const fmtForExport = (val) => (val === null || val === undefined ? '' : String(val));
+const fmtCurrencyForExport = (val) => (val === null || val === undefined ? '' : `$${Number(val).toLocaleString()}`);
+const fmtDateForExport = (val) => (val ? formatDateUS(val) : '');
+const fmtBoolMismatch = (val) => (val === true ? 'Mismatch' : val === false ? 'Match' : 'N/A');
+const fmtCompMismatch = (val) => (val === 'match' ? 'Match' : val === 'mismatch' ? 'Mismatch' : 'N/A');
+
 function CdaSent() {
     const [filter, setFilter] = useState('all'); // 'all' | 'mismatch' | 'no_skyslope'
     const [data, setData] = useState([]);
@@ -67,6 +75,74 @@ function CdaSent() {
     const [error, setError] = useState(null);
     const [page, setPage] = useState(1);
     const [searchQuery, setSearchQuery] = useState('');
+    const [downloading, setDownloading] = useState(false);
+
+    const handleDownload = async () => {
+        setDownloading(true);
+        try {
+            // Always fetch ALL data (no filter) page-by-page so the export is
+            // never limited by the currently selected on-screen filter.
+            const res1 = await fetch(`${CDA_SENT_API}?page=1`);
+            if (!res1.ok) throw new Error(`API error: ${res1.status}`);
+            const json1 = await res1.json();
+            let rows = Array.isArray(json1.data) ? json1.data : [];
+            const tPages = json1.total_pages || 1;
+
+            if (tPages > 1) {
+                const pagePromises = [];
+                for (let p = 2; p <= tPages; p++) {
+                    pagePromises.push(
+                        fetch(`${CDA_SENT_API}?page=${p}`)
+                            .then(r => r.ok ? r.json() : { data: [] })
+                            .then(j => Array.isArray(j.data) ? j.data : [])
+                            .catch(() => [])
+                    );
+                }
+                const remaining = await Promise.all(pagePromises);
+                remaining.forEach(pageData => { rows = rows.concat(pageData); });
+            }
+
+            const exportData = rows.map(row => ({
+                'Transaction ID':         fmtForExport(row.transaction_id),
+                'Property Address':       fmtForExport(row.property_address),
+                'Tags':                   fmtForExport(row.tags),
+                'BE Gross Commission':    fmtCurrencyForExport(row.be_gross_commission),
+                'SS Gross Commission':    fmtCurrencyForExport(row.ss_gross_commission),
+                'Gross Commission':       fmtCompMismatch(row.gross_commission_mismatch),
+                'BE Closed Date':         fmtDateForExport(row.be_closed_date),
+                'SS Closed Date':         fmtDateForExport(row.ss_closed_date),
+                'Closed Date':            fmtBoolMismatch(row.closed_date_mismatch),
+                'BE Sale Price':          fmtCurrencyForExport(row.be_sale_price),
+                'SS Sale Price':          fmtCurrencyForExport(row.ss_sale_price),
+                'Sale Price':             fmtBoolMismatch(row.sale_price_mismatch),
+                'BE Status':              fmtForExport(row.be_transaction_status),
+                'SS Status':              fmtForExport(row.ss_transaction_status),
+                'Status':                 fmtBoolMismatch(row.transaction_status_mismatch),
+                'BE Contract Date':       fmtDateForExport(row.be_contract_date),
+                'SS Contract Date':       fmtDateForExport(row.ss_contract_date),
+                'Contract Date':          fmtBoolMismatch(row.contract_date_mismatch),
+                'BE Listing Price':       fmtCurrencyForExport(row.be_listing_price),
+                'SS Listing Price':       fmtCurrencyForExport(row.ss_listing_price),
+                'Listing Price':          fmtCompMismatch(row.listing_price_mismatch),
+                'BE Buyer Name':          fmtForExport(row.be_buyer_name),
+                'SS Buyer Name':          fmtForExport(row.ss_buyer_name),
+                'Buyer Name':             fmtCompMismatch(row.buyer_name_comparison),
+                'BE Seller Name':         fmtForExport(row.be_seller_name),
+                'SS Seller Name':         fmtForExport(row.ss_seller_name),
+                'Seller Name':            fmtCompMismatch(row.seller_name_comparison),
+                'Stale':                  row.is_stale ? 'Yes' : 'No',
+            }));
+
+            const ws = utils.json_to_sheet(exportData);
+            const wb = utils.book_new();
+            utils.book_append_sheet(wb, ws, 'CDA Sent Report');
+            writeFile(wb, 'ROA_CDA_Sent_Report.xlsx');
+        } catch (err) {
+            console.error('CDA Sent download failed:', err);
+        } finally {
+            setDownloading(false);
+        }
+    };
 
     // Fetch whenever filter changes
     useEffect(() => {
@@ -121,6 +197,17 @@ function CdaSent() {
                     <h1 className="text-2xl font-bold tracking-tight text-slate-900">CDA Sent</h1>
                     <p className="text-sm text-slate-500 mt-1">Review CDA-sent transactions and highlight data mismatches between Brokerage Engine and SkySlope.</p>
                 </div>
+                <Button
+                    id="cda-download-btn"
+                    onClick={handleDownload}
+                    disabled={downloading}
+                    className="shadow-lg shadow-blue-600/10 font-semibold gap-2 select-none"
+                >
+                    <svg className={`h-4 w-4 ${downloading ? 'animate-bounce' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    {downloading ? 'Generating Report…' : 'Download Report'}
+                </Button>
             </div>
 
             {/* Metrics cards */}
@@ -174,11 +261,10 @@ function CdaSent() {
                         <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white p-0.5 overflow-hidden">
                             <button
                                 id="cda-filter-mismatch"
-                                className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${
-                                    filter === 'mismatch'
+                                className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${filter === 'mismatch'
                                         ? 'bg-red-50 text-red-700'
                                         : 'hover:bg-slate-50 text-slate-600'
-                                }`}
+                                    }`}
                                 onClick={() => {
                                     setFilter(f => f === 'mismatch' ? 'all' : 'mismatch');
                                     setPage(1);
@@ -196,11 +282,10 @@ function CdaSent() {
                         <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white p-0.5 overflow-hidden">
                             <button
                                 id="cda-filter-no-skyslope"
-                                className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${
-                                    filter === 'no_skyslope'
+                                className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${filter === 'no_skyslope'
                                         ? 'bg-amber-50 text-amber-700'
                                         : 'hover:bg-slate-50 text-slate-600'
-                                }`}
+                                    }`}
                                 onClick={() => {
                                     setFilter(f => f === 'no_skyslope' ? 'all' : 'no_skyslope');
                                     setPage(1);
@@ -245,8 +330,8 @@ function CdaSent() {
                             className="pl-9 pr-8 w-full"
                         />
                         {searchQuery && (
-                            <button 
-                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold" 
+                            <button
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold"
                                 onClick={() => { setSearchQuery(''); setPage(1); }}
                             >
                                 ✕
@@ -312,8 +397,8 @@ function CdaSent() {
                                         <TableRow
                                             key={row.transaction_id || i}
                                             className={
-                                                rowHasMismatch 
-                                                    ? 'bg-red-50/30 hover:bg-red-50/50 transition-colors' 
+                                                rowHasMismatch
+                                                    ? 'bg-red-50/30 hover:bg-red-50/50 transition-colors'
                                                     : 'hover:bg-slate-50/40'
                                             }
                                         >

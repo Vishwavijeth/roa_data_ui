@@ -390,14 +390,14 @@ function KanbanCard({ row, col, onCardClick }) {
     return (
         <Card
             className={`cursor-pointer hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 border-l-[3.5px] overflow-hidden ${hasMismatch
-                    ? 'border-l-red-500 bg-red-50/10 hover:bg-red-50/20'
-                    : col.id === 'skyslope'
-                        ? 'border-l-indigo-500'
-                        : col.id === 'pending'
-                            ? 'border-l-amber-500'
-                            : col.id === 'closed'
-                                ? 'border-l-emerald-500'
-                                : 'border-l-red-500'
+                ? 'border-l-red-500 bg-red-50/10 hover:bg-red-50/20'
+                : col.id === 'skyslope'
+                    ? 'border-l-indigo-500'
+                    : col.id === 'pending'
+                        ? 'border-l-amber-500'
+                        : col.id === 'closed'
+                            ? 'border-l-emerald-500'
+                            : 'border-l-red-500'
                 }`}
             onClick={() => onCardClick(row, col.id)}
             title="Click to view transaction details"
@@ -558,8 +558,8 @@ function KanbanColumn({
     return (
         <div
             className={`flex flex-col h-[70vh] min-w-[280px] sm:min-w-[300px] rounded-xl border p-4 space-y-3 bg-gradient-to-b ${hasAnyMismatch
-                    ? 'border-red-200/80 from-red-50/20 to-red-50/5 shadow-sm shadow-red-500/5'
-                    : `${col.borderColor} ${col.gradientClass}`
+                ? 'border-red-200/80 from-red-50/20 to-red-50/5 shadow-sm shadow-red-500/5'
+                : `${col.borderColor} ${col.gradientClass}`
                 }`}
         >
             <div className="flex items-center justify-between">
@@ -694,9 +694,8 @@ function MultiSelectDropdown({ options, value = [], onChange, placeholder, class
             <button
                 type="button"
                 onClick={() => setOpen(o => !o)}
-                className={`w-full h-9 flex items-center justify-between gap-2 px-3 rounded-md border text-xs font-medium transition-all bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${
-                    value.length > 0 ? 'border-blue-300 text-slate-800' : 'border-slate-200 text-slate-400'
-                }`}
+                className={`w-full h-9 flex items-center justify-between gap-2 px-3 rounded-md border text-xs font-medium transition-all bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${value.length > 0 ? 'border-blue-300 text-slate-800' : 'border-slate-200 text-slate-400'
+                    }`}
             >
                 <span className="truncate">{displayLabel}</span>
                 <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"
@@ -1119,8 +1118,8 @@ function MonthClosing() {
                                 onClick={handleMismatchToggle}
                                 disabled={isAnyLoading}
                                 className={`h-9 inline-flex items-center gap-2 px-3 rounded-md border text-xs font-semibold transition-all select-none whitespace-nowrap disabled:opacity-60 disabled:cursor-not-allowed ${draftMismatch
-                                        ? 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100/70'
-                                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                                    ? 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100/70'
+                                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
                                     }`}
                             >
                                 <span className={`relative flex-shrink-0 inline-block w-7 h-4 rounded-full transition-colors duration-200 ${draftMismatch ? 'bg-red-500' : 'bg-slate-200'}`}>

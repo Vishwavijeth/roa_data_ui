@@ -240,35 +240,34 @@ function ReconciliationView() {
             const results = await Promise.all(
                 PARAMETERS.map(async (param) => {
                     try {
-                        if (isServerSideParam(param.id)) {
-                            const res1 = await fetch(`${param.apiBase || API_BASE}/${param.endpoint}?page=1`);
-                            if (!res1.ok) return { param, data: [] };
-                            const json1 = await res1.json();
-                            let rows = (json1 && Array.isArray(json1.data)) ? json1.data : [];
-                            const tPages = (json1 && json1.total_pages) ? json1.total_pages : 1;
-                            if (tPages > 1) {
-                                const fetchPromises = [];
-                                for (let p = 2; p <= tPages; p++) {
-                                    fetchPromises.push(
-                                        fetch(`${param.apiBase || API_BASE}/${param.endpoint}?page=${p}`)
-                                            .then(r => r.ok ? r.json() : { data: [] })
-                                            .then(j => (j && Array.isArray(j.data)) ? j.data : [])
-                                            .catch(() => [])
-                                    );
-                                }
-                                const remainingPages = await Promise.all(fetchPromises);
-                                remainingPages.forEach(pageData => {
-                                    rows = rows.concat(pageData);
-                                });
+                        // Always paginate — fetch page 1 first to discover total_pages,
+                        // then pull all remaining pages in parallel for both server-side
+                        // and client-side parameters so no records are missed.
+                        const res1 = await fetch(`${param.apiBase || API_BASE}/${param.endpoint}?page=1`);
+                        if (!res1.ok) return { param, data: [] };
+                        const json1 = await res1.json();
+                        let rows = (json1 && Array.isArray(json1.data))
+                            ? json1.data
+                            : (Array.isArray(json1) ? json1 : []);
+                        const tPages = (json1 && json1.total_pages) ? json1.total_pages : 1;
+                        if (tPages > 1) {
+                            const fetchPromises = [];
+                            for (let p = 2; p <= tPages; p++) {
+                                fetchPromises.push(
+                                    fetch(`${param.apiBase || API_BASE}/${param.endpoint}?page=${p}`)
+                                        .then(r => r.ok ? r.json() : { data: [] })
+                                        .then(j => (j && Array.isArray(j.data))
+                                            ? j.data
+                                            : (Array.isArray(j) ? j : []))
+                                        .catch(() => [])
+                                );
                             }
-                            return { param, data: rows };
-                        } else {
-                            const res = await fetch(`${param.apiBase || API_BASE}/${param.endpoint}`);
-                            if (!res.ok) return { param, data: [] };
-                            const json = await res.json();
-                            const rows = json && Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : []);
-                            return { param, data: rows };
+                            const remainingPages = await Promise.all(fetchPromises);
+                            remainingPages.forEach(pageData => {
+                                rows = rows.concat(pageData);
+                            });
                         }
+                        return { param, data: rows };
                     } catch (err) {
                         console.error(`Error downloading param ${param.label}:`, err);
                         return { param, data: [] };
