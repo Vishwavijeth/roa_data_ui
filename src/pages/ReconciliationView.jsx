@@ -33,7 +33,7 @@ function ReconciliationView() {
     const [page, setPage] = useState(1);
     const [showOnlyMismatches, setShowOnlyMismatches] = useState(false);
     const [showNoSkyslope, setShowNoSkyslope] = useState(false);
-    const [trackStatusFilter, setTrackStatusFilter] = useState(null); // 'in_review' | 'completed' | 'not_a_mismatch' | null
+    const [trackStatusFilter, setTrackStatusFilter] = useState(null); // 'in_review' | 'review_done' | 'not_a_mismatch' | null
     const [searchQuery, setSearchQuery] = useState('');
     const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
 
@@ -551,7 +551,7 @@ function ReconciliationView() {
                                 <div className="flex items-center gap-1.5 border-l border-slate-200 pl-3">
                                     {[
                                         { value: 'in_review', label: 'In Review', active: 'bg-blue-50 text-blue-700 border-blue-300', inactive: 'text-slate-600 border-slate-200 hover:bg-slate-50' },
-                                        { value: 'completed', label: 'Completed', active: 'bg-emerald-50 text-emerald-700 border-emerald-300', inactive: 'text-slate-600 border-slate-200 hover:bg-slate-50' },
+                                        { value: 'review_done', label: 'Review Done', active: 'bg-emerald-50 text-emerald-700 border-emerald-300', inactive: 'text-slate-600 border-slate-200 hover:bg-slate-50' },
                                         { value: 'not_a_mismatch', label: 'Not a Mismatch', active: 'bg-slate-100 text-slate-700 border-slate-400', inactive: 'text-slate-600 border-slate-200 hover:bg-slate-50' },
                                     ].map(opt => (
                                         <button
@@ -670,7 +670,7 @@ function ReconciliationView() {
                                                             ? 'bg-amber-50/20 hover:bg-amber-50/40 transition-colors'
                                                             : 'hover:bg-slate-50/40 transition-colors',
                                                     ['close_date', 'gross_commission'].includes(activeParam.id) && row.status
-                                                        ? row.status === 'completed'
+                                                        ? row.status === 'review_done'
                                                             ? 'border-l-4 border-l-emerald-400'
                                                             : row.status === 'not_a_mismatch'
                                                                 ? 'border-l-4 border-l-slate-400'
@@ -701,13 +701,13 @@ function ReconciliationView() {
                                                                 {row.propertyaddress || '—'}
                                                             </span>
                                                             {['close_date', 'gross_commission'].includes(activeParam.id) && row.status && (
-                                                                <span className={`inline-flex items-center gap-0.5 shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full capitalize whitespace-nowrap ${row.status === 'completed'
+                                                                <span className={`inline-flex items-center gap-0.5 shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full capitalize whitespace-nowrap ${row.status === 'review_done'
                                                                         ? 'bg-emerald-100 text-emerald-700'
                                                                         : row.status === 'not_a_mismatch'
                                                                             ? 'bg-slate-100 text-slate-500'
                                                                             : 'bg-blue-100 text-blue-700'
                                                                     }`}>
-                                                                    <span className={`w-1.5 h-1.5 rounded-full ${row.status === 'completed' ? 'bg-emerald-500'
+                                                                    <span className={`w-1.5 h-1.5 rounded-full ${row.status === 'review_done' ? 'bg-emerald-500'
                                                                             : row.status === 'not_a_mismatch' ? 'bg-slate-400'
                                                                                 : 'bg-blue-500'
                                                                         }`} />
@@ -864,7 +864,7 @@ function ReconciliationView() {
                                 <div className="grid grid-cols-3 gap-2">
                                     {[
                                         { value: 'in_review', label: 'In Review', color: 'indigo' },
-                                        { value: 'completed', label: 'Completed', color: 'emerald' },
+                                        { value: 'review_done', label: 'Review Done', color: 'emerald' },
                                         { value: 'not_a_mismatch', label: 'Not a Mismatch', color: 'slate' },
                                     ].map(opt => (
                                         <button
