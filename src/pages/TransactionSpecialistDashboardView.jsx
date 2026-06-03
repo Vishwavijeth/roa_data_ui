@@ -103,31 +103,26 @@ function TransactionSpecialistDashboardView() {
     // Tooltip state: stores { rowIndex, row, anchorRect }
     const [tooltip, setTooltip] = useState(null);
 
-    useEffect(() => {
-        const STATE_API = TXN_SPECIALIST_SUMMARY_API.replace('/transaction_specialist_dashboard', '/transaction_specialist/state');
-        fetch(STATE_API)
-            .then(res => res.json())
-            .then(json => {
-                const states = Array.isArray(json) ? json : (json.data || []);
-                setUniqueStates(states);
-            })
-            .catch(err => console.error('Failed to fetch states', err));
-    }, []);
+
 
     useEffect(() => {
         setLoading(true);
         setError(null);
-        let url = TXN_SPECIALIST_SUMMARY_API;
         const params = new URLSearchParams();
         if (dateFrom) params.append('from_date', dateFrom);
         if (dateTo) params.append('to_date', dateTo);
-        if (stateFilter.length === 1) params.append('state', stateFilter[0]);
+        stateFilter.forEach(s => params.append('state', s));
         const queryString = params.toString();
-        if (queryString) url += `?${queryString}`;
+        const url = queryString ? `${TXN_SPECIALIST_SUMMARY_API}?${queryString}` : TXN_SPECIALIST_SUMMARY_API;
 
         fetch(url)
             .then(res => { if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`); return res.json(); })
             .then(json => {
+                // API returns { states: [...], data: [...] }
+                if (json && Array.isArray(json.states)) {
+                    const deduped = [...new Set(json.states.map(s => s.toUpperCase()))].sort();
+                    setUniqueStates(deduped);
+                }
                 const rows = json && Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : []);
                 setData(rows);
                 setLoading(false);
@@ -136,16 +131,10 @@ function TransactionSpecialistDashboardView() {
     }, [dateFrom, dateTo, stateFilter]);
 
     const filteredData = useMemo(() => {
-        let result = data;
-        if (stateFilter.length > 1) {
-            result = result.filter(r => stateFilter.includes(r.state));
-        }
-        if (searchQuery.trim()) {
-            const q = searchQuery.trim().toLowerCase();
-            result = result.filter(r => (r.transaction_specialist || '').toLowerCase().includes(q));
-        }
-        return result;
-    }, [data, searchQuery, stateFilter]);
+        if (!searchQuery.trim()) return data;
+        const q = searchQuery.trim().toLowerCase();
+        return data.filter(r => (r.transaction_specialist || '').toLowerCase().includes(q));
+    }, [data, searchQuery]);
 
     const totals = useMemo(() => {
         const outstanding = data.reduce((sum, r) => sum + (r.transactions_outstanding || 0), 0);
