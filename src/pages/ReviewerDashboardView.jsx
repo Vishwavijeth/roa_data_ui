@@ -27,30 +27,27 @@ function ReviewerDashboardView() {
     const [stateFilter, setStateFilter] = useState([]); // multi-select → array
     const [uniqueStates, setUniqueStates] = useState([]);
 
-    useEffect(() => {
-        fetch(`${REVIEWER_SUMMARY_API}/state`)
-            .then(res => res.json())
-            .then(json => {
-                const states = Array.isArray(json) ? json : (json.data || []);
-                setUniqueStates(states);
-            })
-            .catch(err => console.error('Failed to fetch states', err));
-    }, []);
+
 
     useEffect(() => {
         setLoading(true);
         setError(null);
-        let url = REVIEWER_SUMMARY_API;
         const params = new URLSearchParams();
         if (dateFrom) params.append('from_date', dateFrom);
         if (dateTo) params.append('to_date', dateTo);
-        if (stateFilter.length === 1) params.append('state', stateFilter[0]);
+        stateFilter.forEach(s => params.append('state', s));
         const queryString = params.toString();
-        if (queryString) url += `?${queryString}`;
+        const url = queryString ? `${REVIEWER_SUMMARY_API}?${queryString}` : REVIEWER_SUMMARY_API;
 
         fetch(url)
             .then(res => { if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`); return res.json(); })
             .then(json => {
+                // API returns { states: [...], data: [...] }
+                if (json && Array.isArray(json.states)) {
+                    // Deduplicate and sort states (API may have duplicates like 'Ca', 'CA')
+                    const deduped = [...new Set(json.states.map(s => s.toUpperCase()))].sort();
+                    setUniqueStates(deduped);
+                }
                 const rows = json && Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : []);
                 setData(rows);
                 setLoading(false);
@@ -59,16 +56,10 @@ function ReviewerDashboardView() {
     }, [dateFrom, dateTo, stateFilter]);
 
     const filteredData = useMemo(() => {
-        let result = data;
-        if (stateFilter.length > 1) {
-            result = result.filter(r => stateFilter.includes(r.state));
-        }
-        if (searchQuery.trim()) {
-            const q = searchQuery.trim().toLowerCase();
-            result = result.filter(r => (r.reviewer_full_name || '').toLowerCase().includes(q));
-        }
-        return result;
-    }, [data, searchQuery, stateFilter]);
+        if (!searchQuery.trim()) return data;
+        const q = searchQuery.trim().toLowerCase();
+        return data.filter(r => (r.reviewer_full_name || '').toLowerCase().includes(q));
+    }, [data, searchQuery]);
 
     const totals = useMemo(() => {
         const outstanding = data.reduce((sum, r) => sum + (r.transactions_outstanding || 0), 0);
