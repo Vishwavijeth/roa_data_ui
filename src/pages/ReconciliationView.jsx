@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { utils, writeFile } from 'xlsx';
 import { PARAMETERS, API_BASE, ROWS_PER_PAGE, getResult } from '../constants';
 import { formatDateUS } from '../utils/helpers';
@@ -116,39 +116,26 @@ function ReconciliationView() {
     const [serverTotalPages, setServerTotalPages] = useState(1);
     const [summaryStats, setSummaryStats] = useState(null);
     const [statsLoading, setStatsLoading] = useState(false);
+    // Tracks whether a unified-API param summary has been loaded for the current selection.
+    // All server-side params now use the unified API (summary + data in one call).
+    const unifiedSummaryLoaded = useRef(false);
 
-    // Fetch summary stats when switching to server-side parameters
+    // All server-side params use the unified API: single call returns summary + paginated data.
+    const UNIFIED_PARAMS = ['gross_commission', 'close_date', 'status', 'saleprice'];
+
+    // On param switch: reset ref + clear stats so the first data fetch populates them fresh.
     useEffect(() => {
-        if (isServerSideParam(activeParam.id)) {
-            setStatsLoading(true);
-            const paramName = activeParam.endpoint;
-            Promise.all([
-                fetch(`https://roa-data-backend.vercel.app/compare/${paramName}/summary`).then(res => {
-                    if (!res.ok) throw new Error('Summary fetch failed');
-                    return res.json();
-                }),
-                fetch(`https://roa-data-backend.vercel.app/compare/${paramName}?page=1&mismatch=true`).then(res => {
-                    if (!res.ok) throw new Error('Mismatch count fetch failed');
-                    return res.json();
-                })
-            ])
-                .then(([summaryJson, mismatchJson]) => {
-                    setSummaryStats({
-                        ...summaryJson,
-                        mismatch_count: mismatchJson.total_count
-                    });
-                    setStatsLoading(false);
-                })
-                .catch(err => {
-                    console.error('Error fetching summary stats:', err);
-                    setStatsLoading(false);
-                });
-        } else {
+        if (!isServerSideParam(activeParam.id)) {
             setSummaryStats(null);
+            return;
         }
+        unifiedSummaryLoaded.current = false;
+        setSummaryStats(null);
+        setStatsLoading(true);
     }, [activeParam]);
 
     // Fetch data for server-side endpoints (paginated and server-filtered)
+    // gross_commission uses a single unified API that returns both summary and data
     useEffect(() => {
         if (!isServerSideParam(activeParam.id)) return;
 
@@ -156,18 +143,20 @@ function ReconciliationView() {
         setError(null);
 
         const paramName = activeParam.endpoint;
+        const isUnifiedParam = ['gross_commission', 'close_date', 'status', 'saleprice'].includes(activeParam.id);
+
         let url = `https://roa-data-backend.vercel.app/compare/${paramName}?page=${page}`;
         if (showOnlyMismatches) {
             url += '&mismatch=true';
         } else if (showNoSkyslope) {
-            url += ['close_date', 'gross_commission'].includes(activeParam.id) ? '&no_skyslope_file=true' : '&no_skyslope=true';
+            url += ['gross_commission', 'close_date'].includes(activeParam.id) ? '&no_skyslope_file=true' : '&no_skyslope=true';
         }
 
         if (['close_date', 'gross_commission'].includes(activeParam.id) && trackStatusFilter) {
             url += `&track_status=${encodeURIComponent(trackStatusFilter)}`;
         }
 
-        if (isServerSideParam(activeParam.id) && debouncedSearchQuery.trim()) {
+        if (debouncedSearchQuery.trim()) {
             url += `&search=${encodeURIComponent(debouncedSearchQuery.trim())}`;
         }
 
@@ -184,12 +173,29 @@ function ReconciliationView() {
                     setData([]);
                     setServerTotalPages(1);
                 }
+
+                // All unified params: extract summary ONLY on first load for this param.
+                // Subsequent filter/page changes skip this so metrics cards stay static.
+                if (isUnifiedParam && !unifiedSummaryLoaded.current && json && json.summary) {
+                    const s = json.summary;
+                    setSummaryStats({
+                        total_count: s.count,
+                        match_percentage: s.match_percentage,
+                        mismatch_percentage: s.mismatch_percentage,
+                        no_skyslope_record_count: s.no_skyslope_record_count,
+                        mismatch_count: Math.round((s.mismatch_percentage / 100) * s.count),
+                    });
+                    setStatsLoading(false);
+                    unifiedSummaryLoaded.current = true;
+                }
+
                 setLoading(false);
             })
             .catch(err => {
                 console.error(err);
                 setError(err.message);
                 setLoading(false);
+                if (isUnifiedParam && !unifiedSummaryLoaded.current) setStatsLoading(false);
             });
     }, [activeParam, page, showOnlyMismatches, showNoSkyslope, trackStatusFilter, debouncedSearchQuery]);
 
