@@ -109,7 +109,7 @@ function ReconciliationView() {
     }, [activeParam]);
 
     const isServerSideParam = (paramId) => {
-        return ['saleprice', 'status', 'close_date', 'gross_commission', 'listingprice'].includes(paramId);
+        return ['saleprice', 'status', 'close_date', 'gross_commission', 'listingprice', 'contract_date', 'buyer_name', 'seller_name', 'buying_agent_name', 'reviewer_specialist', 'title_company'].includes(paramId);
     };
 
     const [apiMismatchCount, setApiMismatchCount] = useState(null);
@@ -121,7 +121,7 @@ function ReconciliationView() {
     const unifiedSummaryLoaded = useRef(false);
 
     // All server-side params use the unified API: single call returns summary + paginated data.
-    const UNIFIED_PARAMS = ['gross_commission', 'close_date', 'status', 'saleprice', 'listingprice'];
+    const UNIFIED_PARAMS = ['gross_commission', 'close_date', 'status', 'saleprice', 'listingprice', 'contract_date', 'buyer_name', 'seller_name', 'buying_agent_name', 'reviewer_specialist', 'title_company'];
 
     // On param switch: reset ref + clear stats so the first data fetch populates them fresh.
     useEffect(() => {
@@ -143,7 +143,7 @@ function ReconciliationView() {
         setError(null);
 
         const paramName = activeParam.endpoint;
-        const isUnifiedParam = ['gross_commission', 'close_date', 'status', 'saleprice', 'listingprice'].includes(activeParam.id);
+        const isUnifiedParam = ['gross_commission', 'close_date', 'status', 'saleprice', 'listingprice', 'contract_date', 'buyer_name', 'seller_name', 'buying_agent_name', 'reviewer_specialist', 'title_company'].includes(activeParam.id);
 
         let url = `https://roa-data-backend.vercel.app/compare/${paramName}?page=${page}`;
         if (showOnlyMismatches) {
