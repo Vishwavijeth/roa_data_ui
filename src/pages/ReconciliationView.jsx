@@ -152,7 +152,7 @@ function ReconciliationView() {
             url += ['gross_commission', 'close_date'].includes(activeParam.id) ? '&no_skyslope_file=true' : '&no_skyslope=true';
         }
 
-        if (['close_date', 'gross_commission', 'listingprice'].includes(activeParam.id) && trackStatusFilter) {
+        if (isServerSideParam(activeParam.id) && trackStatusFilter) {
             url += `&track_status=${encodeURIComponent(trackStatusFilter)}`;
         }
 
@@ -553,7 +553,7 @@ function ReconciliationView() {
                             </div>
 
                             {/* Track Status filters — Close Date and Gross Commission */}
-                            {['close_date', 'gross_commission', 'listingprice'].includes(activeParam.id) && (
+                            {isServerSideParam(activeParam.id) && (
                                 <div className="flex items-center gap-1.5 border-l border-slate-200 pl-3">
                                     {[
                                         { value: 'in_review', label: 'In Review', active: 'bg-blue-50 text-blue-700 border-blue-300', inactive: 'text-slate-600 border-slate-200 hover:bg-slate-50' },
@@ -653,7 +653,7 @@ function ReconciliationView() {
                                         <TableHead className="w-1/8">SkySlope {activeParam.label}</TableHead>
                                         <TableHead className="w-1/8">BE {activeParam.label}</TableHead>
                                         <TableHead className="w-1/8 text-right pr-6">Result</TableHead>
-                                        {['close_date', 'gross_commission', 'listingprice'].includes(activeParam.id) && (
+                                        {isServerSideParam(activeParam.id) && (
                                             <TableHead className="w-1/8 text-center">Actions</TableHead>
                                         )}
                                     </TableRow>
@@ -675,7 +675,7 @@ function ReconciliationView() {
                                                         : isNoSkyslope
                                                             ? 'bg-amber-50/20 hover:bg-amber-50/40 transition-colors'
                                                             : 'hover:bg-slate-50/40 transition-colors',
-                                                    ['close_date', 'gross_commission', 'listingprice'].includes(activeParam.id) && row.status
+                                                    isServerSideParam(activeParam.id) && row.status
                                                         ? row.status === 'review_done'
                                                             ? 'border-l-4 border-l-emerald-400'
                                                             : row.status === 'not_a_mismatch'
@@ -706,7 +706,7 @@ function ReconciliationView() {
                                                             <span className="text-sm font-medium text-slate-700 truncate flex-1" title={row.propertyaddress || ''}>
                                                                 {row.propertyaddress || '—'}
                                                             </span>
-                                                            {['close_date', 'gross_commission', 'listingprice'].includes(activeParam.id) && row.status && (
+                                                            {isServerSideParam(activeParam.id) && row.status && (
                                                                 <span className={`inline-flex items-center gap-0.5 shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full capitalize whitespace-nowrap ${row.status === 'review_done'
                                                                     ? 'bg-emerald-100 text-emerald-700'
                                                                     : row.status === 'not_a_mismatch'
@@ -722,7 +722,7 @@ function ReconciliationView() {
                                                             )}
                                                         </div>
                                                         {/* Notes + Updated By meta row */}
-                                                        {['close_date', 'gross_commission', 'listingprice'].includes(activeParam.id) && (row.notes || row.updated_by) && (
+                                                        {isServerSideParam(activeParam.id) && (row.notes || row.updated_by) && (
                                                             <div className="flex items-center gap-2 flex-wrap">
                                                                 {row.notes && (
                                                                     <span className="text-[11px] italic text-slate-400 truncate max-w-[220px]" title={row.notes}>
@@ -779,7 +779,7 @@ function ReconciliationView() {
                                                 </TableCell>
 
                                                 {/* Review button */}
-                                                {['close_date', 'gross_commission', 'listingprice'].includes(activeParam.id) && (
+                                                {isServerSideParam(activeParam.id) && (
                                                     <TableCell className="py-4 text-center shrink-0">
                                                         <button
                                                             onClick={() => openReviewModal(row)}
@@ -797,7 +797,7 @@ function ReconciliationView() {
                                     })}
                                     {paginatedData.length === 0 && (
                                         <TableRow>
-                                            <TableCell colSpan={['close_date', 'gross_commission', 'listingprice'].includes(activeParam.id) ? 7 : 6} className="text-center text-slate-400 py-10 font-medium">
+                                            <TableCell colSpan={isServerSideParam(activeParam.id) ? 7 : 6} className="text-center text-slate-400 py-10 font-medium">
                                                 No data available
                                             </TableCell>
                                         </TableRow>
