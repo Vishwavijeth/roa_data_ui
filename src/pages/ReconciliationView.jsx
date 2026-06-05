@@ -64,7 +64,7 @@ function ReconciliationView() {
         setReviewModal(m => ({ ...m, submitting: true, error: null }));
         try {
             const res = await fetch(
-                `https://roa-data-backend.vercel.app/reconciliation/track?transaction_id=${encodeURIComponent(txnId)}&parameter=${activeParam.id}`,
+                `https://roa-data-backend.vercel.app/reconciliation/track?transaction_id=${encodeURIComponent(txnId)}&parameter=${activeParam.endpoint}`,
                 {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -109,7 +109,7 @@ function ReconciliationView() {
     }, [activeParam]);
 
     const isServerSideParam = (paramId) => {
-        return ['saleprice', 'status', 'close_date', 'gross_commission'].includes(paramId);
+        return ['saleprice', 'status', 'close_date', 'gross_commission', 'listingprice'].includes(paramId);
     };
 
     const [apiMismatchCount, setApiMismatchCount] = useState(null);
@@ -121,7 +121,7 @@ function ReconciliationView() {
     const unifiedSummaryLoaded = useRef(false);
 
     // All server-side params use the unified API: single call returns summary + paginated data.
-    const UNIFIED_PARAMS = ['gross_commission', 'close_date', 'status', 'saleprice'];
+    const UNIFIED_PARAMS = ['gross_commission', 'close_date', 'status', 'saleprice', 'listingprice'];
 
     // On param switch: reset ref + clear stats so the first data fetch populates them fresh.
     useEffect(() => {
@@ -143,7 +143,7 @@ function ReconciliationView() {
         setError(null);
 
         const paramName = activeParam.endpoint;
-        const isUnifiedParam = ['gross_commission', 'close_date', 'status', 'saleprice'].includes(activeParam.id);
+        const isUnifiedParam = ['gross_commission', 'close_date', 'status', 'saleprice', 'listingprice'].includes(activeParam.id);
 
         let url = `https://roa-data-backend.vercel.app/compare/${paramName}?page=${page}`;
         if (showOnlyMismatches) {
@@ -152,7 +152,7 @@ function ReconciliationView() {
             url += ['gross_commission', 'close_date'].includes(activeParam.id) ? '&no_skyslope_file=true' : '&no_skyslope=true';
         }
 
-        if (['close_date', 'gross_commission'].includes(activeParam.id) && trackStatusFilter) {
+        if (['close_date', 'gross_commission', 'listingprice'].includes(activeParam.id) && trackStatusFilter) {
             url += `&track_status=${encodeURIComponent(trackStatusFilter)}`;
         }
 
@@ -183,7 +183,7 @@ function ReconciliationView() {
                         match_percentage: s.match_percentage,
                         mismatch_percentage: s.mismatch_percentage,
                         no_skyslope_record_count: s.no_skyslope_record_count,
-                        mismatch_count: Math.round((s.mismatch_percentage / 100) * s.count),
+                        mismatch_count: s.mismatch_count !== undefined ? s.mismatch_count : Math.round((s.mismatch_percentage / 100) * s.count),
                     });
                     setStatsLoading(false);
                     unifiedSummaryLoaded.current = true;
@@ -553,7 +553,7 @@ function ReconciliationView() {
                             </div>
 
                             {/* Track Status filters — Close Date and Gross Commission */}
-                            {['close_date', 'gross_commission'].includes(activeParam.id) && (
+                            {['close_date', 'gross_commission', 'listingprice'].includes(activeParam.id) && (
                                 <div className="flex items-center gap-1.5 border-l border-slate-200 pl-3">
                                     {[
                                         { value: 'in_review', label: 'In Review', active: 'bg-blue-50 text-blue-700 border-blue-300', inactive: 'text-slate-600 border-slate-200 hover:bg-slate-50' },
@@ -653,7 +653,7 @@ function ReconciliationView() {
                                         <TableHead className="w-1/8">SkySlope {activeParam.label}</TableHead>
                                         <TableHead className="w-1/8">BE {activeParam.label}</TableHead>
                                         <TableHead className="w-1/8 text-right pr-6">Result</TableHead>
-                                        {['close_date', 'gross_commission'].includes(activeParam.id) && (
+                                        {['close_date', 'gross_commission', 'listingprice'].includes(activeParam.id) && (
                                             <TableHead className="w-1/8 text-center">Actions</TableHead>
                                         )}
                                     </TableRow>
@@ -675,7 +675,7 @@ function ReconciliationView() {
                                                         : isNoSkyslope
                                                             ? 'bg-amber-50/20 hover:bg-amber-50/40 transition-colors'
                                                             : 'hover:bg-slate-50/40 transition-colors',
-                                                    ['close_date', 'gross_commission'].includes(activeParam.id) && row.status
+                                                    ['close_date', 'gross_commission', 'listingprice'].includes(activeParam.id) && row.status
                                                         ? row.status === 'review_done'
                                                             ? 'border-l-4 border-l-emerald-400'
                                                             : row.status === 'not_a_mismatch'
@@ -690,14 +690,14 @@ function ReconciliationView() {
                                                         {row.saleguid || '—'}
                                                     </span>
                                                 </TableCell>
- 
+
                                                 {/* Transaction ID */}
                                                 <TableCell className="py-4 pr-4">
                                                     <span className="font-mono text-xs text-slate-400 block max-w-[130px] truncate" title={row.transactionId || row.transactionid || ''}>
                                                         {row.transactionId || row.transactionid || '—'}
                                                     </span>
                                                 </TableCell>
- 
+
                                                 {/* Property Address + track status badge inline */}
                                                 <TableCell className="py-4 pr-4">
                                                     <div className="flex flex-col gap-1 min-w-0">
@@ -706,23 +706,23 @@ function ReconciliationView() {
                                                             <span className="text-sm font-medium text-slate-700 truncate flex-1" title={row.propertyaddress || ''}>
                                                                 {row.propertyaddress || '—'}
                                                             </span>
-                                                            {['close_date', 'gross_commission'].includes(activeParam.id) && row.status && (
+                                                            {['close_date', 'gross_commission', 'listingprice'].includes(activeParam.id) && row.status && (
                                                                 <span className={`inline-flex items-center gap-0.5 shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full capitalize whitespace-nowrap ${row.status === 'review_done'
-                                                                        ? 'bg-emerald-100 text-emerald-700'
-                                                                        : row.status === 'not_a_mismatch'
-                                                                            ? 'bg-slate-100 text-slate-500'
-                                                                            : 'bg-blue-100 text-blue-700'
+                                                                    ? 'bg-emerald-100 text-emerald-700'
+                                                                    : row.status === 'not_a_mismatch'
+                                                                        ? 'bg-slate-100 text-slate-500'
+                                                                        : 'bg-blue-100 text-blue-700'
                                                                     }`}>
                                                                     <span className={`w-1.5 h-1.5 rounded-full ${row.status === 'review_done' ? 'bg-emerald-500'
-                                                                            : row.status === 'not_a_mismatch' ? 'bg-slate-400'
-                                                                                : 'bg-blue-500'
+                                                                        : row.status === 'not_a_mismatch' ? 'bg-slate-400'
+                                                                            : 'bg-blue-500'
                                                                         }`} />
                                                                     {row.status.replace(/_/g, ' ')}
                                                                 </span>
                                                             )}
                                                         </div>
                                                         {/* Notes + Updated By meta row */}
-                                                        {['close_date', 'gross_commission'].includes(activeParam.id) && (row.notes || row.updated_by) && (
+                                                        {['close_date', 'gross_commission', 'listingprice'].includes(activeParam.id) && (row.notes || row.updated_by) && (
                                                             <div className="flex items-center gap-2 flex-wrap">
                                                                 {row.notes && (
                                                                     <span className="text-[11px] italic text-slate-400 truncate max-w-[220px]" title={row.notes}>
@@ -741,7 +741,7 @@ function ReconciliationView() {
                                                         )}
                                                     </div>
                                                 </TableCell>
- 
+
                                                 {/* SkySlope value */}
                                                 <TableCell className="py-4 pr-4">
                                                     <span className="text-sm font-medium text-slate-600">
@@ -750,7 +750,7 @@ function ReconciliationView() {
                                                             : skVal != null ? String(skVal) : '—'}
                                                     </span>
                                                 </TableCell>
- 
+
                                                 {/* BE value */}
                                                 <TableCell className="py-4 pr-4">
                                                     <span className="text-sm font-medium text-slate-600">
@@ -759,7 +759,7 @@ function ReconciliationView() {
                                                             : beVal != null ? String(beVal) : '—'}
                                                     </span>
                                                 </TableCell>
- 
+
                                                 {/* Result badge */}
                                                 <TableCell className="py-4 text-right pr-6 shrink-0 select-none">
                                                     {resultVal ? (
@@ -777,9 +777,9 @@ function ReconciliationView() {
                                                         <span className="text-slate-300 font-bold">—</span>
                                                     )}
                                                 </TableCell>
- 
+
                                                 {/* Review button */}
-                                                {['close_date', 'gross_commission'].includes(activeParam.id) && (
+                                                {['close_date', 'gross_commission', 'listingprice'].includes(activeParam.id) && (
                                                     <TableCell className="py-4 text-center shrink-0">
                                                         <button
                                                             onClick={() => openReviewModal(row)}
@@ -797,7 +797,7 @@ function ReconciliationView() {
                                     })}
                                     {paginatedData.length === 0 && (
                                         <TableRow>
-                                            <TableCell colSpan={['close_date', 'gross_commission'].includes(activeParam.id) ? 7 : 6} className="text-center text-slate-400 py-10 font-medium">
+                                            <TableCell colSpan={['close_date', 'gross_commission', 'listingprice'].includes(activeParam.id) ? 7 : 6} className="text-center text-slate-400 py-10 font-medium">
                                                 No data available
                                             </TableCell>
                                         </TableRow>
