@@ -33,6 +33,8 @@ function ReconciliationView() {
     const [page, setPage] = useState(1);
     const [showOnlyMismatches, setShowOnlyMismatches] = useState(false);
     const [showNoSkyslope, setShowNoSkyslope] = useState(false);
+    const [showNoSkyslopeSale, setShowNoSkyslopeSale] = useState(false);
+    const [showNoSkyslopeOther, setShowNoSkyslopeOther] = useState(false);
     const [trackStatusFilter, setTrackStatusFilter] = useState(null); // 'in_review' | 'review_done' | 'not_a_mismatch' | null
     const [searchQuery, setSearchQuery] = useState('');
     const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
@@ -148,8 +150,14 @@ function ReconciliationView() {
         let url = `https://roa-data-backend.vercel.app/compare/${paramName}?page=${page}`;
         if (showOnlyMismatches) {
             url += '&mismatch=true';
+        } else if (activeParam.id === 'gross_commission') {
+            if (showNoSkyslopeSale) {
+                url += '&saleincome_no_skyslopefileid=true';
+            } else if (showNoSkyslopeOther) {
+                url += '&otherincome_no_skyslopefileid=true';
+            }
         } else if (showNoSkyslope) {
-            url += ['gross_commission', 'close_date'].includes(activeParam.id) ? '&no_skyslope_file=true' : '&no_skyslope=true';
+            url += activeParam.id === 'close_date' ? '&no_skyslope_file=true' : '&no_skyslope=true';
         }
 
         if (isServerSideParam(activeParam.id) && trackStatusFilter) {
@@ -178,11 +186,17 @@ function ReconciliationView() {
                 // Subsequent filter/page changes skip this so metrics cards stay static.
                 if (isUnifiedParam && !unifiedSummaryLoaded.current && json && json.summary) {
                     const s = json.summary;
+                    const noSkyslopeCount = activeParam.id === 'gross_commission'
+                        ? ((s.saleincome_no_skyslopefileid_count || 0) + (s.otherincome_no_skyslopefileid_count || 0))
+                        : (s.no_skyslope_record_count || 0);
+
                     setSummaryStats({
                         total_count: s.count,
                         match_percentage: s.match_percentage,
                         mismatch_percentage: s.mismatch_percentage,
-                        no_skyslope_record_count: s.no_skyslope_record_count,
+                        no_skyslope_record_count: noSkyslopeCount,
+                        saleincome_no_skyslopefileid_count: s.saleincome_no_skyslopefileid_count || 0,
+                        otherincome_no_skyslopefileid_count: s.otherincome_no_skyslopefileid_count || 0,
                         mismatch_count: s.mismatch_count !== undefined ? s.mismatch_count : Math.round((s.mismatch_percentage / 100) * s.count),
                     });
                     setStatsLoading(false);
@@ -197,7 +211,7 @@ function ReconciliationView() {
                 setLoading(false);
                 if (isUnifiedParam && !unifiedSummaryLoaded.current) setStatsLoading(false);
             });
-    }, [activeParam, page, showOnlyMismatches, showNoSkyslope, trackStatusFilter, debouncedSearchQuery]);
+    }, [activeParam, page, showOnlyMismatches, showNoSkyslope, showNoSkyslopeSale, showNoSkyslopeOther, trackStatusFilter, debouncedSearchQuery]);
 
     // Fetch data for other endpoints (client-side paginated and client-filtered)
     useEffect(() => {
@@ -247,10 +261,12 @@ function ReconciliationView() {
                     mismatchPct: summaryStats.mismatch_percentage ? summaryStats.mismatch_percentage.toFixed(1) : '0.0',
                     mismatchCount: summaryStats.mismatch_count ?? 0,
                     noSkyslopeCount: summaryStats.no_skyslope_record_count,
+                    noSkyslopeSaleCount: summaryStats.saleincome_no_skyslopefileid_count ?? 0,
+                    noSkyslopeOtherCount: summaryStats.otherincome_no_skyslopefileid_count ?? 0,
                     noSkysloppePct: ((summaryStats.no_skyslope_record_count / (summaryStats.total_count || 1)) * 100).toFixed(1),
                 };
             }
-            return { total: 0, matchPct: '0.0', mismatchPct: '0.0', mismatchCount: 0, noSkyslopeCount: 0, noSkysloppePct: '0.0' };
+            return { total: 0, matchPct: '0.0', mismatchPct: '0.0', mismatchCount: 0, noSkyslopeCount: 0, noSkyslopeSaleCount: 0, noSkyslopeOtherCount: 0, noSkysloppePct: '0.0' };
         }
 
         if (!data.length) return { total: 0, matchPct: 0, mismatchPct: 0, mismatchCount: 0, noSkyslopeCount: 0, noSkysloppePct: 0 };
@@ -398,7 +414,7 @@ function ReconciliationView() {
                 </div>
 
                 {/* Metrics cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className={`grid grid-cols-1 sm:grid-cols-2 ${activeParam.id === 'gross_commission' ? 'lg:grid-cols-5' : 'lg:grid-cols-4'} gap-4`}>
                     <Card className="hover:border-slate-300 transition-all select-none">
                         <CardContent className="pt-6">
                             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Total Records</span>
@@ -438,18 +454,48 @@ function ReconciliationView() {
                         </CardContent>
                     </Card>
 
-                    <Card className="hover:border-amber-200 hover:bg-amber-50/5 transition-all select-none">
-                        <CardContent className="pt-6">
-                            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">No SkySlope File ID</span>
-                            <div className="text-2xl font-bold text-amber-600 mt-2">
-                                {statsLoading ? (
-                                    <Skeleton className="h-8 w-16 mt-1" />
-                                ) : (
-                                    stats.noSkyslopeCount.toLocaleString()
-                                )}
-                            </div>
-                        </CardContent>
-                    </Card>
+                    {activeParam.id === 'gross_commission' ? (
+                        <>
+                            <Card className="hover:border-amber-200 hover:bg-amber-50/5 transition-all select-none">
+                                <CardContent className="pt-6">
+                                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">No SkySlope File ID for Sale</span>
+                                    <div className="text-2xl font-bold text-amber-600 mt-2">
+                                        {statsLoading ? (
+                                            <Skeleton className="h-8 w-16 mt-1" />
+                                        ) : (
+                                            stats.noSkyslopeSaleCount.toLocaleString()
+                                        )}
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            <Card className="hover:border-amber-200 hover:bg-amber-50/5 transition-all select-none">
+                                <CardContent className="pt-6">
+                                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">No SkySlope File ID for Other Income</span>
+                                    <div className="text-2xl font-bold text-amber-600 mt-2">
+                                        {statsLoading ? (
+                                            <Skeleton className="h-8 w-16 mt-1" />
+                                        ) : (
+                                            stats.noSkyslopeOtherCount.toLocaleString()
+                                        )}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </>
+                    ) : (
+                        <Card className="hover:border-amber-200 hover:bg-amber-50/5 transition-all select-none">
+                            <CardContent className="pt-6">
+                                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">No SkySlope File ID</span>
+                                <div className="text-2xl font-bold text-amber-600 mt-2">
+                                    {statsLoading ? (
+                                        <Skeleton className="h-8 w-16 mt-1" />
+                                    ) : (
+                                        stats.noSkyslopeCount.toLocaleString()
+                                    )}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
                 </div>
 
                 {/* Comparison Parameters Chips */}
@@ -473,6 +519,8 @@ function ReconciliationView() {
                                             setActiveParam(param);
                                             setShowOnlyMismatches(false);
                                             setShowNoSkyslope(false);
+                                            setShowNoSkyslopeSale(false);
+                                            setShowNoSkyslopeOther(false);
                                             setTrackStatusFilter(null);
                                             setSearchQuery('');
                                             setPage(1);
@@ -508,6 +556,8 @@ function ReconciliationView() {
                                         setShowOnlyMismatches(next);
                                         if (next) {
                                             setShowNoSkyslope(false);
+                                            setShowNoSkyslopeSale(false);
+                                            setShowNoSkyslopeOther(false);
                                             setTrackStatusFilter(null);
                                         }
                                         setPage(1);
@@ -524,33 +574,94 @@ function ReconciliationView() {
                                 </span>
                             </div>
 
-                            {/* No SkySlope toggle */}
-                            <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white p-0.5 overflow-hidden">
-                                <button
-                                    className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${showNoSkyslope
-                                        ? 'bg-amber-50 text-amber-700'
-                                        : 'hover:bg-slate-50 text-slate-600'
-                                        }`}
-                                    onClick={() => {
-                                        const next = !showNoSkyslope;
-                                        setShowNoSkyslope(next);
-                                        if (next) {
-                                            setShowOnlyMismatches(false);
-                                            setTrackStatusFilter(null);
-                                        }
-                                        setPage(1);
-                                    }}
-                                >
-                                    No SkySlope File ID
-                                </button>
-                                <span className="px-2 text-xs font-bold text-slate-500 border-l border-slate-200">
-                                    {statsLoading ? (
-                                        <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" /><span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:0.2s]" /></span>
-                                    ) : (
-                                        stats.noSkyslopeCount
-                                    )}
-                                </span>
-                            </div>
+                            {activeParam.id === 'gross_commission' ? (
+                                <>
+                                    {/* No SkySlope for Sale toggle */}
+                                    <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white p-0.5 overflow-hidden">
+                                        <button
+                                            className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${showNoSkyslopeSale
+                                                ? 'bg-amber-50 text-amber-700'
+                                                : 'hover:bg-slate-50 text-slate-600'
+                                                }`}
+                                            onClick={() => {
+                                                const next = !showNoSkyslopeSale;
+                                                setShowNoSkyslopeSale(next);
+                                                setShowNoSkyslopeOther(false);
+                                                if (next) {
+                                                    setShowOnlyMismatches(false);
+                                                    setTrackStatusFilter(null);
+                                                }
+                                                setPage(1);
+                                            }}
+                                        >
+                                            No SkySlope (Sale)
+                                        </button>
+                                        <span className="px-2 text-xs font-bold text-slate-500 border-l border-slate-200">
+                                            {statsLoading ? (
+                                                <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" /><span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:0.2s]" /></span>
+                                            ) : (
+                                                stats.noSkyslopeSaleCount
+                                            )}
+                                        </span>
+                                    </div>
+
+                                    {/* No SkySlope for Other Income toggle */}
+                                    <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white p-0.5 overflow-hidden">
+                                        <button
+                                            className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${showNoSkyslopeOther
+                                                ? 'bg-amber-50 text-amber-700'
+                                                : 'hover:bg-slate-50 text-slate-600'
+                                                }`}
+                                            onClick={() => {
+                                                const next = !showNoSkyslopeOther;
+                                                setShowNoSkyslopeOther(next);
+                                                setShowNoSkyslopeSale(false);
+                                                if (next) {
+                                                    setShowOnlyMismatches(false);
+                                                    setTrackStatusFilter(null);
+                                                }
+                                                setPage(1);
+                                            }}
+                                        >
+                                            No SkySlope (Other Income)
+                                        </button>
+                                        <span className="px-2 text-xs font-bold text-slate-500 border-l border-slate-200">
+                                            {statsLoading ? (
+                                                <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" /><span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:0.2s]" /></span>
+                                            ) : (
+                                                stats.noSkyslopeOtherCount
+                                            )}
+                                        </span>
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white p-0.5 overflow-hidden">
+                                    <button
+                                        className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${showNoSkyslope
+                                            ? 'bg-amber-50 text-amber-700'
+                                            : 'hover:bg-slate-50 text-slate-600'
+                                            }`}
+                                        onClick={() => {
+                                            const next = !showNoSkyslope;
+                                            setShowNoSkyslope(next);
+                                            if (next) {
+                                                setShowOnlyMismatches(false);
+                                                setTrackStatusFilter(null);
+                                            }
+                                            setPage(1);
+                                        }}
+                                    >
+                                        No SkySlope File ID
+                                    </button>
+                                    <span className="px-2 text-xs font-bold text-slate-500 border-l border-slate-200">
+                                        {statsLoading ? (
+                                            <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" /><span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:0.2s]" /></span>
+                                        ) : (
+                                            stats.noSkyslopeCount
+                                        )}
+                                    </span>
+                                </div>
+                            )}
 
                             {/* Track Status filters — Close Date and Gross Commission */}
                             {isServerSideParam(activeParam.id) && (
@@ -566,6 +677,8 @@ function ReconciliationView() {
                                                 setTrackStatusFilter(prev => prev === opt.value ? null : opt.value);
                                                 setShowOnlyMismatches(false);
                                                 setShowNoSkyslope(false);
+                                                setShowNoSkyslopeSale(false);
+                                                setShowNoSkyslopeOther(false);
                                                 setPage(1);
                                             }}
                                             className={`px-2.5 py-1 text-[11px] font-semibold rounded-md border transition-all ${trackStatusFilter === opt.value ? opt.active : opt.inactive
@@ -577,13 +690,15 @@ function ReconciliationView() {
                                 </div>
                             )}
 
-                            {(showOnlyMismatches || showNoSkyslope || searchQuery || trackStatusFilter) && (
+                            {(showOnlyMismatches || showNoSkyslope || showNoSkyslopeSale || showNoSkyslopeOther || searchQuery || trackStatusFilter) && (
                                 <Button
                                     variant="ghost"
                                     size="sm"
                                     onClick={() => {
                                         setShowOnlyMismatches(false);
                                         setShowNoSkyslope(false);
+                                        setShowNoSkyslopeSale(false);
+                                        setShowNoSkyslopeOther(false);
                                         setTrackStatusFilter(null);
                                         setSearchQuery('');
                                         setPage(1);
