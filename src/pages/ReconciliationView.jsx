@@ -108,7 +108,12 @@ function ReconciliationView() {
         const txnId = row.transactionId || row.transactionid;
         if (!txnId) return;
         setDrawerDetailLoading(true);
-        fetch(`https://roa-data-backend.vercel.app/brokerage_engine/detail?transactionid=${encodeURIComponent(txnId)}`)
+        const sourceTable = row.source_table || 'brokerage_engine';
+        const url = sourceTable === 'otherincome_transactions'
+            ? `https://roa-data-backend.vercel.app/otherincome_transactions/detail?transactionid=${encodeURIComponent(txnId)}`
+            : `https://roa-data-backend.vercel.app/brokerage_engine/detail?transactionid=${encodeURIComponent(txnId)}`;
+
+        fetch(url)
             .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
             .then(json => { setDrawerDetail(json); setDrawerDetailLoading(false); })
             .catch(err => { setDrawerDetail({ _error: err.message }); setDrawerDetailLoading(false); });
@@ -1083,7 +1088,7 @@ function ReconciliationView() {
                                                 : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50/50'
                                             }`}
                                     >
-                                        Brokerage Engine Record
+                                        {drawerDetail.otherincome_transactions ? 'Other Income Record' : 'Brokerage Engine Record'}
                                     </button>
                                     <button
                                         onClick={() => setPopupSegment('skyslope')}
@@ -1116,8 +1121,10 @@ function ReconciliationView() {
                                     {popupSegment === 'brokerage_engine' ? (
                                         drawerDetail.brokerage_engine ? (
                                             <SectionedDetailView data={drawerDetail.brokerage_engine} />
+                                        ) : drawerDetail.otherincome_transactions ? (
+                                            <SectionedDetailView data={drawerDetail.otherincome_transactions} />
                                         ) : (
-                                            <p className="text-sm text-slate-400 text-center py-12">No Brokerage Engine record found</p>
+                                            <p className="text-sm text-slate-400 text-center py-12">No record found</p>
                                         )
                                     ) : (
                                         drawerDetail.skyslope && drawerDetail.skyslope.match !== false ? (
