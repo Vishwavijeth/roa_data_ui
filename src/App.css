@@ -4,6 +4,12 @@
   text-align: left;
 }
 
+/* ── Drawer animation ─────────────────────────────────────────────────────── */
+@keyframes slideInRight {
+  from { transform: translateX(100%); opacity: 0.6; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+
 /* ── App layout ──────────────────────────────────────────────────────────── */
 .app-layout {
   display: flex;

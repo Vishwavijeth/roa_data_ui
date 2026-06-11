@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { utils, writeFile } from 'xlsx';
-import { PARAMETERS, API_BASE, ROWS_PER_PAGE, getResult } from '../constants';
+import { PARAMETERS, API_BASE, ROWS_PER_PAGE, getResult, DETAIL_SECTION_MAP } from '../constants';
 import { formatDateUS } from '../utils/helpers';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Input } from '../components/ui/Input';
 import { Skeleton } from '../components/ui/Skeleton';
+import SectionedDetailView from '../components/shared/SectionedDetailView';
 import {
     Table,
     TableHeader,
@@ -15,6 +16,61 @@ import {
     TableHead,
     TableCell,
 } from '../components/ui/Table';
+
+function CompactDetailView({ data }) {
+    if (!data) return null;
+    const entries = Object.entries(data);
+    const assigned = new Set();
+
+    // Group keys into configured sections from DETAIL_SECTION_MAP
+    const sections = DETAIL_SECTION_MAP.map(section => {
+        const items = entries.filter(([key]) => {
+            if (assigned.has(key)) return false;
+            const k = key.toLowerCase();
+            return section.keys.some(sk => k === sk || k.includes(sk));
+        });
+        items.forEach(([key]) => assigned.add(key));
+        return { ...section, items };
+    }).filter(s => s.items.length > 0);
+
+    // Any keys not belonging to any section goes to "Other Details"
+    const remainingItems = entries.filter(([key]) => !assigned.has(key));
+    if (remainingItems.length > 0) {
+        sections.push({
+            title: 'Other Details',
+            color: '#64748b',
+            items: remainingItems
+        });
+    }
+
+    return (
+        <div className="space-y-4">
+            {sections.map(section => (
+                <div key={section.title} className="space-y-1">
+                    <div className="flex items-center gap-2 px-1">
+                        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: section.color || '#64748b' }} />
+                        <h4 className="text-[10px] font-bold tracking-wider uppercase text-slate-500">
+                            {section.title}
+                        </h4>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 bg-slate-50/50 p-3 rounded-xl border border-slate-100/80 text-[11px]">
+                        {section.items.map(([key, value]) => {
+                            const displayVal = value !== null && value !== '' ? String(value) : '—';
+                            return (
+                                <div key={key} className="flex justify-between py-1 border-b border-slate-100/50 hover:bg-slate-100/20 px-1 rounded transition-colors">
+                                    <span className="text-slate-400 capitalize pr-2">{key.replace(/_/g, ' ')}</span>
+                                    <span className="font-semibold text-slate-700 text-right truncate max-w-[200px]" title={displayVal}>
+                                        {displayVal}
+                                    </span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+}
 
 function ReconciliationView() {
     const getInitialParam = () => {
@@ -38,6 +94,34 @@ function ReconciliationView() {
     const [trackStatusFilter, setTrackStatusFilter] = useState(null); // 'in_review' | 'review_done' | 'not_a_mismatch' | null
     const [searchQuery, setSearchQuery] = useState('');
     const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+
+    // ── Detail popup state ─────────────────────────────────────────────────────
+    const [drawerRow, setDrawerRow] = useState(null);
+    const [drawerDetail, setDrawerDetail] = useState(null);
+    const [drawerDetailLoading, setDrawerDetailLoading] = useState(false);
+    const [popupSegment, setPopupSegment] = useState('brokerage_engine'); // 'brokerage_engine' | 'skyslope'
+
+    const openDrawer = (row) => {
+        setDrawerRow(row);
+        setDrawerDetail(null);
+        setPopupSegment('brokerage_engine');
+        const txnId = row.transactionId || row.transactionid;
+        if (!txnId) return;
+        setDrawerDetailLoading(true);
+        fetch(`https://roa-data-backend.vercel.app/brokerage_engine/detail?transactionid=${encodeURIComponent(txnId)}`)
+            .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+            .then(json => { setDrawerDetail(json); setDrawerDetailLoading(false); })
+            .catch(err => { setDrawerDetail({ _error: err.message }); setDrawerDetailLoading(false); });
+    };
+    const closeDrawer = () => setDrawerRow(null);
+
+    // Close popup on Escape key
+    useEffect(() => {
+        if (!drawerRow) return;
+        const handler = (e) => { if (e.key === 'Escape') closeDrawer(); };
+        window.addEventListener('keydown', handler);
+        return () => window.removeEventListener('keydown', handler);
+    }, [drawerRow]);
 
     // ── Review modal state ─────────────────────────────────────────────────────
     const [reviewModal, setReviewModal] = useState({ open: false, row: null, submitting: false, error: null, success: false });
@@ -762,11 +846,9 @@ function ReconciliationView() {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead className="w-1/6">Sale Guid</TableHead>
-                                        <TableHead className="w-1/6">Transaction ID</TableHead>
-                                        <TableHead className="w-1/3">Property Address</TableHead>
-                                        <TableHead className="w-1/8">SkySlope {activeParam.label}</TableHead>
-                                        <TableHead className="w-1/8">BE {activeParam.label}</TableHead>
+                                        <TableHead className="w-2/5">Property Address</TableHead>
+                                        <TableHead className="w-1/6">SkySlope {activeParam.label}</TableHead>
+                                        <TableHead className="w-1/6">BE {activeParam.label}</TableHead>
                                         <TableHead className="w-1/8 text-right pr-6">Result</TableHead>
                                         {isServerSideParam(activeParam.id) && (
                                             <TableHead className="w-1/8 text-center">Actions</TableHead>
@@ -780,73 +862,67 @@ function ReconciliationView() {
                                         const isNoSkyslope = resultVal === 'no_skyslope_record';
                                         const skVal = row[activeParam.skyslopeKey];
                                         const beVal = row[activeParam.beKey];
+                                        const hasReviewInfo = isServerSideParam(activeParam.id) && (row.status || row.notes || row.updated_by);
+                                        const rowBg = isMismatch
+                                            ? 'bg-red-50/40 hover:bg-red-50/60 transition-colors'
+                                            : isNoSkyslope
+                                                ? 'bg-amber-50/20 hover:bg-amber-50/40 transition-colors'
+                                                : 'hover:bg-slate-50/40 transition-colors';
+                                        const borderClass = isServerSideParam(activeParam.id) && row.status
+                                            ? row.status === 'review_done' ? 'border-l-4 border-l-emerald-400'
+                                                : row.status === 'not_a_mismatch' ? 'border-l-4 border-l-slate-400'
+                                                    : 'border-l-4 border-l-blue-400'
+                                            : '';
                                         return (
                                             <TableRow
-                                                key={i}
-                                                className={[
-                                                    'align-middle',
-                                                    isMismatch
-                                                        ? 'bg-red-50/40 hover:bg-red-50/60 transition-colors'
-                                                        : isNoSkyslope
-                                                            ? 'bg-amber-50/20 hover:bg-amber-50/40 transition-colors'
-                                                            : 'hover:bg-slate-50/40 transition-colors',
-                                                    isServerSideParam(activeParam.id) && row.status
-                                                        ? row.status === 'review_done'
-                                                            ? 'border-l-4 border-l-emerald-400'
-                                                            : row.status === 'not_a_mismatch'
-                                                                ? 'border-l-4 border-l-slate-400'
-                                                                : 'border-l-4 border-l-blue-400'
-                                                        : '',
-                                                ].filter(Boolean).join(' ')}
+                                                key={`row-${i}`}
+                                                onClick={() => openDrawer(row)}
+                                                className={['align-middle cursor-pointer', rowBg, borderClass].filter(Boolean).join(' ')}
                                             >
-                                                {/* Sale Guid */}
-                                                <TableCell className="py-4 pr-4">
-                                                    <span className="font-mono text-xs text-slate-400 block max-w-[130px] truncate" title={row.saleguid || ''}>
-                                                        {row.saleguid || '—'}
-                                                    </span>
-                                                </TableCell>
-
-                                                {/* Transaction ID */}
-                                                <TableCell className="py-4 pr-4">
-                                                    <span className="font-mono text-xs text-slate-400 block max-w-[130px] truncate" title={row.transactionId || row.transactionid || ''}>
-                                                        {row.transactionId || row.transactionid || '—'}
-                                                    </span>
-                                                </TableCell>
-
-                                                {/* Property Address + track status badge inline */}
-                                                <TableCell className="py-4 pr-4">
+                                                {/* Property Address – two lines + inline review meta */}
+                                                <TableCell className="py-3 pr-4">
                                                     <div className="flex flex-col gap-1 min-w-0">
-                                                        {/* Address + status badge on same line */}
-                                                        <div className="flex items-center gap-2 min-w-0">
-                                                            <span className="text-sm font-medium text-slate-700 truncate flex-1" title={row.propertyaddress || ''}>
-                                                                {row.propertyaddress || '—'}
-                                                            </span>
-                                                            {isServerSideParam(activeParam.id) && row.status && (
-                                                                <span className={`inline-flex items-center gap-0.5 shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full capitalize whitespace-nowrap ${row.status === 'review_done'
-                                                                    ? 'bg-emerald-100 text-emerald-700'
-                                                                    : row.status === 'not_a_mismatch'
-                                                                        ? 'bg-slate-100 text-slate-500'
-                                                                        : 'bg-blue-100 text-blue-700'
-                                                                    }`}>
-                                                                    <span className={`w-1.5 h-1.5 rounded-full ${row.status === 'review_done' ? 'bg-emerald-500'
-                                                                        : row.status === 'not_a_mismatch' ? 'bg-slate-400'
-                                                                            : 'bg-blue-500'
-                                                                        }`} />
-                                                                    {row.status.replace(/_/g, ' ')}
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                        {/* Notes + Updated By meta row */}
-                                                        {isServerSideParam(activeParam.id) && (row.notes || row.updated_by) && (
-                                                            <div className="flex items-center gap-2 flex-wrap">
+                                                        {(() => {
+                                                            const addr = row.propertyaddress || '';
+                                                            const commaIdx = addr.indexOf(',');
+                                                            const line1 = commaIdx !== -1 ? addr.slice(0, commaIdx) : addr;
+                                                            const line2 = commaIdx !== -1 ? addr.slice(commaIdx + 1).trim() : '';
+                                                            return (
+                                                                <>
+                                                                    <span className="text-sm font-semibold text-slate-700 truncate" title={addr}>
+                                                                        {line1 || '—'}
+                                                                    </span>
+                                                                    {line2 && (
+                                                                        <span className="text-xs text-slate-400 truncate" title={line2}>
+                                                                            {line2}
+                                                                        </span>
+                                                                    )}
+                                                                </>
+                                                            );
+                                                        })()}
+                                                        {/* Inline review meta: badge · notes · reviewer */}
+                                                        {isServerSideParam(activeParam.id) && (row.status || row.notes || row.updated_by) && (
+                                                            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
+                                                                {row.status && (
+                                                                    <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full capitalize whitespace-nowrap ${row.status === 'review_done' ? 'bg-emerald-100 text-emerald-700'
+                                                                            : row.status === 'not_a_mismatch' ? 'bg-slate-100 text-slate-500'
+                                                                                : 'bg-blue-100 text-blue-700'
+                                                                        }`}>
+                                                                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${row.status === 'review_done' ? 'bg-emerald-500'
+                                                                                : row.status === 'not_a_mismatch' ? 'bg-slate-400'
+                                                                                    : 'bg-blue-500'
+                                                                            }`} />
+                                                                        {row.status.replace(/_/g, ' ')}
+                                                                    </span>
+                                                                )}
                                                                 {row.notes && (
-                                                                    <span className="text-[11px] italic text-slate-400 truncate max-w-[220px]" title={row.notes}>
-                                                                        "{row.notes}"
+                                                                    <span className="text-[11px] italic text-slate-400 truncate max-w-[180px]" title={row.notes}>
+                                                                        &ldquo;{row.notes}&rdquo;
                                                                     </span>
                                                                 )}
                                                                 {row.updated_by && (
-                                                                    <span className="inline-flex items-center gap-0.5 text-[11px] text-slate-400 shrink-0">
-                                                                        <svg className="h-2.5 w-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                                                                    <span className="inline-flex items-center gap-0.5 text-[11px] text-slate-400 whitespace-nowrap">
+                                                                        <svg className="h-2.5 w-2.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
                                                                             <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                                                                         </svg>
                                                                         {row.updated_by}
@@ -858,7 +934,7 @@ function ReconciliationView() {
                                                 </TableCell>
 
                                                 {/* SkySlope value */}
-                                                <TableCell className="py-4 pr-4">
+                                                <TableCell className="py-3 pr-4">
                                                     <span className="text-sm font-medium text-slate-600">
                                                         {activeParam.id.includes('date') && skVal != null && skVal !== 'null'
                                                             ? formatDateUS(skVal)
@@ -867,7 +943,7 @@ function ReconciliationView() {
                                                 </TableCell>
 
                                                 {/* BE value */}
-                                                <TableCell className="py-4 pr-4">
+                                                <TableCell className="py-3 pr-4">
                                                     <span className="text-sm font-medium text-slate-600">
                                                         {activeParam.id.includes('date') && beVal != null && beVal !== 'null'
                                                             ? formatDateUS(beVal)
@@ -876,7 +952,7 @@ function ReconciliationView() {
                                                 </TableCell>
 
                                                 {/* Result badge */}
-                                                <TableCell className="py-4 text-right pr-6 shrink-0 select-none">
+                                                <TableCell className="py-3 text-right pr-6 shrink-0 select-none">
                                                     {resultVal ? (
                                                         <Badge
                                                             variant={
@@ -895,9 +971,9 @@ function ReconciliationView() {
 
                                                 {/* Review button */}
                                                 {isServerSideParam(activeParam.id) && (
-                                                    <TableCell className="py-4 text-center shrink-0">
+                                                    <TableCell className="py-3 text-center shrink-0">
                                                         <button
-                                                            onClick={() => openReviewModal(row)}
+                                                            onClick={(e) => { e.stopPropagation(); openReviewModal(row); }}
                                                             className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-semibold bg-indigo-50 text-indigo-600 border border-indigo-200 hover:bg-indigo-100 hover:border-indigo-300 transition-all select-none"
                                                         >
                                                             <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
@@ -912,7 +988,7 @@ function ReconciliationView() {
                                     })}
                                     {paginatedData.length === 0 && (
                                         <TableRow>
-                                            <TableCell colSpan={isServerSideParam(activeParam.id) ? 7 : 6} className="text-center text-slate-400 py-10 font-medium">
+                                            <TableCell colSpan={isServerSideParam(activeParam.id) ? 5 : 4} className="text-center text-slate-400 py-10 font-medium">
                                                 No data available
                                             </TableCell>
                                         </TableRow>
@@ -950,6 +1026,116 @@ function ReconciliationView() {
                     )}
                 </Card>
             </div>
+
+            {/* ── Transaction Detail Modal ──────────────────────────────────── */}
+            {drawerRow && (
+                <>
+                    {/* Backdrop */}
+                    <div
+                        className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-[2px]"
+                        onClick={closeDrawer}
+                    />
+                    {/* Centered modal */}
+                    <div
+                        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+                        onClick={(e) => { if (e.target === e.currentTarget) closeDrawer(); }}
+                    >
+                        <div
+                            className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl flex flex-col overflow-hidden"
+                            style={{ height: '94vh', maxHeight: '94vh', animation: 'popIn 0.22s cubic-bezier(0.16,1,0.3,1)' }}
+                        >
+                            {/* Modal Header */}
+                            <div className="px-6 py-4 border-b border-slate-100 shrink-0 flex items-start justify-between gap-4">
+                                <div className="min-w-0 flex-1">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Transaction Detail</p>
+                                    <h2 className="text-base font-bold text-slate-800 truncate whitespace-nowrap" title={drawerRow.propertyaddress}>
+                                        {drawerRow.propertyaddress || '—'}
+                                    </h2>
+                                    <div className="flex items-center flex-nowrap gap-2 mt-1.5 whitespace-nowrap overflow-hidden">
+                                        <span className="text-xs text-slate-400 font-mono shrink-0">{drawerRow.transactionId || drawerRow.transactionid || '—'}</span>
+                                        {(() => { const rv = getResult(drawerRow); if (!rv) return null; const vm = { match: 'success', mismatch: 'destructive', no_skyslope_record: 'warning' }; return <Badge variant={vm[rv] || 'secondary'} className="capitalize text-[11px] px-2 py-0.5 rounded shrink-0">{rv.replace(/_/g, ' ')}</Badge>; })()}
+                                        {drawerRow.status && <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full capitalize shrink-0 ${drawerRow.status === 'review_done' ? 'bg-emerald-100 text-emerald-700' : drawerRow.status === 'not_a_mismatch' ? 'bg-slate-100 text-slate-500' : 'bg-blue-100 text-blue-700'}`}><span className={`w-1.5 h-1.5 rounded-full shrink-0 ${drawerRow.status === 'review_done' ? 'bg-emerald-500' : drawerRow.status === 'not_a_mismatch' ? 'bg-slate-400' : 'bg-blue-500'}`} />{drawerRow.status.replace(/_/g, ' ')}</span>}
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0">
+                                    {isServerSideParam(activeParam.id) && (
+                                        <button
+                                            onClick={() => { closeDrawer(); openReviewModal(drawerRow); }}
+                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-all"
+                                        >
+                                            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                            Review
+                                        </button>
+                                    )}
+                                    <button onClick={closeDrawer} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all">
+                                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Segment picker - tabs */}
+                            {drawerDetail && !drawerDetailLoading && !drawerDetail._error && (
+                                <div className="flex border-b border-slate-100 shrink-0">
+                                    <button
+                                        onClick={() => setPopupSegment('brokerage_engine')}
+                                        className={`flex-1 py-3 text-xs font-bold border-b-2 text-center transition-all ${popupSegment === 'brokerage_engine'
+                                                ? 'border-indigo-600 text-indigo-700 bg-indigo-50/10'
+                                                : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50/50'
+                                            }`}
+                                    >
+                                        Brokerage Engine Record
+                                    </button>
+                                    <button
+                                        onClick={() => setPopupSegment('skyslope')}
+                                        className={`flex-1 py-3 text-xs font-bold border-b-2 text-center transition-all ${popupSegment === 'skyslope'
+                                                ? 'border-sky-600 text-sky-700 bg-sky-50/10'
+                                                : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50/50'
+                                            }`}
+                                    >
+                                        Related SkySlope Record
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* Modal Body */}
+                            {drawerDetailLoading ? (
+                                <div className="flex-1 flex flex-col items-center justify-center gap-3 py-16">
+                                    <svg className="animate-spin h-7 w-7 text-indigo-500" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                    </svg>
+                                    <p className="text-xs font-semibold text-slate-400">Fetching transaction details…</p>
+                                </div>
+                            ) : drawerDetail && drawerDetail._error ? (
+                                <div className="flex-1 flex flex-col items-center justify-center gap-1 py-12">
+                                    <p className="font-bold text-red-600 text-sm">Failed to load details</p>
+                                    <p className="text-xs text-slate-500">{drawerDetail._error}</p>
+                                </div>
+                            ) : drawerDetail ? (
+                                <div className="flex-1 overflow-y-auto p-6 min-h-0">
+                                    {popupSegment === 'brokerage_engine' ? (
+                                        drawerDetail.brokerage_engine ? (
+                                            <SectionedDetailView data={drawerDetail.brokerage_engine} />
+                                        ) : (
+                                            <p className="text-sm text-slate-400 text-center py-12">No Brokerage Engine record found</p>
+                                        )
+                                    ) : (
+                                        drawerDetail.skyslope && drawerDetail.skyslope.match !== false ? (
+                                            <SectionedDetailView data={drawerDetail.skyslope} />
+                                        ) : (
+                                            <p className="text-sm text-slate-400 text-center py-12">No linked SkySlope record found</p>
+                                        )
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="flex-1 flex items-center justify-center py-12">
+                                    <p className="text-sm text-slate-400">No transaction ID available for this record.</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </>
+            )}
 
             {/* ── Review Modal ────────────────────────────────────────────────── */}
             {reviewModal.open && (
