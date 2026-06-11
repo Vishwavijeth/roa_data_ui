@@ -105,17 +105,37 @@ function ReconciliationView() {
         setDrawerRow(row);
         setDrawerDetail(null);
         setPopupSegment('brokerage_engine');
+        
+        const saleguid = row.saleguid;
         const txnId = row.transactionId || row.transactionid;
-        if (!txnId) return;
+        
+        if (!saleguid && !txnId) return;
+        
         setDrawerDetailLoading(true);
-        const sourceTable = row.source_table || 'brokerage_engine';
-        const url = sourceTable === 'otherincome_transactions'
-            ? `https://roa-data-backend.vercel.app/otherincome_transactions/detail?transactionid=${encodeURIComponent(txnId)}`
-            : `https://roa-data-backend.vercel.app/brokerage_engine/detail?transactionid=${encodeURIComponent(txnId)}`;
+        
+        const url = saleguid
+            ? `https://roa-data-backend.vercel.app/skyslope/detail?saleguid=${encodeURIComponent(saleguid)}`
+            : (row.source_table === 'otherincome_transactions'
+                ? `https://roa-data-backend.vercel.app/otherincome_transactions/detail?transactionid=${encodeURIComponent(txnId)}`
+                : `https://roa-data-backend.vercel.app/brokerage_engine/detail?transactionid=${encodeURIComponent(txnId)}`);
 
         fetch(url)
             .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
-            .then(json => { setDrawerDetail(json); setDrawerDetailLoading(false); })
+            .then(json => {
+                setDrawerDetail(json);
+                setDrawerDetailLoading(false);
+                if (json) {
+                    if (json.brokerage_engine_records && json.brokerage_engine_records.length > 0) {
+                        setPopupSegment('brokerage_engine');
+                    } else if (json.brokerage_engine) {
+                        setPopupSegment('brokerage_engine');
+                    } else if (json.otherincome_transactions && (Array.isArray(json.otherincome_transactions) ? json.otherincome_transactions.length > 0 : true)) {
+                        setPopupSegment('other_income');
+                    } else if (json.skyslope) {
+                        setPopupSegment('skyslope');
+                    }
+                }
+            })
             .catch(err => { setDrawerDetail({ _error: err.message }); setDrawerDetailLoading(false); });
     };
     const closeDrawer = () => setDrawerRow(null);
@@ -1081,24 +1101,39 @@ function ReconciliationView() {
                             {/* Segment picker - tabs */}
                             {drawerDetail && !drawerDetailLoading && !drawerDetail._error && (
                                 <div className="flex border-b border-slate-100 shrink-0">
-                                    <button
-                                        onClick={() => setPopupSegment('brokerage_engine')}
-                                        className={`flex-1 py-3 text-xs font-bold border-b-2 text-center transition-all ${popupSegment === 'brokerage_engine'
-                                                ? 'border-indigo-600 text-indigo-700 bg-indigo-50/10'
-                                                : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50/50'
-                                            }`}
-                                    >
-                                        {drawerDetail.otherincome_transactions ? 'Other Income Record' : 'Brokerage Engine Record'}
-                                    </button>
-                                    <button
-                                        onClick={() => setPopupSegment('skyslope')}
-                                        className={`flex-1 py-3 text-xs font-bold border-b-2 text-center transition-all ${popupSegment === 'skyslope'
-                                                ? 'border-sky-600 text-sky-700 bg-sky-50/10'
-                                                : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50/50'
-                                            }`}
-                                    >
-                                        Related SkySlope Record
-                                    </button>
+                                    {((drawerDetail.brokerage_engine_records && drawerDetail.brokerage_engine_records.length > 0) || drawerDetail.brokerage_engine) && (
+                                        <button
+                                            onClick={() => setPopupSegment('brokerage_engine')}
+                                            className={`flex-1 py-3 text-xs font-bold border-b-2 text-center transition-all ${popupSegment === 'brokerage_engine'
+                                                    ? 'border-indigo-600 text-indigo-700 bg-indigo-50/10'
+                                                    : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50/50'
+                                                }`}
+                                        >
+                                            Brokerage Engine Record
+                                        </button>
+                                    )}
+                                    {drawerDetail.otherincome_transactions && (Array.isArray(drawerDetail.otherincome_transactions) ? drawerDetail.otherincome_transactions.length > 0 : true) && (
+                                        <button
+                                            onClick={() => setPopupSegment('other_income')}
+                                            className={`flex-1 py-3 text-xs font-bold border-b-2 text-center transition-all ${popupSegment === 'other_income'
+                                                    ? 'border-emerald-600 text-emerald-700 bg-emerald-50/10'
+                                                    : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50/50'
+                                                }`}
+                                        >
+                                            Other Income Record
+                                        </button>
+                                    )}
+                                    {drawerDetail.skyslope && drawerDetail.skyslope.match !== false && (
+                                        <button
+                                            onClick={() => setPopupSegment('skyslope')}
+                                            className={`flex-1 py-3 text-xs font-bold border-b-2 text-center transition-all ${popupSegment === 'skyslope'
+                                                    ? 'border-sky-600 text-sky-700 bg-sky-50/10'
+                                                    : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50/50'
+                                                }`}
+                                        >
+                                            Related SkySlope Record
+                                        </button>
+                                    )}
                                 </div>
                             )}
 
@@ -1118,15 +1153,51 @@ function ReconciliationView() {
                                 </div>
                             ) : drawerDetail ? (
                                 <div className="flex-1 overflow-y-auto p-6 min-h-0">
-                                    {popupSegment === 'brokerage_engine' ? (
-                                        drawerDetail.brokerage_engine ? (
+                                    {popupSegment === 'brokerage_engine' && (
+                                        drawerDetail.brokerage_engine_records && drawerDetail.brokerage_engine_records.length > 0 ? (
+                                            drawerDetail.brokerage_engine_records.map((beRecord, idx) => (
+                                                <div key={idx} className="space-y-4">
+                                                    {drawerDetail.brokerage_engine_records.length > 1 && (
+                                                        <h4 className="text-xs font-bold text-slate-700 bg-slate-100/60 p-2 rounded">
+                                                            Record #{idx + 1} ({beRecord.record_role || 'Brokerage Engine'})
+                                                        </h4>
+                                                    )}
+                                                    <SectionedDetailView data={beRecord} />
+                                                </div>
+                                            ))
+                                        ) : drawerDetail.brokerage_engine ? (
                                             <SectionedDetailView data={drawerDetail.brokerage_engine} />
-                                        ) : drawerDetail.otherincome_transactions ? (
-                                            <SectionedDetailView data={drawerDetail.otherincome_transactions} />
                                         ) : (
-                                            <p className="text-sm text-slate-400 text-center py-12">No record found</p>
+                                            <p className="text-sm text-slate-400 text-center py-12">No Brokerage Engine record found</p>
                                         )
-                                    ) : (
+                                    )}
+
+                                    {popupSegment === 'other_income' && (
+                                        drawerDetail.otherincome_transactions ? (
+                                            Array.isArray(drawerDetail.otherincome_transactions) ? (
+                                                drawerDetail.otherincome_transactions.length > 0 ? (
+                                                    drawerDetail.otherincome_transactions.map((oiRecord, idx) => (
+                                                        <div key={idx} className="space-y-4">
+                                                            {drawerDetail.otherincome_transactions.length > 1 && (
+                                                                <h4 className="text-xs font-bold text-slate-700 bg-slate-100/60 p-2 rounded">
+                                                                    Record #{idx + 1} ({oiRecord.record_role || 'Other Income'})
+                                                                </h4>
+                                                            )}
+                                                            <SectionedDetailView data={oiRecord} />
+                                                        </div>
+                                                    ))
+                                                ) : (
+                                                    <p className="text-sm text-slate-400 text-center py-12">No Other Income record found</p>
+                                                )
+                                            ) : (
+                                                <SectionedDetailView data={drawerDetail.otherincome_transactions} />
+                                            )
+                                        ) : (
+                                            <p className="text-sm text-slate-400 text-center py-12">No Other Income record found</p>
+                                        )
+                                    )}
+
+                                    {popupSegment === 'skyslope' && (
                                         drawerDetail.skyslope && drawerDetail.skyslope.match !== false ? (
                                             <SectionedDetailView data={drawerDetail.skyslope} />
                                         ) : (
