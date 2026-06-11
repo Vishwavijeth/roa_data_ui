@@ -386,7 +386,7 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
                                 </svg>
                             )}
                             <span className="font-semibold text-sm text-slate-800">
-                                {syncProgress < 100 ? 'Syncing Brokerage Engine Data…' : 'Sync Complete!'}
+                                {syncProgress < 100 ? 'Syncing Brokerage Engine & Other Income Data…' : 'Sync Complete!'}
                             </span>
                         </div>
                         <span className="font-bold text-lg text-indigo-600 font-mono">
@@ -406,9 +406,9 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
                     </div>
                     <p className="text-xs text-slate-400 font-medium">
                         {syncProgress < 20
-                            ? 'Connecting to Brokerage Engine API…'
+                            ? 'Connecting to Brokerage Engine & Other Income APIs…'
                             : syncProgress < 50
-                                ? 'Fetching transaction records…'
+                                ? 'Fetching transaction & other income records…'
                                 : syncProgress < 80
                                     ? 'Processing and updating records…'
                                     : syncProgress < 100

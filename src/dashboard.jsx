@@ -69,14 +69,25 @@ function Dashboard({ setIsAuthenticated }) {
         };
 
         try {
-            const res = await fetch('https://roa-data-backend.vercel.app/sync/brokerage-engine', {
-                method: 'POST',
-            });
-            const json = await res.json().catch(() => ({}));
-            if (res.ok) {
-                finishSync(true, json.message || json.detail || 'Brokerage Engine data synced successfully.');
+            const [resBE, resOI] = await Promise.all([
+                fetch('https://roa-data-backend.vercel.app/sync/brokerage-engine', {
+                    method: 'POST',
+                }),
+                fetch('https://roa-data-backend.vercel.app/sync/other-income', {
+                    method: 'POST',
+                })
+            ]);
+
+            const jsonBE = await resBE.json().catch(() => ({}));
+            const jsonOI = await resOI.json().catch(() => ({}));
+
+            if (resBE.ok && resOI.ok) {
+                const msgBE = jsonBE.message || jsonBE.detail || 'Brokerage Engine synced successfully';
+                const msgOI = jsonOI.message || jsonOI.detail || 'Other Income synced successfully';
+                finishSync(true, `${msgBE} & ${msgOI}`);
             } else {
-                console.warn('[Sync BE] Server error:', res.status, json);
+                if (!resBE.ok) console.warn('[Sync BE] Brokerage Engine server error:', resBE.status, jsonBE);
+                if (!resOI.ok) console.warn('[Sync BE] Other Income server error:', resOI.status, jsonOI);
                 finishSync(false);
             }
         } catch (err) {
