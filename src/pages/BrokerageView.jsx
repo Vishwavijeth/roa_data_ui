@@ -5,6 +5,7 @@ import { IconDownload, IconArrowLeft } from '../components/shared/Icons';
 import SectionedDetailView from '../components/shared/SectionedDetailView';
 import { formatDateUS } from '../utils/helpers';
 import DateFilterInput from '../components/shared/DateFilterInput';
+import MultiSelect from '../components/shared/MultiSelect';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
@@ -49,6 +50,16 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
     const [totalCount, setTotalCount] = useState(0);
     const [availableStatuses, setAvailableStatuses] = useState([]);
 
+    const [viewMode, setViewMode] = useState('sale'); // 'sale' | 'other_income'
+    const [incomeReceivedFrom, setIncomeReceivedFrom] = useState('');
+    const [incomeReceivedTo, setIncomeReceivedTo] = useState('');
+    const [finalizedFrom, setFinalizedFrom] = useState('');
+    const [finalizedTo, setFinalizedTo] = useState('');
+    const [otherStatusFilter, setOtherStatusFilter] = useState('');
+    const [incomeTypeFilter, setIncomeTypeFilter] = useState([]);
+    const [otherAvailableStatuses, setOtherAvailableStatuses] = useState([]);
+    const [availableIncomeTypes, setAvailableIncomeTypes] = useState([]);
+
     const [selectedRecord, setSelectedRecord] = useState(null);
     const [detailTab, setDetailTab] = useState('details'); // 'details' | 'skyslope'
     const [detailData, setDetailData] = useState(null);
@@ -75,7 +86,10 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
         if (selectedRecord) {
             setLoadingDetail(true);
             setDetailData(null);
-            fetch(`https://roa-data-backend.vercel.app/brokerage_engine/detail?transactionid=${selectedRecord.transactionid}`)
+            const detailUrl = viewMode === 'other_income'
+                ? `https://roa-data-backend.vercel.app/otherincome_transactions/detail?transactionid=${selectedRecord.transactionid}`
+                : `https://roa-data-backend.vercel.app/brokerage_engine/detail?transactionid=${selectedRecord.transactionid}`;
+            fetch(detailUrl)
                 .then(res => { if (!res.ok) throw new Error(`API error: ${res.status}`); return res.json(); })
                 .then(json => {
                     setDetailData(json);
@@ -87,7 +101,7 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
                     setLoadingDetail(false);
                 });
         }
-    }, [selectedRecord]);
+    }, [selectedRecord, viewMode]);
 
     // Browser back-button support for record detail
     useEffect(() => {
@@ -141,24 +155,16 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
             });
     }, []);
 
-    // Fetch status filter options on mount
-    useEffect(() => {
-        fetch('https://roa-data-backend.vercel.app/brokerage_engine/status-filter')
-            .then(res => res.json())
-            .then(json => {
-                if (json && Array.isArray(json.status_list)) {
-                    setAvailableStatuses(json.status_list);
-                }
-            })
-            .catch(err => {
-                console.error('Failed to fetch BE status filter:', err);
-            });
-    }, []);
+
 
     // Reset page to 1 when filters change
     useEffect(() => {
         setPage(1);
-    }, [brokerHold, closeDateFrom, closeDateTo, contractDateFrom, contractDateTo, statusFilter, searchQuery]);
+    }, [
+        brokerHold, closeDateFrom, closeDateTo, contractDateFrom, contractDateTo, statusFilter, searchQuery,
+        incomeReceivedFrom, incomeReceivedTo, finalizedFrom, finalizedTo, otherStatusFilter, incomeTypeFilter,
+        viewMode
+    ]);
 
     // Fetch data when page or filters change
     useEffect(() => {
@@ -168,15 +174,29 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
 
         const params = new URLSearchParams();
         params.append('page', page);
-        if (brokerHold) params.append('brokerhold', 'true');
-        if (closeDateFrom) params.append('from_close_date', closeDateFrom);
-        if (closeDateTo) params.append('to_close_date', closeDateTo);
-        if (contractDateFrom) params.append('from_contract_date', contractDateFrom);
-        if (contractDateTo) params.append('to_contract_date', contractDateTo);
-        if (statusFilter) params.append('status', statusFilter);
-        if (searchQuery.trim()) params.append('search', searchQuery.trim());
 
-        const url = `${BE_API}?${params.toString()}`;
+        let url = '';
+        if (viewMode === 'other_income') {
+            if (incomeReceivedFrom) params.append('from_income_received_date', incomeReceivedFrom);
+            if (incomeReceivedTo) params.append('to_income_received_date', incomeReceivedTo);
+            if (finalizedFrom) params.append('from_finalized_date', finalizedFrom);
+            if (finalizedTo) params.append('to_finalized_date', finalizedTo);
+            if (otherStatusFilter) params.append('status', otherStatusFilter);
+            incomeTypeFilter.forEach(t => params.append('income_type', t));
+            if (searchQuery.trim()) params.append('search', searchQuery.trim());
+
+            url = `https://roa-data-backend.vercel.app/otherincome_transactions?${params.toString()}`;
+        } else {
+            if (brokerHold) params.append('brokerhold', 'true');
+            if (closeDateFrom) params.append('from_close_date', closeDateFrom);
+            if (closeDateTo) params.append('to_close_date', closeDateTo);
+            if (contractDateFrom) params.append('from_contract_date', contractDateFrom);
+            if (contractDateTo) params.append('to_contract_date', contractDateTo);
+            if (statusFilter) params.append('status', statusFilter);
+            if (searchQuery.trim()) params.append('search', searchQuery.trim());
+
+            url = `${BE_API}?${params.toString()}`;
+        }
 
         fetch(url)
             .then(res => {
@@ -190,6 +210,21 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
 
                 setData(fetchedData);
                 setTotalCount(total);
+
+                if (viewMode === 'other_income') {
+                    if (json.filters) {
+                        if (Array.isArray(json.filters.status)) {
+                            setOtherAvailableStatuses(prev => prev.length > 0 ? prev : json.filters.status);
+                        }
+                        if (Array.isArray(json.filters.income_type)) {
+                            setAvailableIncomeTypes(prev => prev.length > 0 ? prev : json.filters.income_type);
+                        }
+                    }
+                } else {
+                    if (json.filters && Array.isArray(json.filters.status_list)) {
+                        setAvailableStatuses(prev => prev.length > 0 ? prev : json.filters.status_list);
+                    }
+                }
 
                 if (json.sync_info) {
                     setSyncInfo(prev => prev ?? json.sync_info);
@@ -206,15 +241,21 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
         return () => {
             active = false;
         };
-    }, [page, brokerHold, closeDateFrom, closeDateTo, contractDateFrom, contractDateTo, statusFilter, searchQuery]);
+    }, [
+        page, brokerHold, closeDateFrom, closeDateTo, contractDateFrom, contractDateTo, statusFilter, searchQuery,
+        incomeReceivedFrom, incomeReceivedTo, finalizedFrom, finalizedTo, otherStatusFilter, incomeTypeFilter,
+        viewMode
+    ]);
 
     const totalPages = Math.ceil(totalCount / 50);
 
     const handleDownload = () => {
         const ws = utils.json_to_sheet(data);
         const wb = utils.book_new();
-        utils.book_append_sheet(wb, ws, 'Brokerage Engine');
-        writeFile(wb, 'Brokerage_Engine_report.xlsx');
+        const sheetName = viewMode === 'other_income' ? 'Other Income' : 'Brokerage Engine';
+        const fileName = viewMode === 'other_income' ? 'Other_Income_report.xlsx' : 'Brokerage_Engine_report.xlsx';
+        utils.book_append_sheet(wb, ws, sheetName);
+        writeFile(wb, fileName);
     };
 
     if (selectedRecord) {
@@ -227,7 +268,7 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
                         onClick={() => setSelectedRecord(null)}
                         className="text-slate-600 hover:text-slate-900 gap-2 font-semibold h-9 -ml-2"
                     >
-                        <IconArrowLeft /> Back to brokerage engine
+                        <IconArrowLeft /> {viewMode === 'other_income' ? 'Back to other income' : 'Back to brokerage engine'}
                     </Button>
                     <div className="w-full p-6 bg-gradient-to-r from-blue-50/60 to-transparent border-l-4 border-blue-600 rounded-r-xl">
                         <h1 className="text-xl font-bold tracking-tight text-slate-900 mb-1">
@@ -288,10 +329,18 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
                             ) : detailData ? (
                                 <div className="w-full">
                                     <TabsContent active={detailTab === 'details'} className="w-full">
-                                        {detailData.brokerage_engine ? (
-                                            <SectionedDetailView data={detailData.brokerage_engine} />
+                                        {viewMode === 'other_income' ? (
+                                            detailData.otherincome_transactions ? (
+                                                <SectionedDetailView data={detailData.otherincome_transactions} />
+                                            ) : (
+                                                <div className="py-12 text-center text-slate-400 text-sm font-medium">No Other Income details found.</div>
+                                            )
                                         ) : (
-                                            <div className="py-12 text-center text-slate-400 text-sm font-medium">No Brokerage Engine details found.</div>
+                                            detailData.brokerage_engine ? (
+                                                <SectionedDetailView data={detailData.brokerage_engine} />
+                                            ) : (
+                                                <div className="py-12 text-center text-slate-400 text-sm font-medium">No Brokerage Engine details found.</div>
+                                            )
                                         )}
                                     </TabsContent>
                                     <TabsContent active={detailTab === 'skyslope'} className="w-full">
@@ -313,10 +362,37 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
     return (
         <div className="p-8 max-w-7xl mx-auto w-full space-y-6">
             <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-5 border-b border-slate-200/80 pb-5">
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-slate-900">Brokerage Engine</h1>
-                    <p className="text-sm text-slate-500 mt-1">Transaction data sourced from Brokerage Engine.</p>
-                    {syncInfo && (
+                <div className="space-y-4">
+                    <div>
+                        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Brokerage Engine</h1>
+                        <p className="text-sm text-slate-500 mt-1">Transaction data sourced from Brokerage Engine.</p>
+                    </div>
+                    {/* View Mode Toggle */}
+                    <div className="inline-flex bg-slate-100 p-0.5 rounded-lg border border-slate-200/50">
+                        <button
+                            id="viewmode-sale-btn"
+                            onClick={() => setViewMode('sale')}
+                            className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all select-none ${
+                                viewMode === 'sale'
+                                    ? 'bg-white text-blue-600 shadow-sm border border-slate-200/30'
+                                    : 'text-slate-600 hover:text-slate-900'
+                            }`}
+                        >
+                            Sale
+                        </button>
+                        <button
+                            id="viewmode-other-btn"
+                            onClick={() => setViewMode('other_income')}
+                            className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all select-none ${
+                                viewMode === 'other_income'
+                                    ? 'bg-white text-blue-600 shadow-sm border border-slate-200/30'
+                                    : 'text-slate-600 hover:text-slate-900'
+                            }`}
+                        >
+                            Other Income
+                        </button>
+                    </div>
+                    {syncInfo && viewMode === 'sale' && (
                         <div className="inline-flex items-center gap-2 mt-3 px-3 py-1.5 rounded-full bg-indigo-50/40 border border-indigo-100/50 backdrop-blur-sm">
                             <svg width="13" height="13" fill="none" stroke="#6366f1" viewBox="0 0 24 24" className="shrink-0 opacity-80">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" />
@@ -430,7 +506,9 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
             <Card className="shadow-sm border-slate-100 overflow-hidden">
                 <div className="p-5 border-b border-slate-100 bg-slate-50/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div className="flex items-center gap-2">
-                        <h2 className="text-md font-bold text-slate-800">Transactions</h2>
+                        <h2 className="text-md font-bold text-slate-800">
+                            {viewMode === 'other_income' ? 'Other Income Transactions' : 'Transactions'}
+                        </h2>
                         {data.length > 0 && (
                             <Badge variant="secondary" className="px-2 py-0.5 font-bold text-[10px] rounded">
                                 {totalCount.toLocaleString()} records
@@ -452,7 +530,7 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
                         <Input
                             id="be-search"
                             type="text"
-                            placeholder="Search by Transaction ID, Property Address, or Buying Agent…"
+                            placeholder={viewMode === 'other_income' ? "Search by Transaction ID, Property Address, Agent, or Client…" : "Search by Transaction ID, Property Address, or Buying Agent…"}
                             value={searchInput}
                             onChange={e => setSearchInput(e.target.value)}
                             className="pl-9 pr-8 w-full"
@@ -468,62 +546,107 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
                     </div>
 
                     {/* Date and dropdown filters */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-[1fr_1fr_1fr_1fr_1.2fr_1.2fr] gap-3 pt-1">
-                        <div className="space-y-1">
-                            <label htmlFor="be-close-from" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Close From</label>
-                            <DateFilterInput id="be-close-from" value={closeDateFrom} onChange={val => { setCloseDateFrom(val); setPage(1); }} className="h-8.5 text-xs text-slate-700" />
+                    {viewMode === 'other_income' ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-[1fr_1fr_1fr_1fr_1.2fr_1.2fr] gap-3 pt-1">
+                            <div className="space-y-1">
+                                <label htmlFor="be-income-received-from" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Income Received From</label>
+                                <DateFilterInput id="be-income-received-from" value={incomeReceivedFrom} onChange={val => { setIncomeReceivedFrom(val); setPage(1); }} className="h-8.5 text-xs text-slate-700" />
+                            </div>
+                            <div className="space-y-1">
+                                <label htmlFor="be-income-received-to" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Income Received To</label>
+                                <DateFilterInput id="be-income-received-to" value={incomeReceivedTo} onChange={val => { setIncomeReceivedTo(val); setPage(1); }} className="h-8.5 text-xs text-slate-700" />
+                            </div>
+                            <div className="space-y-1">
+                                <label htmlFor="be-finalized-from" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Finalized From</label>
+                                <DateFilterInput id="be-finalized-from" value={finalizedFrom} onChange={val => { setFinalizedFrom(val); setPage(1); }} className="h-8.5 text-xs text-slate-700" />
+                            </div>
+                            <div className="space-y-1">
+                                <label htmlFor="be-finalized-to" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Finalized To</label>
+                                <DateFilterInput id="be-finalized-to" value={finalizedTo} onChange={val => { setFinalizedTo(val); setPage(1); }} className="h-8.5 text-xs text-slate-700" />
+                            </div>
+                            <div className="space-y-1">
+                                <label htmlFor="be-other-status-filter" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Status</label>
+                                <Select id="be-other-status-filter" value={otherStatusFilter} onChange={e => { setOtherStatusFilter(e.target.value); setPage(1); }} className="h-8.5 text-xs">
+                                    <option value="">All Statuses</option>
+                                    {otherAvailableStatuses.map(s => <option key={s} value={s}>{s}</option>)}
+                                </Select>
+                            </div>
+                            <div className="space-y-1 z-30">
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Income Type</label>
+                                <MultiSelect
+                                    id="be-income-type-filter"
+                                    options={availableIncomeTypes}
+                                    selected={incomeTypeFilter}
+                                    onChange={v => { setIncomeTypeFilter(v); setPage(1); }}
+                                    placeholder="All Income Types"
+                                    allLabel="All Income Types"
+                                />
+                            </div>
                         </div>
-                        <div className="space-y-1">
-                            <label htmlFor="be-close-to" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Close To</label>
-                            <DateFilterInput id="be-close-to" value={closeDateTo} onChange={val => { setCloseDateTo(val); setPage(1); }} className="h-8.5 text-xs text-slate-700" />
-                        </div>
-                        <div className="space-y-1">
-                            <label htmlFor="be-contract-from" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Contract From</label>
-                            <DateFilterInput id="be-contract-from" value={contractDateFrom} onChange={val => { setContractDateFrom(val); setPage(1); }} className="h-8.5 text-xs text-slate-700" />
-                        </div>
-                        <div className="space-y-1">
-                            <label htmlFor="be-contract-to" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Contract To</label>
-                            <DateFilterInput id="be-contract-to" value={contractDateTo} onChange={val => { setContractDateTo(val); setPage(1); }} className="h-8.5 text-xs text-slate-700" />
-                        </div>
-                        <div className="space-y-1">
-                            <label htmlFor="be-status-filter" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Status</label>
-                            <Select id="be-status-filter" value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }} className="h-8.5 text-xs">
-                                <option value="">All Statuses</option>
-                                {availableStatuses.map(s => <option key={s} value={s}>{s}</option>)}
-                            </Select>
-                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-[1fr_1fr_1fr_1fr_1.2fr_1.2fr] gap-3 pt-1">
+                            <div className="space-y-1">
+                                <label htmlFor="be-close-from" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Close From</label>
+                                <DateFilterInput id="be-close-from" value={closeDateFrom} onChange={val => { setCloseDateFrom(val); setPage(1); }} className="h-8.5 text-xs text-slate-700" />
+                            </div>
+                            <div className="space-y-1">
+                                <label htmlFor="be-close-to" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Close To</label>
+                                <DateFilterInput id="be-close-to" value={closeDateTo} onChange={val => { setCloseDateTo(val); setPage(1); }} className="h-8.5 text-xs text-slate-700" />
+                            </div>
+                            <div className="space-y-1">
+                                <label htmlFor="be-contract-from" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Contract From</label>
+                                <DateFilterInput id="be-contract-from" value={contractDateFrom} onChange={val => { setContractDateFrom(val); setPage(1); }} className="h-8.5 text-xs text-slate-700" />
+                            </div>
+                            <div className="space-y-1">
+                                <label htmlFor="be-contract-to" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Contract To</label>
+                                <DateFilterInput id="be-contract-to" value={contractDateTo} onChange={val => { setContractDateTo(val); setPage(1); }} className="h-8.5 text-xs text-slate-700" />
+                            </div>
+                            <div className="space-y-1">
+                                <label htmlFor="be-status-filter" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Status</label>
+                                <Select id="be-status-filter" value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }} className="h-8.5 text-xs">
+                                    <option value="">All Statuses</option>
+                                    {availableStatuses.map(s => <option key={s} value={s}>{s}</option>)}
+                                </Select>
+                            </div>
 
-                        {/* Broker Hold toggle */}
-                        <div className="space-y-1 flex flex-col justify-end">
-                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Hold Status</label>
-                            <Button
-                                id="be-brokerhold-toggle"
-                                variant={brokerHold ? 'destructive' : 'outline'}
-                                onClick={() => { setBrokerHold(v => !v); setPage(1); }}
-                                className={`h-8.5 text-xs font-bold gap-2 px-3 justify-start w-full border rounded-md transition-all select-none ${brokerHold
-                                    ? 'bg-red-50 text-red-600 hover:bg-red-100/60 border-red-200'
-                                    : 'hover:bg-slate-50'
-                                    }`}
-                            >
-                                <span className={`relative inline-block w-6 h-3.5 rounded-full shrink-0 transition-colors duration-200 ${brokerHold ? 'bg-red-500' : 'bg-slate-200'
-                                    }`}>
-                                    <span className={`absolute top-0.5 w-2.5 h-2.5 rounded-full bg-white transition-all duration-200 shadow-sm ${brokerHold ? 'left-3' : 'left-0.5'
-                                        }`} />
-                                </span>
-                                Broker Hold
-                            </Button>
+                            {/* Broker Hold toggle */}
+                            <div className="space-y-1 flex flex-col justify-end">
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Hold Status</label>
+                                <Button
+                                    id="be-brokerhold-toggle"
+                                    variant={brokerHold ? 'destructive' : 'outline'}
+                                    onClick={() => { setBrokerHold(v => !v); setPage(1); }}
+                                    className={`h-8.5 text-xs font-bold gap-2 px-3 justify-start w-full border rounded-md transition-all select-none ${brokerHold
+                                        ? 'bg-red-50 text-red-600 hover:bg-red-100/60 border-red-200'
+                                        : 'hover:bg-slate-50'
+                                        }`}
+                                >
+                                    <span className={`relative inline-block w-6 h-3.5 rounded-full shrink-0 transition-colors duration-200 ${brokerHold ? 'bg-red-500' : 'bg-slate-200'
+                                        }`}>
+                                        <span className={`absolute top-0.5 w-2.5 h-2.5 rounded-full bg-white transition-all duration-200 shadow-sm ${brokerHold ? 'left-3' : 'left-0.5'
+                                            }`} />
+                                    </span>
+                                    Broker Hold
+                                </Button>
+                            </div>
                         </div>
-                    </div>
+                    )}
 
                     {/* Reset Button */}
-                    {(searchInput || searchQuery || statusFilter || closeDateFrom || closeDateTo || contractDateFrom || contractDateTo || brokerHold) && (
+                    {((viewMode === 'sale' && (searchInput || searchQuery || statusFilter || closeDateFrom || closeDateTo || contractDateFrom || contractDateTo || brokerHold)) ||
+                      (viewMode === 'other_income' && (searchInput || searchQuery || otherStatusFilter || incomeReceivedFrom || incomeReceivedTo || finalizedFrom || finalizedTo || incomeTypeFilter.length > 0))) && (
                         <div className="flex justify-end pt-1">
                             <Button
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => {
-                                    setSearchInput(''); setSearchQuery(''); setStatusFilter(''); setCloseDateFrom(''); setCloseDateTo('');
-                                    setContractDateFrom(''); setContractDateTo(''); setBrokerHold(false); setPage(1);
+                                    if (viewMode === 'sale') {
+                                        setSearchInput(''); setSearchQuery(''); setStatusFilter(''); setCloseDateFrom(''); setCloseDateTo('');
+                                        setContractDateFrom(''); setContractDateTo(''); setBrokerHold(false); setPage(1);
+                                    } else {
+                                        setSearchInput(''); setSearchQuery(''); setOtherStatusFilter(''); setIncomeReceivedFrom(''); setIncomeReceivedTo('');
+                                        setFinalizedFrom(''); setFinalizedTo(''); setIncomeTypeFilter([]); setPage(1);
+                                    }
                                 }}
                                 className="h-8 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 font-bold"
                             >
@@ -540,7 +663,9 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                         </svg>
-                        <p className="text-sm font-semibold text-slate-500">Loading Brokerage Engine data…</p>
+                        <p className="text-sm font-semibold text-slate-500">
+                            {viewMode === 'other_income' ? 'Loading Other Income data…' : 'Loading Brokerage Engine data…'}
+                        </p>
                     </div>
                 ) : error ? (
                     <div className="p-12 text-center max-w-sm mx-auto space-y-2">
@@ -551,51 +676,112 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
                 ) : (
                     <>
                         <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead className="w-1/8">Transaction ID</TableHead>
-                                    <TableHead className="w-1/4">Property Address</TableHead>
-                                    <TableHead className="w-1/10">Sale Price</TableHead>
-                                    <TableHead className="w-1/10">Status</TableHead>
-                                    <TableHead className="w-1/10">Close Date</TableHead>
-                                    <TableHead className="w-1/10">Contract Date</TableHead>
-                                    <TableHead className="w-1/8">Buying Agent</TableHead>
-                                    <TableHead className="w-1/8">Specialist</TableHead>
-                                    <TableHead className="w-1/10 text-right pr-6">SkySlope ID</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {data.map((row, i) => (
-                                    <TableRow
-                                        key={i}
-                                        onClick={() => { setSelectedRecord(row); setDetailTab('details'); }}
-                                        className="cursor-pointer hover:bg-slate-50/50 transition-colors"
-                                    >
-                                        <TableCell className="font-mono text-xs text-slate-600 shrink-0">{row.transactionid || '-'}</TableCell>
-                                        <TableCell className="font-medium text-slate-800 text-xs">{renderCellData(row.property_address)}</TableCell>
-                                        <TableCell className="text-xs font-semibold text-slate-600">{row.sale_price != null ? `$${Number(row.sale_price).toLocaleString()}` : '-'}</TableCell>
-                                        <TableCell className="shrink-0 select-none">
-                                            {row.status ? (
-                                                <Badge
-                                                    variant={row.status.toLowerCase() === 'complete' ? 'success' : 'secondary'}
-                                                    className="capitalize px-2 py-0.5 rounded text-[10px] font-semibold"
-                                                >
-                                                    {row.status}
-                                                </Badge>
-                                            ) : (
-                                                <span className="text-slate-400">—</span>
-                                            )}
-                                        </TableCell>
-                                        <TableCell className="text-xs text-slate-500 font-medium">{formatDateUS(row.close_date)}</TableCell>
-                                        <TableCell className="text-xs text-slate-500 font-medium">{formatDateUS(row.contract_date)}</TableCell>
-                                        <TableCell className="text-xs text-slate-600">{renderCellData(row.buying_agent_name)}</TableCell>
-                                        <TableCell className="text-xs text-slate-600">{renderCellData(row.transaction_specialist)}</TableCell>
-                                        <TableCell className="text-right pr-6 font-mono text-xs text-slate-500 shrink-0">{row.skyslopefileid || '-'}</TableCell>
+                            {viewMode === 'other_income' ? (
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead className="w-1/12">Transaction ID</TableHead>
+                                        <TableHead className="w-1/5">Property Address</TableHead>
+                                        <TableHead className="w-1/10">Income Type</TableHead>
+                                        <TableHead className="w-1/10">Income Received</TableHead>
+                                        <TableHead className="w-1/10">Gross Commission</TableHead>
+                                        <TableHead className="w-1/10">Agent Net</TableHead>
+                                        <TableHead className="w-1/10">Brokerage Net</TableHead>
+                                        <TableHead className="w-1/10">Agents</TableHead>
+                                        <TableHead className="w-1/10">Received Date</TableHead>
+                                        <TableHead className="w-1/10">Finalized Date</TableHead>
+                                        <TableHead className="w-1/10">Status</TableHead>
+                                        <TableHead className="w-1/10 text-right pr-6">SkySlope ID</TableHead>
                                     </TableRow>
-                                ))}
+                                </TableHeader>
+                            ) : (
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead className="w-1/8">Transaction ID</TableHead>
+                                        <TableHead className="w-1/4">Property Address</TableHead>
+                                        <TableHead className="w-1/10">Sale Price</TableHead>
+                                        <TableHead className="w-1/10">Status</TableHead>
+                                        <TableHead className="w-1/10">Close Date</TableHead>
+                                        <TableHead className="w-1/10">Contract Date</TableHead>
+                                        <TableHead className="w-1/8">Buying Agent</TableHead>
+                                        <TableHead className="w-1/8">Specialist</TableHead>
+                                        <TableHead className="w-1/10 text-right pr-6">SkySlope ID</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                            )}
+                            <TableBody>
+                                {viewMode === 'other_income' ? (
+                                    data.map((row, i) => (
+                                        <TableRow
+                                            key={i}
+                                            onClick={() => { setSelectedRecord(row); setDetailTab('details'); }}
+                                            className="cursor-pointer hover:bg-slate-50/50 transition-colors"
+                                        >
+                                            <TableCell className="font-mono text-xs text-slate-600 shrink-0">{row.transactionid || '-'}</TableCell>
+                                            <TableCell className="font-medium text-slate-800 text-xs">{renderCellData(row.property_address)}</TableCell>
+                                            <TableCell className="text-xs text-slate-600">{row.income_type || '-'}</TableCell>
+                                            <TableCell className="text-xs font-semibold text-slate-600">
+                                                {row.income_received != null ? `$${Number(row.income_received).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : '-'}
+                                            </TableCell>
+                                            <TableCell className="text-xs font-semibold text-slate-600">
+                                                {row.gross_commission != null ? `$${Number(row.gross_commission).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : '-'}
+                                            </TableCell>
+                                            <TableCell className="text-xs text-slate-600">
+                                                {row.agent_net != null ? `$${Number(row.agent_net).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : '-'}
+                                            </TableCell>
+                                            <TableCell className="text-xs text-slate-600">
+                                                {row.brokerage_net != null ? `$${Number(row.brokerage_net).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : '-'}
+                                            </TableCell>
+                                            <TableCell className="text-xs text-slate-600">{renderCellData(row.agents)}</TableCell>
+                                            <TableCell className="text-xs text-slate-500 font-medium">{formatDateUS(row.income_received_date)}</TableCell>
+                                            <TableCell className="text-xs text-slate-500 font-medium">{formatDateUS(row.finalized_date)}</TableCell>
+                                            <TableCell className="shrink-0 select-none">
+                                                {row.status ? (
+                                                    <Badge
+                                                        variant={row.status.toLowerCase() === 'complete' ? 'success' : 'secondary'}
+                                                        className="capitalize px-2 py-0.5 rounded text-[10px] font-semibold"
+                                                    >
+                                                        {row.status}
+                                                    </Badge>
+                                                ) : (
+                                                    <span className="text-slate-400">—</span>
+                                                )}
+                                            </TableCell>
+                                            <TableCell className="text-right pr-6 font-mono text-xs text-slate-500 shrink-0">{row.skyslopefileid || '-'}</TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : (
+                                    data.map((row, i) => (
+                                        <TableRow
+                                            key={i}
+                                            onClick={() => { setSelectedRecord(row); setDetailTab('details'); }}
+                                            className="cursor-pointer hover:bg-slate-50/50 transition-colors"
+                                        >
+                                            <TableCell className="font-mono text-xs text-slate-600 shrink-0">{row.transactionid || '-'}</TableCell>
+                                            <TableCell className="font-medium text-slate-800 text-xs">{renderCellData(row.property_address)}</TableCell>
+                                            <TableCell className="text-xs font-semibold text-slate-600">{row.sale_price != null ? `$${Number(row.sale_price).toLocaleString()}` : '-'}</TableCell>
+                                            <TableCell className="shrink-0 select-none">
+                                                {row.status ? (
+                                                    <Badge
+                                                        variant={row.status.toLowerCase() === 'complete' ? 'success' : 'secondary'}
+                                                        className="capitalize px-2 py-0.5 rounded text-[10px] font-semibold"
+                                                    >
+                                                        {row.status}
+                                                    </Badge>
+                                                ) : (
+                                                    <span className="text-slate-400">—</span>
+                                                )}
+                                            </TableCell>
+                                            <TableCell className="text-xs text-slate-500 font-medium">{formatDateUS(row.close_date)}</TableCell>
+                                            <TableCell className="text-xs text-slate-500 font-medium">{formatDateUS(row.contract_date)}</TableCell>
+                                            <TableCell className="text-xs text-slate-600">{renderCellData(row.buying_agent_name)}</TableCell>
+                                            <TableCell className="text-xs text-slate-600">{renderCellData(row.transaction_specialist)}</TableCell>
+                                            <TableCell className="text-right pr-6 font-mono text-xs text-slate-500 shrink-0">{row.skyslopefileid || '-'}</TableCell>
+                                        </TableRow>
+                                    ))
+                                )}
                                 {data.length === 0 && (
                                     <TableRow>
-                                        <TableCell colSpan={9} className="text-center text-slate-400 py-10 font-medium">
+                                        <TableCell colSpan={viewMode === 'other_income' ? 12 : 9} className="text-center text-slate-400 py-10 font-medium">
                                             No data available
                                         </TableCell>
                                     </TableRow>
