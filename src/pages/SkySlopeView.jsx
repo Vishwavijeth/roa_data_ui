@@ -83,8 +83,12 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
                 })
                 .catch(err => {
                     console.error(err);
-                    // If no linked BE record, still show skyslope data from the row itself
-                    setDetailData({ skyslope: selectedRecord });
+                    // If no linked BE data/other income, still show skyslope data from the row itself
+                    setDetailData({
+                        skyslope: selectedRecord,
+                        brokerage_engine_records: [],
+                        otherincome_transactions: []
+                    });
                     setLoadingDetail(false);
                 });
         }
@@ -126,22 +130,7 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
         return () => clearTimeout(timer);
     }, [searchInput]);
 
-    // Fetch unique statuses for the filter dropdown on mount
-    useEffect(() => {
-        fetch('https://roa-data-backend.vercel.app/skyslope/status-filter')
-            .then(res => {
-                if (!res.ok) throw new Error(`API error: ${res.status}`);
-                return res.json();
-            })
-            .then(json => {
-                if (json && Array.isArray(json.status_list)) {
-                    setAvailableStatuses(json.status_list.sort());
-                }
-            })
-            .catch(err => {
-                console.error('Failed to fetch status filter options:', err);
-            });
-    }, []);
+
 
     // Fetch sync info on mount
     useEffect(() => {
@@ -201,6 +190,15 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
                     setTotalCount(prev => (page === 1 ? fetchedData.length : prev + fetchedData.length));
                 }
 
+                if (json.filters && Array.isArray(json.filters.status_list)) {
+                    setAvailableStatuses(prev => {
+                        if (prev.length === 0) {
+                            return [...json.filters.status_list].sort();
+                        }
+                        return prev;
+                    });
+                }
+
                 if (json.sync_info) {
                     setSyncInfo(json.sync_info);
                 }
@@ -246,17 +244,52 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
                         <p className="text-sm text-slate-500 flex items-center gap-1.5 font-medium">
                             <span className="font-semibold text-slate-700">Sale GUID:</span> {selectedRecord.saleguid || 'Unknown'}
                         </p>
-                        <div className="mt-3">
-                            {selectedRecord.transaction_id && selectedRecord.transaction_id !== 'No related BE data' ? (
-                                <Badge variant="success" className="gap-1.5 px-3 py-1 font-semibold text-xs rounded-full">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-                                    Matched with Brokerage Engine data
+                        <div className="mt-3 flex flex-wrap gap-2">
+                            {loadingDetail ? (
+                                <Badge variant="secondary" className="gap-1.5 px-3 py-1 font-semibold text-xs rounded-full bg-slate-100 text-slate-500 border border-slate-200 animate-pulse">
+                                    Checking related data...
                                 </Badge>
+                            ) : detailData ? (
+                                (() => {
+                                    const hasBE = detailData.brokerage_engine_records && detailData.brokerage_engine_records.length > 0;
+                                    const hasOI = detailData.otherincome_transactions && detailData.otherincome_transactions.length > 0;
+                                    
+                                    if (hasBE && hasOI) {
+                                        return (
+                                            <Badge variant="success" className="gap-1.5 px-3 py-1 font-semibold text-xs rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                                                Both have data
+                                            </Badge>
+                                        );
+                                    } else if (hasBE || hasOI) {
+                                        const typeName = hasBE ? 'Brokerage Engine' : 'Other Income';
+                                        return (
+                                            <Badge variant="success" className="gap-1.5 px-3 py-1 font-semibold text-xs rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
+                                                Only one has data ({typeName})
+                                            </Badge>
+                                        );
+                                    } else {
+                                        return (
+                                            <Badge variant="destructive" className="gap-1.5 px-3 py-1 font-semibold text-xs rounded-full bg-rose-50 text-rose-700 border border-rose-200">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                                                No related Backend data
+                                            </Badge>
+                                        );
+                                    }
+                                })()
                             ) : (
-                                <Badge variant="destructive" className="gap-1.5 px-3 py-1 font-semibold text-xs rounded-full">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
-                                    No related Brokerage Engine data
-                                </Badge>
+                                selectedRecord.transaction_id && selectedRecord.transaction_id !== 'No related BE data' ? (
+                                    <Badge variant="success" className="gap-1.5 px-3 py-1 font-semibold text-xs rounded-full">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                                        Matched with Brokerage Engine data
+                                    </Badge>
+                                ) : (
+                                    <Badge variant="destructive" className="gap-1.5 px-3 py-1 font-semibold text-xs rounded-full">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
+                                        No related Brokerage Engine data
+                                    </Badge>
+                                )
                             )}
                         </div>
                     </div>
@@ -279,6 +312,15 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
                             >
                                 Related Brokerage Engine Record
                             </TabsTrigger>
+                            {detailData && detailData.otherincome_transactions && detailData.otherincome_transactions.length > 0 && (
+                                <TabsTrigger
+                                    active={detailTab === 'other_income'}
+                                    onClick={() => setDetailTab('other_income')}
+                                    className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 h-full font-bold text-xs"
+                                >
+                                    Related Other Income Record
+                                </TabsTrigger>
+                            )}
                         </TabsList>
 
                         <div className="p-6 min-h-[300px] flex flex-col justify-start">
@@ -305,10 +347,35 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
                                         )}
                                     </TabsContent>
                                     <TabsContent active={detailTab === 'details'} className="w-full">
-                                        {(!selectedRecord.transaction_id || selectedRecord.transaction_id === 'No related BE data' || !detailData.brokerage_engine) ? (
-                                            <div className="py-12 text-center text-slate-400 text-sm font-medium">No related Brokerage Engine data</div>
+                                        {detailData.brokerage_engine_records && detailData.brokerage_engine_records.length > 0 ? (
+                                            detailData.brokerage_engine_records.map((beRecord, idx) => (
+                                                <div key={idx} className="space-y-4">
+                                                    {detailData.brokerage_engine_records.length > 1 && (
+                                                        <h4 className="text-xs font-bold text-slate-700 bg-slate-100/60 p-2 rounded">
+                                                            Record #{idx + 1} ({beRecord.record_role || 'Brokerage Engine'})
+                                                        </h4>
+                                                    )}
+                                                    <SectionedDetailView data={beRecord} />
+                                                </div>
+                                            ))
                                         ) : (
-                                            <SectionedDetailView data={detailData.brokerage_engine} />
+                                            <div className="py-12 text-center text-slate-400 text-sm font-medium">No related Brokerage Engine data</div>
+                                        )}
+                                    </TabsContent>
+                                    <TabsContent active={detailTab === 'other_income'} className="w-full">
+                                        {detailData.otherincome_transactions && detailData.otherincome_transactions.length > 0 ? (
+                                            detailData.otherincome_transactions.map((oiRecord, idx) => (
+                                                <div key={idx} className="space-y-4">
+                                                    {detailData.otherincome_transactions.length > 1 && (
+                                                        <h4 className="text-xs font-bold text-slate-700 bg-slate-100/60 p-2 rounded">
+                                                            Record #{idx + 1} ({oiRecord.record_role || 'Other Income'})
+                                                        </h4>
+                                                    )}
+                                                    <SectionedDetailView data={oiRecord} />
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <div className="py-12 text-center text-slate-400 text-sm font-medium">No related Other Income data</div>
                                         )}
                                     </TabsContent>
                                 </div>

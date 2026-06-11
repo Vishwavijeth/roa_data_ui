@@ -122,7 +122,8 @@ function SkySlopeDetailModal({ fileId, row, onClose }) {
 
                     setDetailData({
                         skyslope: fallbackSkySlope,
-                        brokerage_engine: null
+                        brokerage_engine_records: [],
+                        otherincome_transactions: []
                     });
                     setLoading(false);
                 } else {
@@ -136,7 +137,33 @@ function SkySlopeDetailModal({ fileId, row, onClose }) {
         <Dialog open={true} onOpenChange={onClose} size="4xl">
             <DialogHeader className="border-b border-slate-100 pb-3 flex flex-row items-center justify-between">
                 <div>
-                    <DialogTitle>SkySlope Transaction Detail</DialogTitle>
+                    <div className="flex items-center gap-3">
+                        <DialogTitle>SkySlope Transaction Detail</DialogTitle>
+                        {!loading && detailData && (() => {
+                            const hasBE = detailData.brokerage_engine_records && detailData.brokerage_engine_records.length > 0;
+                            const hasOI = detailData.otherincome_transactions && detailData.otherincome_transactions.length > 0;
+                            if (hasBE && hasOI) {
+                                return (
+                                    <Badge variant="success" className="gap-1 px-2 py-0.5 font-bold text-[9px] uppercase rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                        Both have data
+                                    </Badge>
+                                );
+                            } else if (hasBE || hasOI) {
+                                const typeName = hasBE ? 'Brokerage Engine' : 'Other Income';
+                                return (
+                                    <Badge variant="success" className="gap-1 px-2 py-0.5 font-bold text-[9px] uppercase rounded bg-blue-50 text-blue-700 border border-blue-200">
+                                        Only one has data ({typeName})
+                                    </Badge>
+                                );
+                            } else {
+                                return (
+                                    <Badge variant="destructive" className="gap-1 px-2 py-0.5 font-bold text-[9px] uppercase rounded bg-rose-50 text-rose-700 border border-rose-200">
+                                        No related Backend data
+                                    </Badge>
+                                );
+                            }
+                        })()}
+                    </div>
                     <DialogDescription className="font-mono text-[10px] text-slate-400 mt-0.5">{fileId}</DialogDescription>
                 </div>
             </DialogHeader>
@@ -157,6 +184,15 @@ function SkySlopeDetailModal({ fileId, row, onClose }) {
                         >
                             Brokerage Engine Record
                         </TabsTrigger>
+                        {detailData && detailData.otherincome_transactions && detailData.otherincome_transactions.length > 0 && (
+                            <TabsTrigger
+                                active={tab === 'other_income'}
+                                onClick={() => setTab('other_income')}
+                                className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 h-full font-bold text-xs"
+                            >
+                                Related Other Income Record
+                            </TabsTrigger>
+                        )}
                     </TabsList>
 
                     <div className="p-5 max-h-[60vh] overflow-y-auto custom-scrollbar min-h-[250px]">
@@ -190,10 +226,35 @@ function SkySlopeDetailModal({ fileId, row, onClose }) {
                                     )}
                                 </TabsContent>
                                 <TabsContent active={tab === 'brokerage_engine'} className="w-full">
-                                    {detailData.brokerage_engine ? (
-                                        <SectionedDetailView data={detailData.brokerage_engine} />
+                                    {detailData.brokerage_engine_records && detailData.brokerage_engine_records.length > 0 ? (
+                                        detailData.brokerage_engine_records.map((beRecord, idx) => (
+                                            <div key={idx} className="space-y-4">
+                                                {detailData.brokerage_engine_records.length > 1 && (
+                                                    <h4 className="text-xs font-bold text-slate-700 bg-slate-100/60 p-2 rounded">
+                                                        Record #{idx + 1} ({beRecord.record_role || 'Brokerage Engine'})
+                                                    </h4>
+                                                )}
+                                                <SectionedDetailView data={beRecord} />
+                                            </div>
+                                        ))
                                     ) : (
                                         <div className="py-12 text-center text-slate-400 text-sm font-medium">No related Brokerage Engine record found.</div>
+                                    )}
+                                </TabsContent>
+                                <TabsContent active={tab === 'other_income'} className="w-full">
+                                    {detailData.otherincome_transactions && detailData.otherincome_transactions.length > 0 ? (
+                                        detailData.otherincome_transactions.map((oiRecord, idx) => (
+                                            <div key={idx} className="space-y-4">
+                                                {detailData.otherincome_transactions.length > 1 && (
+                                                    <h4 className="text-xs font-bold text-slate-700 bg-slate-100/60 p-2 rounded">
+                                                        Record #{idx + 1} ({oiRecord.record_role || 'Other Income'})
+                                                    </h4>
+                                                )}
+                                                <SectionedDetailView data={oiRecord} />
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="py-12 text-center text-slate-400 text-sm font-medium">No related Other Income record found.</div>
                                     )}
                                 </TabsContent>
                             </div>
