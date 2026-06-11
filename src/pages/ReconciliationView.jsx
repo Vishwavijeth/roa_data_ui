@@ -223,6 +223,10 @@ function ReconciliationView() {
         return ['saleprice', 'status', 'close_date', 'gross_commission', 'listingprice', 'contract_date', 'buyer_name', 'seller_name', 'buying_agent_name', 'reviewer_specialist', 'title_company'].includes(paramId);
     };
 
+    const hasDualNoSkyslope = (paramId) => {
+        return ['gross_commission', 'close_date', 'status', 'saleprice'].includes(paramId);
+    };
+
     const [apiMismatchCount, setApiMismatchCount] = useState(null);
     const [serverTotalPages, setServerTotalPages] = useState(1);
     const [summaryStats, setSummaryStats] = useState(null);
@@ -259,14 +263,14 @@ function ReconciliationView() {
         let url = `https://roa-data-backend.vercel.app/compare/${paramName}?page=${page}`;
         if (showOnlyMismatches) {
             url += '&mismatch=true';
-        } else if (activeParam.id === 'gross_commission') {
+        } else if (hasDualNoSkyslope(activeParam.id)) {
             if (showNoSkyslopeSale) {
                 url += '&saleincome_no_skyslopefileid=true';
             } else if (showNoSkyslopeOther) {
                 url += '&otherincome_no_skyslopefileid=true';
             }
         } else if (showNoSkyslope) {
-            url += activeParam.id === 'close_date' ? '&no_skyslope_file=true' : '&no_skyslope=true';
+            url += '&no_skyslope=true';
         }
 
         if (isServerSideParam(activeParam.id) && trackStatusFilter) {
@@ -295,7 +299,7 @@ function ReconciliationView() {
                 // Subsequent filter/page changes skip this so metrics cards stay static.
                 if (isUnifiedParam && !unifiedSummaryLoaded.current && json && json.summary) {
                     const s = json.summary;
-                    const noSkyslopeCount = activeParam.id === 'gross_commission'
+                    const noSkyslopeCount = hasDualNoSkyslope(activeParam.id)
                         ? ((s.saleincome_no_skyslopefileid_count || 0) + (s.otherincome_no_skyslopefileid_count || 0))
                         : (s.no_skyslope_record_count || 0);
 
@@ -523,7 +527,7 @@ function ReconciliationView() {
                 </div>
 
                 {/* Metrics cards */}
-                <div className={`grid grid-cols-1 sm:grid-cols-2 ${activeParam.id === 'gross_commission' ? 'lg:grid-cols-5' : 'lg:grid-cols-4'} gap-4`}>
+                <div className={`grid grid-cols-1 sm:grid-cols-2 ${hasDualNoSkyslope(activeParam.id) ? 'lg:grid-cols-5' : 'lg:grid-cols-4'} gap-4`}>
                     <Card className="hover:border-slate-300 transition-all select-none">
                         <CardContent className="pt-6">
                             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Total Records</span>
@@ -563,7 +567,7 @@ function ReconciliationView() {
                         </CardContent>
                     </Card>
 
-                    {activeParam.id === 'gross_commission' ? (
+                    {hasDualNoSkyslope(activeParam.id) ? (
                         <>
                             <Card className="hover:border-amber-200 hover:bg-amber-50/5 transition-all select-none">
                                 <CardContent className="pt-6">
@@ -683,7 +687,7 @@ function ReconciliationView() {
                                 </span>
                             </div>
 
-                            {activeParam.id === 'gross_commission' ? (
+                            {hasDualNoSkyslope(activeParam.id) ? (
                                 <>
                                     {/* No SkySlope for Sale toggle */}
                                     <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white p-0.5 overflow-hidden">
