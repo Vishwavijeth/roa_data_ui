@@ -883,6 +883,13 @@ function MonthClosing() {
     const [unfilteredPendingCount, setUnfilteredPendingCount] = useState(0);
     const [downloading, setDownloading] = useState(false);
 
+    // Captures the pending total on first successful load — never changes after that
+    const staticPendingCountRef = useRef(null);
+
+    // Keep a ref so buildColumnUrl can read the latest pendingSubfilter without it being a reactive dep
+    const pendingSubfilterRef = useRef(pendingSubfilter);
+    useEffect(() => { pendingSubfilterRef.current = pendingSubfilter; }, [pendingSubfilter]);
+
     useEffect(() => {
         sessionStorage.setItem('mc_draftFrom', draftFrom);
         sessionStorage.setItem('mc_draftTo', draftTo);
@@ -909,8 +916,9 @@ function MonthClosing() {
         const params = [`page=${pageNum}`];
         if (colQuery) {
             params.push(colQuery);
-            if (colQuery === 'status=pending' && pendingSubfilter.length > 0) {
-                pendingSubfilter.forEach(sf => params.push(`pending_subfilter=${encodeURIComponent(sf)}`));
+            // Read pendingSubfilter from ref so this callback is NOT recreated when it changes
+            if (colQuery === 'status=pending' && pendingSubfilterRef.current.length > 0) {
+                pendingSubfilterRef.current.forEach(sf => params.push(`pending_subfilter=${encodeURIComponent(sf)}`));
             }
         }
         if (searchQuery) {
@@ -930,7 +938,8 @@ function MonthClosing() {
             url += '?' + params.join('&');
         }
         return url;
-    }, [activeFrom, activeTo, activeState, activeSpecialist, activeMismatch, pendingSubfilter]);
+        // NOTE: pendingSubfilter intentionally excluded — read via ref to avoid cascade re-fetches
+    }, [activeFrom, activeTo, activeState, activeSpecialist, activeMismatch]);
 
     const fetchColumnPage = useCallback(async (colId, pageNum, isLoadMore = false, searchQuery = '') => {
         const col = COLUMNS.find(c => c.id === colId);
@@ -968,8 +977,12 @@ function MonthClosing() {
                     }
                 });
 
-                if (colId === 'pending' && !pendingSubfilter.length) {
+                if (colId === 'pending' && !pendingSubfilterRef.current.length) {
                     setUnfilteredPendingCount(total);
+                    // Capture static count once on first unfiltered load
+                    if (staticPendingCountRef.current === null) {
+                        staticPendingCountRef.current = total;
+                    }
                 }
 
                 return {
@@ -1020,7 +1033,7 @@ function MonthClosing() {
                 }
             }));
         }
-    }, [buildColumnUrl, pendingSubfilter, activeFrom, activeTo, activeState, activeSpecialist, activeMismatch]);
+    }, [buildColumnUrl, activeFrom, activeTo, activeState, activeSpecialist, activeMismatch]);
 
     const fetchData = useCallback(async () => {
         await Promise.all(
@@ -1031,9 +1044,24 @@ function MonthClosing() {
         );
     }, [fetchColumnPage]);
 
+    // Fetch all columns when global filters change
     useEffect(() => {
         fetchData();
     }, [fetchData]);
+
+    // Fetch ONLY the pending column when pendingSubfilter changes
+    const prevPendingSubfilterRef = useRef(null);
+    useEffect(() => {
+        // Skip on initial mount (fetchData handles that)
+        if (prevPendingSubfilterRef.current === null) {
+            prevPendingSubfilterRef.current = pendingSubfilter;
+            return;
+        }
+        prevPendingSubfilterRef.current = pendingSubfilter;
+        const searchQ = searchQueriesRef.current['pending'];
+        fetchColumnPage('pending', 1, false, searchQ);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [pendingSubfilter]);
 
     const handleLoadMore = useCallback((colId) => {
         const colState = columnsState[colId];
@@ -1297,8 +1325,8 @@ function MonthClosing() {
             {/* Kanban summary numbers */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {COLUMNS.map(col => {
-                    const count = (col.id === 'pending' && pendingSubfilter)
-                        ? unfilteredPendingCount
+                    const count = col.id === 'pending'
+                        ? (staticPendingCountRef.current ?? unfilteredPendingCount ?? columnsState[col.id].total ?? 0)
                         : (columnsState[col.id].total || 0);
                     return (
                         <Card key={col.id} className="hover:border-slate-300 transition-all select-none">
