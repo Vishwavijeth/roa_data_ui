@@ -16,6 +16,10 @@ function ReviewerListingView() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [page, setPage] = useState(1);
+    const [totalCount, setTotalCount] = useState(0);
+
+    // Search query states: searchInput is immediate, searchQuery is debounced
+    const [searchInput, setSearchInput] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
 
     // Filters — all multi-select (arrays), except date range
@@ -26,97 +30,114 @@ function ReviewerListingView() {
     const [reviewerFilter, setReviewerFilter] = useState([]);
     const [stageFilter, setStageFilter] = useState([]);
 
+    // Stored filter dropdown options loaded from API
+    const [availableFilters, setAvailableFilters] = useState(null);
+
+    // Debounce search input
     useEffect(() => {
+        const timer = setTimeout(() => {
+            setSearchQuery(searchInput);
+            setPage(1);
+        }, 400);
+        return () => clearTimeout(timer);
+    }, [searchInput]);
+
+    // Fetch paginated & filtered data from API
+    useEffect(() => {
+        let active = true;
         setLoading(true);
         setError(null);
-        // Stage filter: send first selected stage for API (server-side), rest filtered client-side
-        const url = stageFilter.length === 1
-            ? `${REVIEWER_API}?stage_name=${encodeURIComponent(stageFilter[0])}`
-            : REVIEWER_API;
+
+        const params = new URLSearchParams();
+        params.append('page', page);
+        params.append('limit', ROWS_PER_PAGE);
+        if (dateFrom) params.append('from_close_date', dateFrom);
+        if (dateTo) params.append('to_close_date', dateTo);
+        if (searchQuery.trim()) params.append('search', searchQuery.trim());
+
+        stateFilter.forEach(s => params.append('state', s));
+        ssStatusFilter.forEach(s => params.append('status', s));
+        reviewerFilter.forEach(r => params.append('reviewer', r));
+        stageFilter.forEach(st => params.append('stage_name', st));
+
+        const url = `${REVIEWER_API}?${params.toString()}`;
+
         fetch(url)
-            .then(res => { if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`); return res.json(); })
+            .then(res => {
+                if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`);
+                return res.json();
+            })
             .then(json => {
-                const rows = json && Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : []);
+                if (!active) return;
+
+                const rows = json && Array.isArray(json.data) ? json.data : [];
                 setData(rows);
+
+                const total = json.total_count != null ? json.total_count : 0;
+                setTotalCount(total);
+
+                if (json.filters) {
+                    setAvailableFilters(prev => {
+                        // Only save the filters on first fetch so they persist in component state
+                        if (prev && prev.state_list && prev.state_list.length > 0) {
+                            return prev;
+                        }
+
+                        const stage_list = Array.isArray(json.filters.stage_list) ? [...json.filters.stage_list].sort() : [];
+                        const state_list = Array.isArray(json.filters.state_list) ? [...json.filters.state_list].sort() : [];
+                        const status_list = Array.isArray(json.filters.status_list) ? [...json.filters.status_list].sort() : [];
+                        const reviewer_list = Array.isArray(json.filters.reviewer_list) ? [...json.filters.reviewer_list].sort() : [];
+
+                        return {
+                            stage_list,
+                            state_list,
+                            status_list,
+                            reviewer_list
+                        };
+                    });
+                }
                 setLoading(false);
             })
-            .catch(err => { console.error(err); setError(err.message); setLoading(false); });
-    }, []); // fetch once; all filtering is client-side
-
-    // Derive unique values for filters
-    const uniqueStates = useMemo(() => {
-        const states = data.map(r => extractState(r.propertyaddress)).filter(Boolean);
-        return [...new Set(states)].sort();
-    }, [data]);
-
-    const uniqueSsStatuses = useMemo(() => {
-        return [...new Set(data.map(r => r.ss_status).filter(Boolean))].sort();
-    }, [data]);
-
-    const uniqueReviewers = useMemo(() => {
-        return [...new Set(data.map(r => r.reviewer_name).filter(Boolean))].sort();
-    }, [data]);
-
-    const reviewerOptions = useMemo(() => ['UNASSIGNED', ...uniqueReviewers], [uniqueReviewers]);
-
-    const uniqueStages = useMemo(() => {
-        return [...new Set(data.map(r => r.stage_name).filter(Boolean))].sort();
-    }, [data]);
-
-    // Filtered data
-    const filteredData = useMemo(() => {
-        let result = data;
-
-        if (dateFrom) {
-            result = result.filter(r => r.escrow_close_date && r.escrow_close_date >= dateFrom);
-        }
-        if (dateTo) {
-            result = result.filter(r => r.escrow_close_date && r.escrow_close_date <= dateTo);
-        }
-        if (stateFilter.length > 0) {
-            result = result.filter(r => stateFilter.includes(extractState(r.propertyaddress)));
-        }
-        if (ssStatusFilter.length > 0) {
-            result = result.filter(r => ssStatusFilter.includes(r.ss_status));
-        }
-        if (reviewerFilter.length > 0) {
-            result = result.filter(r => {
-                if (reviewerFilter.includes('UNASSIGNED') && !r.reviewer_name) return true;
-                return reviewerFilter.includes(r.reviewer_name);
+            .catch(err => {
+                if (!active) return;
+                console.error(err);
+                setError(err.message);
+                setLoading(false);
             });
-        }
-        if (stageFilter.length > 0) {
-            result = result.filter(r => stageFilter.includes(r.stage_name));
-        }
-        if (searchQuery.trim()) {
-            const q = searchQuery.trim().toLowerCase();
-            result = result.filter(r =>
-                (r.saleguid || '').toLowerCase().includes(q) ||
-                (r.propertyaddress || '').toLowerCase().includes(q)
-            );
-        }
 
-        return result;
-    }, [data, dateFrom, dateTo, stateFilter, ssStatusFilter, reviewerFilter, stageFilter, searchQuery]);
+        return () => {
+            active = false;
+        };
+    }, [page, dateFrom, dateTo, stateFilter, ssStatusFilter, reviewerFilter, stageFilter, searchQuery]);
 
-    const totalPages = Math.ceil(filteredData.length / ROWS_PER_PAGE);
-    const paginatedData = useMemo(() => {
-        const start = (page - 1) * ROWS_PER_PAGE;
-        return filteredData.slice(start, start + ROWS_PER_PAGE);
-    }, [filteredData, page]);
+    // Parse options for the MultiSelects, fallback to empty arrays before load
+    const filterOptions = useMemo(() => {
+        if (!availableFilters) {
+            return {
+                stage_list: [],
+                state_list: [],
+                status_list: [],
+                reviewer_list: []
+            };
+        }
+        return availableFilters;
+    }, [availableFilters]);
+
+    const totalPages = Math.ceil(totalCount / ROWS_PER_PAGE);
 
     const handleDownload = () => {
-        const ws = utils.json_to_sheet(filteredData);
+        const ws = utils.json_to_sheet(data);
         const wb = utils.book_new();
         utils.book_append_sheet(wb, ws, 'Reviewer Dashboard');
         writeFile(wb, 'Reviewer_Dashboard_report.xlsx');
     };
 
-    const hasActiveFilters = searchQuery || dateFrom || dateTo ||
+    const hasActiveFilters = searchInput || searchQuery || dateFrom || dateTo ||
         stateFilter.length > 0 || ssStatusFilter.length > 0 ||
         reviewerFilter.length > 0 || stageFilter.length > 0;
 
     const clearAllFilters = () => {
+        setSearchInput('');
         setSearchQuery('');
         setDateFrom('');
         setDateTo('');
@@ -149,15 +170,17 @@ function ReviewerListingView() {
                 <div className="p-5 border-b border-slate-100 bg-slate-50/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="flex items-center gap-2">
                         <h2 className="text-md font-bold text-slate-800">Transactions</h2>
-                        {data.length > 0 && (
+                        {totalCount > 0 && (
                             <Badge variant="secondary" className="px-2 py-0.5 font-bold text-[10px] rounded">
-                                {filteredData.length.toLocaleString()} records
+                                {totalCount.toLocaleString()} records
                             </Badge>
                         )}
                     </div>
-                    <span className="text-xs font-semibold text-slate-500">
-                        Showing page {page} of {totalPages || 1}
-                    </span>
+                    {totalPages > 0 && (
+                        <span className="text-xs font-semibold text-slate-500">
+                            Showing page {page} of {totalPages}
+                        </span>
+                    )}
                 </div>
 
                 {/* Search and Filters grid */}
@@ -170,14 +193,14 @@ function ReviewerListingView() {
                             id="rev-search"
                             type="text"
                             placeholder="Search by Sale GUID or Property Address…"
-                            value={searchQuery}
-                            onChange={e => { setSearchQuery(e.target.value); setPage(1); }}
+                            value={searchInput}
+                            onChange={e => { setSearchInput(e.target.value); }}
                             className="pl-9 pr-8 w-full"
                         />
-                        {searchQuery && (
+                        {searchInput && (
                             <button
                                 className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold"
-                                onClick={() => { setSearchQuery(''); setPage(1); }}
+                                onClick={() => { setSearchInput(''); setSearchQuery(''); setPage(1); }}
                             >
                                 ✕
                             </button>
@@ -207,7 +230,7 @@ function ReviewerListingView() {
                             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">State</label>
                             <MultiSelect
                                 id="rev-state-filter"
-                                options={uniqueStates}
+                                options={filterOptions.state_list}
                                 selected={stateFilter}
                                 onChange={v => { setStateFilter(v); setPage(1); }}
                                 placeholder="All States"
@@ -218,7 +241,7 @@ function ReviewerListingView() {
                             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">SS Status</label>
                             <MultiSelect
                                 id="rev-ss-status-filter"
-                                options={uniqueSsStatuses}
+                                options={filterOptions.status_list}
                                 selected={ssStatusFilter}
                                 onChange={v => { setSsStatusFilter(v); setPage(1); }}
                                 placeholder="All Statuses"
@@ -229,7 +252,7 @@ function ReviewerListingView() {
                             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Reviewer</label>
                             <MultiSelect
                                 id="rev-reviewer-filter"
-                                options={reviewerOptions}
+                                options={filterOptions.reviewer_list}
                                 selected={reviewerFilter}
                                 onChange={v => { setReviewerFilter(v); setPage(1); }}
                                 placeholder="All Reviewers"
@@ -240,7 +263,7 @@ function ReviewerListingView() {
                             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Stage</label>
                             <MultiSelect
                                 id="rev-stage-filter"
-                                options={uniqueStages}
+                                options={filterOptions.stage_list}
                                 selected={stageFilter}
                                 onChange={v => { setStageFilter(v); setPage(1); }}
                                 placeholder="All Stages"
@@ -293,7 +316,7 @@ function ReviewerListingView() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {paginatedData.map((row, i) => (
+                                {data.map((row, i) => (
                                     <TableRow key={i} className="hover:bg-slate-50/55 transition-colors">
                                         <TableCell className="font-mono text-xs text-slate-500">{row.saleguid || '-'}</TableCell>
                                         <TableCell className="font-semibold text-slate-800 text-xs py-2.5">{row.propertyaddress || '-'}</TableCell>
@@ -305,7 +328,7 @@ function ReviewerListingView() {
                                                 </Badge>
                                             ) : '-'}
                                         </TableCell>
-                                        <TableCell className="text-xs text-slate-500 font-medium font-mono uppercase">{extractState(row.propertyaddress) || '-'}</TableCell>
+                                        <TableCell className="text-xs text-slate-500 font-medium font-mono uppercase">{row.state || extractState(row.propertyaddress) || '-'}</TableCell>
                                         <TableCell className="text-xs font-semibold text-slate-700">{row.sale_price != null ? `$${Number(row.sale_price).toLocaleString()}` : '-'}</TableCell>
                                         <TableCell className="text-xs font-semibold text-slate-700">{row.listing_price != null ? `$${Number(row.listing_price).toLocaleString()}` : '-'}</TableCell>
                                         <TableCell className="text-xs text-slate-500 font-medium">{formatDateUS(row.escrow_close_date)}</TableCell>
@@ -320,7 +343,7 @@ function ReviewerListingView() {
                                         </TableCell>
                                     </TableRow>
                                 ))}
-                                {paginatedData.length === 0 && (
+                                {data.length === 0 && (
                                     <TableRow>
                                         <TableCell colSpan={9} className="text-center text-slate-400 py-10 font-medium">
                                             No data available
