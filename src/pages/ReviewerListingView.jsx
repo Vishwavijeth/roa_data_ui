@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { utils, writeFile } from 'xlsx';
+
 import { REVIEWER_API, ROWS_PER_PAGE } from '../constants';
-import { IconDownload } from '../components/shared/Icons';
+
 import { extractState, formatDateUS } from '../utils/helpers';
 import DateFilterInput from '../components/shared/DateFilterInput';
 import MultiSelect from '../components/shared/MultiSelect';
@@ -17,6 +17,7 @@ function ReviewerListingView() {
     const [error, setError] = useState(null);
     const [page, setPage] = useState(1);
     const [totalCount, setTotalCount] = useState(0);
+    const [downloading, setDownloading] = useState(false);
 
     // Search query states: searchInput is immediate, searchQuery is debounced
     const [searchInput, setSearchInput] = useState('');
@@ -125,11 +126,49 @@ function ReviewerListingView() {
 
     const totalPages = Math.ceil(totalCount / ROWS_PER_PAGE);
 
-    const handleDownload = () => {
-        const ws = utils.json_to_sheet(data);
-        const wb = utils.book_new();
-        utils.book_append_sheet(wb, ws, 'Reviewer Dashboard');
-        writeFile(wb, 'Reviewer_Dashboard_report.xlsx');
+    const handleDownload = async () => {
+        setDownloading(true);
+        try {
+            const params = new URLSearchParams();
+            if (dateFrom) params.append('from_close_date', dateFrom);
+            if (dateTo) params.append('to_close_date', dateTo);
+            if (searchQuery.trim()) params.append('search', searchQuery.trim());
+            stateFilter.forEach(s => params.append('state', s));
+            ssStatusFilter.forEach(s => params.append('status', s));
+            reviewerFilter.forEach(r => params.append('reviewer', r));
+            stageFilter.forEach(st => params.append('stage_name', st));
+
+            const query = params.toString();
+            const url = `https://roa-data-backend.vercel.app/reviewer_listing/download${query ? `?${query}` : ''}`;
+
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`Server returned ${response.status}`);
+
+            const blob = await response.blob();
+            const downloadUrl = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = downloadUrl;
+
+            const contentDisposition = response.headers.get('content-disposition');
+            let filename = 'Reviewer_Listing_Report.xlsx';
+            if (contentDisposition) {
+                const match = contentDisposition.match(/filename\*?=(?:UTF-8'')?["']?([^"';\r\n]+)["']?/i);
+                if (match && match[1]) filename = decodeURIComponent(match[1].trim());
+            }
+
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => {
+                a.remove();
+                window.URL.revokeObjectURL(downloadUrl);
+            }, 200);
+        } catch (err) {
+            console.error('Reviewer Listing download failed:', err);
+            alert(`Download failed: ${err.message}. Please try again.`);
+        } finally {
+            setDownloading(false);
+        }
     };
 
     const hasActiveFilters = searchInput || searchQuery || dateFrom || dateTo ||
@@ -158,10 +197,13 @@ function ReviewerListingView() {
                 </div>
                 <Button
                     onClick={handleDownload}
-                    disabled={!data.length}
+                    disabled={downloading}
                     className="font-semibold text-xs gap-2 h-9 shadow-md shadow-blue-600/10"
                 >
-                    <IconDownload /> Download Report
+                    <svg className={`h-4 w-4 ${downloading ? 'animate-bounce' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    {downloading ? 'Generating Report…' : 'Download Report'}
                 </Button>
             </div>
 
