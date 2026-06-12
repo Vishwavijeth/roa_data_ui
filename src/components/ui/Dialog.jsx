@@ -40,7 +40,7 @@ const Dialog = ({ open, onOpenChange, children, size = 'lg', className }) => {
         onClick={() => onOpenChange?.(false)}
       />
       {/* Container */}
-      <div className={twMerge("relative z-10 w-full transform rounded-lg bg-white p-6 shadow-xl transition-all border border-slate-100 flex flex-col max-h-[85vh]", maxWidthClass, className)}>
+      <div className={twMerge("relative z-10 w-full transform rounded-lg bg-white p-4 shadow-xl transition-all border border-slate-100 flex flex-col max-h-[94vh]", maxWidthClass, className)}>
         {children}
         <button
           onClick={() => onOpenChange?.(false)}

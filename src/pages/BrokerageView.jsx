@@ -261,7 +261,7 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
     if (selectedRecord) {
         return (
             <div className="p-8 max-w-7xl mx-auto w-full space-y-6">
-                <div className="flex flex-col items-start gap-4">
+                <div className="flex items-center justify-between w-full border-b border-slate-100 pb-4">
                     <Button
                         variant="ghost"
                         size="sm"
@@ -270,26 +270,18 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
                     >
                         <IconArrowLeft /> {viewMode === 'other_income' ? 'Back to other income' : 'Back to brokerage engine'}
                     </Button>
-                    <div className="w-full p-6 bg-gradient-to-r from-blue-50/60 to-transparent border-l-4 border-blue-600 rounded-r-xl">
-                        <h1 className="text-xl font-bold tracking-tight text-slate-900 mb-1">
-                            {selectedRecord.property_address || 'No Address Provided'}
-                        </h1>
-                        <p className="text-sm text-slate-500 flex items-center gap-1.5 font-medium">
-                            <span className="font-semibold text-slate-700">Transaction ID:</span> {selectedRecord.transactionid || 'Unknown'}
-                        </p>
-                        <div className="mt-3">
-                            {(loadingDetail ? !!selectedRecord.skyslopefileid : detailData?.skyslope?.match !== false) ? (
-                                <Badge variant="success" className="gap-1.5 px-3 py-1 font-semibold text-xs rounded-full">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-                                    Matched with SkySlope data
-                                </Badge>
-                            ) : (
-                                <Badge variant="destructive" className="gap-1.5 px-3 py-1 font-semibold text-xs rounded-full">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
-                                    No related SkySlope data
-                                </Badge>
-                            )}
-                        </div>
+                    <div>
+                        {(loadingDetail ? !!selectedRecord.skyslopefileid : detailData?.skyslope?.match !== false) ? (
+                            <Badge variant="success" className="gap-1.5 px-3 py-1 font-semibold text-xs rounded-full">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                                Matched with SkySlope data
+                            </Badge>
+                        ) : (
+                            <Badge variant="destructive" className="gap-1.5 px-3 py-1 font-semibold text-xs rounded-full">
+                                <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
+                                No related SkySlope data
+                            </Badge>
+                        )}
                     </div>
                 </div>
 
@@ -372,22 +364,20 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
                         <button
                             id="viewmode-sale-btn"
                             onClick={() => setViewMode('sale')}
-                            className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all select-none ${
-                                viewMode === 'sale'
+                            className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all select-none ${viewMode === 'sale'
                                     ? 'bg-white text-blue-600 shadow-sm border border-slate-200/30'
                                     : 'text-slate-600 hover:text-slate-900'
-                            }`}
+                                }`}
                         >
                             Sale
                         </button>
                         <button
                             id="viewmode-other-btn"
                             onClick={() => setViewMode('other_income')}
-                            className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all select-none ${
-                                viewMode === 'other_income'
+                            className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all select-none ${viewMode === 'other_income'
                                     ? 'bg-white text-blue-600 shadow-sm border border-slate-200/30'
                                     : 'text-slate-600 hover:text-slate-900'
-                            }`}
+                                }`}
                         >
                             Other Income
                         </button>
@@ -634,26 +624,26 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
 
                     {/* Reset Button */}
                     {((viewMode === 'sale' && (searchInput || searchQuery || statusFilter || closeDateFrom || closeDateTo || contractDateFrom || contractDateTo || brokerHold)) ||
-                      (viewMode === 'other_income' && (searchInput || searchQuery || otherStatusFilter || incomeReceivedFrom || incomeReceivedTo || finalizedFrom || finalizedTo || incomeTypeFilter.length > 0))) && (
-                        <div className="flex justify-end pt-1">
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                    if (viewMode === 'sale') {
-                                        setSearchInput(''); setSearchQuery(''); setStatusFilter(''); setCloseDateFrom(''); setCloseDateTo('');
-                                        setContractDateFrom(''); setContractDateTo(''); setBrokerHold(false); setPage(1);
-                                    } else {
-                                        setSearchInput(''); setSearchQuery(''); setOtherStatusFilter(''); setIncomeReceivedFrom(''); setIncomeReceivedTo('');
-                                        setFinalizedFrom(''); setFinalizedTo(''); setIncomeTypeFilter([]); setPage(1);
-                                    }
-                                }}
-                                className="h-8 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 font-bold"
-                            >
-                                Clear All Filters
-                            </Button>
-                        </div>
-                    )}
+                        (viewMode === 'other_income' && (searchInput || searchQuery || otherStatusFilter || incomeReceivedFrom || incomeReceivedTo || finalizedFrom || finalizedTo || incomeTypeFilter.length > 0))) && (
+                            <div className="flex justify-end pt-1">
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                        if (viewMode === 'sale') {
+                                            setSearchInput(''); setSearchQuery(''); setStatusFilter(''); setCloseDateFrom(''); setCloseDateTo('');
+                                            setContractDateFrom(''); setContractDateTo(''); setBrokerHold(false); setPage(1);
+                                        } else {
+                                            setSearchInput(''); setSearchQuery(''); setOtherStatusFilter(''); setIncomeReceivedFrom(''); setIncomeReceivedTo('');
+                                            setFinalizedFrom(''); setFinalizedTo(''); setIncomeTypeFilter([]); setPage(1);
+                                        }
+                                    }}
+                                    className="h-8 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 font-bold"
+                                >
+                                    Clear All Filters
+                                </Button>
+                            </div>
+                        )}
                 </div>
 
                 {/* Grid Table */}
@@ -720,16 +710,16 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
                                             <TableCell className="font-medium text-slate-800 text-xs">{renderCellData(row.property_address)}</TableCell>
                                             <TableCell className="text-xs text-slate-600">{row.income_type || '-'}</TableCell>
                                             <TableCell className="text-xs font-semibold text-slate-600">
-                                                {row.income_received != null ? `$${Number(row.income_received).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : '-'}
+                                                {row.income_received != null ? `$${Number(row.income_received).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
                                             </TableCell>
                                             <TableCell className="text-xs font-semibold text-slate-600">
-                                                {row.gross_commission != null ? `$${Number(row.gross_commission).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : '-'}
+                                                {row.gross_commission != null ? `$${Number(row.gross_commission).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
                                             </TableCell>
                                             <TableCell className="text-xs text-slate-600">
-                                                {row.agent_net != null ? `$${Number(row.agent_net).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : '-'}
+                                                {row.agent_net != null ? `$${Number(row.agent_net).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
                                             </TableCell>
                                             <TableCell className="text-xs text-slate-600">
-                                                {row.brokerage_net != null ? `$${Number(row.brokerage_net).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : '-'}
+                                                {row.brokerage_net != null ? `$${Number(row.brokerage_net).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
                                             </TableCell>
                                             <TableCell className="text-xs text-slate-600">{renderCellData(row.agents)}</TableCell>
                                             <TableCell className="text-xs text-slate-500 font-medium">{formatDateUS(row.income_received_date)}</TableCell>

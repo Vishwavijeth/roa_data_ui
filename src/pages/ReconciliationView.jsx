@@ -1074,17 +1074,11 @@ function ReconciliationView() {
                             style={{ height: '94vh', maxHeight: '94vh', animation: 'popIn 0.22s cubic-bezier(0.16,1,0.3,1)' }}
                         >
                             {/* Modal Header */}
-                            <div className="px-6 py-4 border-b border-slate-100 shrink-0 flex items-start justify-between gap-4">
-                                <div className="min-w-0 flex-1">
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Transaction Detail</p>
-                                    <h2 className="text-base font-bold text-slate-800 truncate whitespace-nowrap" title={drawerRow.propertyaddress}>
-                                        {drawerRow.propertyaddress || '—'}
-                                    </h2>
-                                    <div className="flex items-center flex-nowrap gap-2 mt-1.5 whitespace-nowrap overflow-hidden">
-                                        <span className="text-xs text-slate-400 font-mono shrink-0">{drawerRow.transactionId || drawerRow.transactionid || '—'}</span>
-                                        {(() => { const rv = getResult(drawerRow); if (!rv) return null; const vm = { match: 'success', mismatch: 'destructive', no_skyslope_record: 'warning' }; return <Badge variant={vm[rv] || 'secondary'} className="capitalize text-[11px] px-2 py-0.5 rounded shrink-0">{rv.replace(/_/g, ' ')}</Badge>; })()}
-                                        {drawerRow.status && <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full capitalize shrink-0 ${drawerRow.status === 'review_done' ? 'bg-emerald-100 text-emerald-700' : drawerRow.status === 'not_a_mismatch' ? 'bg-slate-100 text-slate-500' : 'bg-blue-100 text-blue-700'}`}><span className={`w-1.5 h-1.5 rounded-full shrink-0 ${drawerRow.status === 'review_done' ? 'bg-emerald-500' : drawerRow.status === 'not_a_mismatch' ? 'bg-slate-400' : 'bg-blue-500'}`} />{drawerRow.status.replace(/_/g, ' ')}</span>}
-                                    </div>
+                            <div className="px-6 py-3 border-b border-slate-100 shrink-0 flex items-center justify-between gap-4">
+                                <div className="min-w-0 flex-1 flex items-center gap-2">
+                                    <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Transaction Detail</h2>
+                                    {(() => { const rv = getResult(drawerRow); if (!rv) return null; const vm = { match: 'success', mismatch: 'destructive', no_skyslope_record: 'warning' }; return <Badge variant={vm[rv] || 'secondary'} className="capitalize text-[10px] px-2 py-0.5 rounded shrink-0">{rv.replace(/_/g, ' ')}</Badge>; })()}
+                                    {drawerRow.status && <span className={`inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full capitalize shrink-0 ${drawerRow.status === 'review_done' ? 'bg-emerald-100 text-emerald-700' : drawerRow.status === 'not_a_mismatch' ? 'bg-slate-100 text-slate-500' : 'bg-blue-100 text-blue-700'}`}><span className={`w-1 h-1 rounded-full shrink-0 ${drawerRow.status === 'review_done' ? 'bg-emerald-500' : drawerRow.status === 'not_a_mismatch' ? 'bg-slate-400' : 'bg-blue-500'}`} />{drawerRow.status.replace(/_/g, ' ')}</span>}
                                 </div>
                                 <div className="flex items-center gap-2 shrink-0">
                                     {isServerSideParam(activeParam.id) && (

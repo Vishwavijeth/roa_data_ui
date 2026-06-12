@@ -135,7 +135,7 @@ function SkySlopeDetailModal({ fileId, row, onClose }) {
 
     return (
         <Dialog open={true} onOpenChange={onClose} size="4xl">
-            <DialogHeader className="border-b border-slate-100 pb-3 flex flex-row items-center justify-between">
+            <DialogHeader className="border-b border-slate-100 pb-2 flex flex-row items-center justify-between">
                 <div>
                     <div className="flex items-center gap-3">
                         <DialogTitle>SkySlope Transaction Detail</DialogTitle>
@@ -164,7 +164,6 @@ function SkySlopeDetailModal({ fileId, row, onClose }) {
                             }
                         })()}
                     </div>
-                    <DialogDescription className="font-mono text-[10px] text-slate-400 mt-0.5">{fileId}</DialogDescription>
                 </div>
             </DialogHeader>
             <DialogContent className="p-0">
@@ -195,7 +194,7 @@ function SkySlopeDetailModal({ fileId, row, onClose }) {
                         )}
                     </TabsList>
 
-                    <div className="p-5 max-h-[60vh] overflow-y-auto custom-scrollbar min-h-[250px]">
+                    <div className="p-4 max-h-[76vh] overflow-y-auto custom-scrollbar min-h-[200px]">
                         {loading ? (
                             <div className="py-12 flex flex-col items-center justify-center space-y-3">
                                 <svg className="animate-spin h-7 w-7 text-blue-600" fill="none" viewBox="0 0 24 24">
@@ -331,10 +330,9 @@ function BrokerageDetailModal({ transactionId, row, onClose }) {
 
     return (
         <Dialog open={true} onOpenChange={onClose} size="4xl">
-            <DialogHeader className="border-b border-slate-100 pb-3 flex flex-row items-center justify-between">
+            <DialogHeader className="border-b border-slate-100 pb-2 flex flex-row items-center justify-between">
                 <div>
                     <DialogTitle>Brokerage Engine Transaction Detail</DialogTitle>
-                    <DialogDescription className="font-mono text-[10px] text-slate-400 mt-0.5">{transactionId}</DialogDescription>
                 </div>
             </DialogHeader>
             <DialogContent className="p-0">
@@ -356,7 +354,7 @@ function BrokerageDetailModal({ transactionId, row, onClose }) {
                         </TabsTrigger>
                     </TabsList>
 
-                    <div className="p-5 max-h-[60vh] overflow-y-auto custom-scrollbar min-h-[250px]">
+                    <div className="p-4 max-h-[76vh] overflow-y-auto custom-scrollbar min-h-[200px]">
                         {loading ? (
                             <div className="py-12 flex flex-col items-center justify-center space-y-3">
                                 <svg className="animate-spin h-7 w-7 text-blue-600" fill="none" viewBox="0 0 24 24">

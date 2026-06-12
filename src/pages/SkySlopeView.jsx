@@ -228,7 +228,7 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
     if (selectedRecord) {
         return (
             <div className="p-8 max-w-7xl mx-auto w-full space-y-6">
-                <div className="flex flex-col items-start gap-4">
+                <div className="flex items-center justify-between w-full border-b border-slate-100 pb-4">
                     <Button
                         variant="ghost"
                         size="sm"
@@ -237,61 +237,53 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
                     >
                         <IconArrowLeft /> Back to SkySlope data
                     </Button>
-                    <div className="w-full p-6 bg-gradient-to-r from-blue-50/60 to-transparent border-l-4 border-blue-600 rounded-r-xl">
-                        <h1 className="text-xl font-bold tracking-tight text-slate-900 mb-1">
-                            {selectedRecord.propertyaddress || 'No Address Provided'}
-                        </h1>
-                        <p className="text-sm text-slate-500 flex items-center gap-1.5 font-medium">
-                            <span className="font-semibold text-slate-700">Sale GUID:</span> {selectedRecord.saleguid || 'Unknown'}
-                        </p>
-                        <div className="mt-3 flex flex-wrap gap-2">
-                            {loadingDetail ? (
-                                <Badge variant="secondary" className="gap-1.5 px-3 py-1 font-semibold text-xs rounded-full bg-slate-100 text-slate-500 border border-slate-200 animate-pulse">
-                                    Checking related data...
+                    <div>
+                        {loadingDetail ? (
+                            <Badge variant="secondary" className="gap-1.5 px-3 py-1 font-semibold text-xs rounded-full bg-slate-100 text-slate-500 border border-slate-200 animate-pulse">
+                                Checking related data...
+                            </Badge>
+                        ) : detailData ? (
+                            (() => {
+                                const hasBE = detailData.brokerage_engine_records && detailData.brokerage_engine_records.length > 0;
+                                const hasOI = detailData.otherincome_transactions && detailData.otherincome_transactions.length > 0;
+
+                                if (hasBE && hasOI) {
+                                    return (
+                                        <Badge variant="success" className="gap-1.5 px-3 py-1 font-semibold text-xs rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                                            Both have data
+                                        </Badge>
+                                    );
+                                } else if (hasBE || hasOI) {
+                                    const typeName = hasBE ? 'Brokerage Engine' : 'Other Income';
+                                    return (
+                                        <Badge variant="success" className="gap-1.5 px-3 py-1 font-semibold text-xs rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
+                                            Only one has data ({typeName})
+                                        </Badge>
+                                    );
+                                } else {
+                                    return (
+                                        <Badge variant="destructive" className="gap-1.5 px-3 py-1 font-semibold text-xs rounded-full bg-rose-50 text-rose-700 border border-rose-200">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                                            No related Backend data
+                                        </Badge>
+                                    );
+                                }
+                            })()
+                        ) : (
+                            selectedRecord.transaction_id && selectedRecord.transaction_id !== 'No related BE data' ? (
+                                <Badge variant="success" className="gap-1.5 px-3 py-1 font-semibold text-xs rounded-full">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                                    Matched with Brokerage Engine data
                                 </Badge>
-                            ) : detailData ? (
-                                (() => {
-                                    const hasBE = detailData.brokerage_engine_records && detailData.brokerage_engine_records.length > 0;
-                                    const hasOI = detailData.otherincome_transactions && detailData.otherincome_transactions.length > 0;
-                                    
-                                    if (hasBE && hasOI) {
-                                        return (
-                                            <Badge variant="success" className="gap-1.5 px-3 py-1 font-semibold text-xs rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-                                                Both have data
-                                            </Badge>
-                                        );
-                                    } else if (hasBE || hasOI) {
-                                        const typeName = hasBE ? 'Brokerage Engine' : 'Other Income';
-                                        return (
-                                            <Badge variant="success" className="gap-1.5 px-3 py-1 font-semibold text-xs rounded-full bg-blue-50 text-blue-700 border border-blue-200">
-                                                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
-                                                Only one has data ({typeName})
-                                            </Badge>
-                                        );
-                                    } else {
-                                        return (
-                                            <Badge variant="destructive" className="gap-1.5 px-3 py-1 font-semibold text-xs rounded-full bg-rose-50 text-rose-700 border border-rose-200">
-                                                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
-                                                No related Backend data
-                                            </Badge>
-                                        );
-                                    }
-                                })()
                             ) : (
-                                selectedRecord.transaction_id && selectedRecord.transaction_id !== 'No related BE data' ? (
-                                    <Badge variant="success" className="gap-1.5 px-3 py-1 font-semibold text-xs rounded-full">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-                                        Matched with Brokerage Engine data
-                                    </Badge>
-                                ) : (
-                                    <Badge variant="destructive" className="gap-1.5 px-3 py-1 font-semibold text-xs rounded-full">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
-                                        No related Brokerage Engine data
-                                    </Badge>
-                                )
-                            )}
-                        </div>
+                                <Badge variant="destructive" className="gap-1.5 px-3 py-1 font-semibold text-xs rounded-full">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
+                                    No related Brokerage Engine data
+                                </Badge>
+                            )
+                        )}
                     </div>
                 </div>
 

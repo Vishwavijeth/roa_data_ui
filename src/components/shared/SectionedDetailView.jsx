@@ -17,47 +17,53 @@ function SectionedDetailView({ data }) {
         return { ...section, items };
     }).filter(s => s.items.length > 0);
 
+    // Collect any remaining fields
+    const remaining = entries.filter(([key]) => !assigned.has(key));
+    if (remaining.length > 0) {
+        sections.push({ title: 'Other Details', color: '#64748b', items: remaining });
+    }
+
     return (
-        <div className="flex flex-col gap-6 w-full">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-6 gap-y-4 w-full items-start">
             {sections.map(section => (
-                <div key={section.title} className="space-y-3">
-                    {/* Section Header */}
-                    <div className="flex items-center gap-2.5 pb-2 border-b border-slate-100" style={{ borderBottomColor: `${section.color}20` }}>
-                        <div className="w-1 h-4 rounded-full shrink-0" style={{ backgroundColor: section.color }} />
-                        <h3 className="text-xs font-bold tracking-wider uppercase" style={{ color: section.color }}>
+                <React.Fragment key={section.title}>
+                    {/* Section Header spanning the full width */}
+                    <div 
+                        className="col-span-full flex items-center gap-2 pt-3 pb-1 border-b border-slate-100/80 first:pt-0"
+                        style={{ borderBottomColor: `${section.color}20` }}
+                    >
+                        <div className="w-1.5 h-3 rounded-full shrink-0" style={{ backgroundColor: section.color }} />
+                        <span className="text-[10px] font-extrabold tracking-widest uppercase" style={{ color: section.color }}>
                             {section.title}
-                        </h3>
+                        </span>
                     </div>
 
-                    {/* Section Grid */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                        {section.items.map(([key, value]) => {
-                            const isDateKey = key.toLowerCase().includes('date') || key.toLowerCase().includes('timestamp') || section.title === 'Dates';
-                            return (
-                                <div 
-                                    key={key}
-                                    className="bg-white p-3.5 rounded-lg border border-slate-100 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:border-slate-200/80 group"
+                    {/* Section Fields inside the grid */}
+                    {section.items.map(([key, value]) => {
+                        const isDateKey = key.toLowerCase().includes('date') ||
+                            key.toLowerCase().includes('timestamp') ||
+                            section.title === 'Dates';
+                        const display = value !== null && value !== '' && value !== undefined
+                            ? (isDateKey ? formatDateUS(value) : String(value))
+                            : null;
+                        return (
+                            <div key={key} className="space-y-0.5 min-w-0">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block truncate" title={key.replace(/_/g, ' ')}>
+                                    {key.replace(/_/g, ' ')}
+                                </span>
+                                <span 
+                                    className="text-[13px] font-semibold text-slate-700 block break-words leading-tight"
+                                    title={display || '—'}
                                 >
-                                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1.5">
-                                        <div className="w-1.5 h-1.5 rounded-full opacity-60 shrink-0" style={{ backgroundColor: section.color }} />
-                                        {key.replace(/_/g, ' ')}
-                                    </div>
-                                    <div className="font-semibold text-sm text-slate-800 break-words leading-relaxed">
-                                        {value !== null && value !== '' ? (
-                                            isDateKey ? formatDateUS(value) : String(value)
-                                        ) : (
-                                            <span className="text-slate-400 italic font-normal">Not provided</span>
-                                        )}
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
+                                    {display ?? <span className="text-slate-300 italic font-normal">—</span>}
+                                </span>
+                            </div>
+                        );
+                    })}
+                </React.Fragment>
             ))}
         </div>
     );
 }
 
 export default SectionedDetailView;
-
