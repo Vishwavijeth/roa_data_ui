@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
@@ -62,9 +62,8 @@ const CompBadge = ({ value }) => {
 function CdaSent() {
     const [filter, setFilter] = useState('all'); // 'all' | 'mismatch' | 'no_skyslope'
     const [data, setData] = useState([]);
-    const [totalCdaSent, setTotalCdaSent] = useState(0);
-    const [unmatchedCount, setUnmatchedCount] = useState(0);
-    const [noSkyslopeCount, setNoSkyslopeCount] = useState(0);
+    const [summary, setSummary] = useState({ total_cda_sent: 0, unmatched_count: 0, no_skyslope_record: 0, match_percentage: 0 });
+    const [totalPages, setTotalPages] = useState(0);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [page, setPage] = useState(1);
@@ -86,21 +85,17 @@ function CdaSent() {
             const a = document.createElement('a');
             a.href = downloadUrl;
 
-            // Try to extract filename from Content-Disposition header if available
             const contentDisposition = response.headers.get('content-disposition');
             let filename = 'ROA_CDA_Sent_Report.xlsx';
             if (contentDisposition) {
                 const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
-                if (filenameMatch && filenameMatch[1]) {
-                    filename = filenameMatch[1];
-                }
+                if (filenameMatch && filenameMatch[1]) filename = filenameMatch[1];
             }
 
             a.download = filename;
             document.body.appendChild(a);
             a.click();
-            a.remove();
-            window.URL.revokeObjectURL(downloadUrl);
+            setTimeout(() => { a.remove(); window.URL.revokeObjectURL(downloadUrl); }, 200);
         } catch (err) {
             console.error('CDA Sent download failed:', err);
         } finally {
@@ -108,50 +103,38 @@ function CdaSent() {
         }
     };
 
-    // Fetch whenever filter changes
+    // Fetch whenever filter or page changes
     useEffect(() => {
+        let active = true;
         setLoading(true);
         setError(null);
-        setData([]);
-        setPage(1);
 
-        const url = filter === 'all'
-            ? CDA_SENT_API
-            : `${CDA_SENT_API}?filter=${filter}`;
+        const params = new URLSearchParams();
+        params.append('page', page);
+        params.append('page_size', ROWS_PER_PAGE);
+        if (filter !== 'all') params.append('filter', filter);
+        if (searchQuery.trim()) params.append('search', searchQuery.trim());
 
-        fetch(url)
+        fetch(`${CDA_SENT_API}?${params.toString()}`)
             .then(res => {
                 if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`);
                 return res.json();
             })
             .then(json => {
+                if (!active) return;
                 setData(Array.isArray(json.data) ? json.data : []);
-                setTotalCdaSent(json.total_cda_sent ?? 0);
-                setUnmatchedCount(json.unmatched_count ?? 0);
-                setNoSkyslopeCount(json.no_skyslope_record ?? 0);
+                setSummary(json.summary ?? { total_cda_sent: 0, unmatched_count: 0, no_skyslope_record: 0, match_percentage: 0 });
+                setTotalPages(json.total_pages ?? 0);
                 setLoading(false);
             })
             .catch(err => {
+                if (!active) return;
                 setError(err.message);
                 setLoading(false);
             });
-    }, [filter]);
 
-    // Client-side search
-    const filteredData = useMemo(() => {
-        if (!searchQuery.trim()) return data;
-        const q = searchQuery.trim().toLowerCase();
-        return data.filter(row =>
-            (row.transaction_id || '').toLowerCase().includes(q) ||
-            (row.property_address || '').toLowerCase().includes(q)
-        );
-    }, [data, searchQuery]);
-
-    const totalPages = Math.ceil(filteredData.length / ROWS_PER_PAGE);
-    const paginatedData = useMemo(() => {
-        const start = (page - 1) * ROWS_PER_PAGE;
-        return filteredData.slice(start, start + ROWS_PER_PAGE);
-    }, [filteredData, page]);
+        return () => { active = false; };
+    }, [filter, page, searchQuery]);
 
     return (
         <div className="p-8 max-w-7xl mx-auto w-full space-y-6">
@@ -180,7 +163,7 @@ function CdaSent() {
                     <CardContent className="pt-6">
                         <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Total CDA Sent</span>
                         <div className="text-2xl font-bold text-slate-800 mt-2">
-                            {totalCdaSent.toLocaleString()}
+                            {(summary.total_cda_sent ?? 0).toLocaleString()}
                         </div>
                     </CardContent>
                 </Card>
@@ -189,7 +172,7 @@ function CdaSent() {
                     <CardContent className="pt-6">
                         <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Unmatched Transactions</span>
                         <div className="text-2xl font-bold text-red-600 mt-2">
-                            {unmatchedCount.toLocaleString()}
+                            {(summary.unmatched_count ?? 0).toLocaleString()}
                         </div>
                     </CardContent>
                 </Card>
@@ -198,9 +181,7 @@ function CdaSent() {
                     <CardContent className="pt-6">
                         <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Match Rate</span>
                         <div className="text-2xl font-bold text-emerald-600 mt-2">
-                            {totalCdaSent > 0
-                                ? `${(((totalCdaSent - unmatchedCount) / totalCdaSent) * 100).toFixed(1)}%`
-                                : '—'}
+                            {summary.match_percentage != null ? `${Number(summary.match_percentage).toFixed(1)}%` : '—'}
                         </div>
                     </CardContent>
                 </Card>
@@ -209,7 +190,7 @@ function CdaSent() {
                     <CardContent className="pt-6">
                         <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">No SkySlope File ID</span>
                         <div className="text-2xl font-bold text-amber-600 mt-2">
-                            {noSkyslopeCount.toLocaleString()}
+                            {(summary.no_skyslope_record ?? 0).toLocaleString()}
                         </div>
                     </CardContent>
                 </Card>
@@ -231,14 +212,14 @@ function CdaSent() {
                                     }`}
                                 onClick={() => {
                                     setFilter(f => f === 'mismatch' ? 'all' : 'mismatch');
-                                    setPage(1);
                                     setSearchQuery('');
+                                    setPage(1);
                                 }}
                             >
                                 Mismatches Only
                             </button>
                             <span className="px-2 text-xs font-bold text-slate-500 border-l border-slate-200">
-                                {unmatchedCount}
+                                {summary.unmatched_count ?? 0}
                             </span>
                         </div>
 
@@ -252,14 +233,14 @@ function CdaSent() {
                                     }`}
                                 onClick={() => {
                                     setFilter(f => f === 'no_skyslope' ? 'all' : 'no_skyslope');
-                                    setPage(1);
                                     setSearchQuery('');
+                                    setPage(1);
                                 }}
                             >
                                 No SkySlope File ID
                             </button>
                             <span className="px-2 text-xs font-bold text-slate-500 border-l border-slate-200">
-                                {noSkyslopeCount}
+                                {summary.no_skyslope_record ?? 0}
                             </span>
                         </div>
 
@@ -275,7 +256,7 @@ function CdaSent() {
                         )}
                     </div>
                     <span className="text-xs font-semibold text-slate-500">
-                        Showing page {page} of {totalPages || 1} ({filteredData.length.toLocaleString()} records)
+                        Showing page {page} of {totalPages || 1} ({(summary.total_cda_sent ?? 0).toLocaleString()} records)
                     </span>
                 </div>
 
@@ -290,7 +271,7 @@ function CdaSent() {
                             type="text"
                             placeholder="Search by Transaction ID or Property Address…"
                             value={searchQuery}
-                            onChange={e => { setSearchQuery(e.target.value); setPage(1); }}
+                            onChange={e => { setPage(1); setSearchQuery(e.target.value); }}
                             className="pl-9 pr-8 w-full"
                         />
                         {searchQuery && (
@@ -355,7 +336,7 @@ function CdaSent() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {paginatedData.map((row, i) => {
+                                {data.map((row, i) => {
                                     const rowHasMismatch = hasMismatch(row);
                                     return (
                                         <TableRow
@@ -440,7 +421,7 @@ function CdaSent() {
                                         </TableRow>
                                     );
                                 })}
-                                {paginatedData.length === 0 && (
+                                {data.length === 0 && !loading && (
                                     <TableRow>
                                         <TableCell colSpan={28} className="text-center text-slate-400 py-10 font-medium">
                                             No records found
