@@ -3,7 +3,7 @@ import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 
 function PreCDA() {
-    const [qbStatus, setQbStatus] = useState(null);
+    const [qbStatus, setQbStatus] = useState('loading');
     const [realmId, setRealmId] = useState(null);
 
     useEffect(() => {
@@ -20,6 +20,22 @@ function PreCDA() {
             // or propagate to other pages when navigating
             const cleanUrl = window.location.pathname + window.location.hash;
             window.history.replaceState(null, '', cleanUrl);
+        } else {
+            // Hit the token status API to check active QuickBooks connection
+            fetch('https://roa-data-backend.vercel.app/auth/quickbooks/token-status')
+                .then((res) => res.json())
+                .then((data) => {
+                    if (data && data.connected) {
+                        setQbStatus('connected');
+                        setRealmId(data.realm_id || data.realmId);
+                    } else {
+                        setQbStatus('disconnected');
+                    }
+                })
+                .catch((err) => {
+                    console.error('Failed to retrieve QuickBooks token status:', err);
+                    setQbStatus('error');
+                });
         }
     }, []);
 
@@ -31,8 +47,19 @@ function PreCDA() {
         window.location.href = "https://roa-data-backend.vercel.app/auth/quickbooks/login";
     };
 
-    // Helper to render the QuickBooks status badge based on url parameters
+    // Helper to render the QuickBooks status badge based on url parameters or API status
     const renderStatusBadge = () => {
+        if (qbStatus === 'loading') {
+            return (
+                <Badge variant="secondary" className="px-2.5 py-1 text-xs font-semibold gap-1.5 text-slate-400 bg-slate-50 border-slate-200">
+                    <svg className="animate-spin h-3 w-3 text-slate-400" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Checking connection...
+                </Badge>
+            );
+        }
         if (qbStatus === 'connected') {
             return (
                 <Badge variant="success" className="px-2.5 py-1 text-xs font-semibold gap-1.5 shadow-sm">
