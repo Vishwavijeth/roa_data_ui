@@ -1,7 +1,13 @@
 import React from 'react';
 import { Button } from '../components/ui/Button';
+import { Badge } from '../components/ui/Badge';
 
 function PreCDA() {
+    // Parse the query parameters from the URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const qbStatus = urlParams.get('quickbooks');
+    const realmId = urlParams.get('realm_id');
+
     const handleDownloadReport = () => {
         alert('Downloading Report...');
     };
@@ -10,12 +16,41 @@ function PreCDA() {
         window.location.href = "https://roa-data-backend.vercel.app/auth/quickbooks/login";
     };
 
+    // Helper to render the QuickBooks status badge based on url parameters
+    const renderStatusBadge = () => {
+        if (qbStatus === 'connected') {
+            return (
+                <Badge variant="success" className="px-2.5 py-1 text-xs font-semibold gap-1.5 shadow-sm">
+                    <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
+                    Connected to QuickBooks {realmId ? `(Realm ID: ${realmId})` : ''}
+                </Badge>
+            );
+        }
+        if (qbStatus === 'error') {
+            return (
+                <Badge variant="destructive" className="px-2.5 py-1 text-xs font-semibold gap-1.5 shadow-sm">
+                    <span className="h-1.5 w-1.5 rounded-full bg-white" />
+                    QuickBooks Connection Failed
+                </Badge>
+            );
+        }
+        return (
+            <Badge variant="secondary" className="px-2.5 py-1 text-xs font-semibold gap-1.5 text-slate-500 bg-slate-100 border-slate-200">
+                <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+                QuickBooks Disconnected
+            </Badge>
+        );
+    };
+
     return (
         <div className="p-8 max-w-7xl mx-auto w-full space-y-6">
             {/* Page Header & Title */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200/80 pb-5">
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-slate-900">PreCDA</h1>
+                    <div className="flex flex-wrap items-center gap-3">
+                        <h1 className="text-2xl font-bold tracking-tight text-slate-900">PreCDA</h1>
+                        {renderStatusBadge()}
+                    </div>
                     <p className="text-sm text-slate-500 mt-1">
                         Prepare and verify pending Commission Disbursement Authorizations (CDA).
                     </p>
