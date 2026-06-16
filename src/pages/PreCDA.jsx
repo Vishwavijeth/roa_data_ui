@@ -1,12 +1,27 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 
 function PreCDA() {
-    // Parse the query parameters from the URL
-    const urlParams = new URLSearchParams(window.location.search);
-    const qbStatus = urlParams.get('quickbooks');
-    const realmId = urlParams.get('realm_id');
+    const [qbStatus, setQbStatus] = useState(null);
+    const [realmId, setRealmId] = useState(null);
+
+    useEffect(() => {
+        // Parse the query parameters from the URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const status = urlParams.get('quickbooks');
+        const realm = urlParams.get('realm_id');
+
+        if (status) {
+            setQbStatus(status);
+            setRealmId(realm);
+
+            // Clear the query parameters from the URL immediately so they don't persist
+            // or propagate to other pages when navigating
+            const cleanUrl = window.location.pathname + window.location.hash;
+            window.history.replaceState(null, '', cleanUrl);
+        }
+    }, []);
 
     const handleDownloadReport = () => {
         alert('Downloading Report...');
