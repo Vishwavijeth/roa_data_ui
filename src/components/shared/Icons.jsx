@@ -94,3 +94,12 @@ export const IconMonthClosing = () => (
         <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01" />
     </svg>
 );
+
+export const IconPreCda = () => (
+    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+            d="M9 12h6M9 16h6M9 8h6M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z" />
+        <circle cx="12" cy="12" r="3" strokeWidth="2" />
+    </svg>
+);
+

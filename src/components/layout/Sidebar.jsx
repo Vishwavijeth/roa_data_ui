@@ -2,7 +2,7 @@ import React from 'react';
 import {
     IconDashboard, IconBrokerage, IconSkySlope, IconChevron,
     IconLogout, IconSpecialist, IconReviewer, IconSpecialistDash, IconReviewerDash, IconCdaSent,
-    IconMonthClosing
+    IconMonthClosing, IconPreCda
 } from '../shared/Icons';
 
 function Sidebar({ activePage, setActivePage, onLogout }) {
@@ -24,6 +24,7 @@ function Sidebar({ activePage, setActivePage, onLogout }) {
             label: 'CDA SENT',
             items: [
                 { id: 'cda_sent', label: 'CDA Sent', icon: <IconCdaSent /> },
+                { id: 'pre_cda', label: 'PreCDA', icon: <IconPreCda /> },
             ],
         },
         {
