@@ -12,7 +12,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
  *   placeholder – string  – text when nothing is selected
  *   allLabel    – string  – label for the "select all / none" option (default "All")
  */
-function MultiSelect({ id, options = [], selected = [], onChange, placeholder = 'All', allLabel = 'All' }) {
+function MultiSelect({ id, options = [], selected = [], onChange, placeholder = 'All', allLabel = 'All', align = 'left' }) {
     const [open, setOpen] = useState(false);
     const [search, setSearch] = useState('');
     const containerRef = useRef(null);
@@ -115,7 +115,7 @@ function MultiSelect({ id, options = [], selected = [], onChange, placeholder = 
             </button>
 
             {open && (
-                <div className="absolute left-0 mt-1.5 z-30 w-full rounded-md border border-slate-100 bg-white shadow-lg flex flex-col" role="listbox" aria-multiselectable="true">
+                <div className={`absolute ${align === 'right' ? 'right-0' : 'left-0'} mt-1.5 z-30 min-w-full w-max max-w-[360px] rounded-md border border-slate-100 bg-white shadow-lg flex flex-col`} role="listbox" aria-multiselectable="true">
                     {options.length > 5 && (
                         <div className="p-2 border-b border-slate-100 bg-slate-50/50 sticky top-0 z-10">
                             <input
@@ -128,7 +128,7 @@ function MultiSelect({ id, options = [], selected = [], onChange, placeholder = 
                             />
                         </div>
                     )}
-                    <div className="flex-1 overflow-y-auto max-h-48 p-1 space-y-0.5 custom-scrollbar">
+                    <div className="flex-1 overflow-y-auto max-h-64 p-1 space-y-0.5 custom-scrollbar">
                         {/* Select all row */}
                         {!search && (
                             <div
@@ -173,7 +173,7 @@ function MultiSelect({ id, options = [], selected = [], onChange, placeholder = 
                                     }`}>
                                         {checked ? '✓' : ''}
                                     </span>
-                                    <span className="whitespace-normal">{option}</span>
+                                    <span className="whitespace-nowrap">{option}</span>
                                 </div>
                             );
                         })}

@@ -639,6 +639,7 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
                                     onChange={v => { setIncomeTypeFilter(v); setPage(1); }}
                                     placeholder="All Income Types"
                                     allLabel="All Income Types"
+                                    align="right"
                                 />
                             </div>
                         </div>
