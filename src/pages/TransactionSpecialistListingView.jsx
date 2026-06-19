@@ -207,6 +207,7 @@ function TransactionSpecialistListingView() {
                                 onChange={v => { setStateFilter(v); setPage(1); }}
                                 placeholder="All States"
                                 allLabel="All States"
+                                align="right"
                             />
                         </div>
                         <div className="space-y-1 z-30">
@@ -218,6 +219,7 @@ function TransactionSpecialistListingView() {
                                 onChange={v => { setWorkflowStatusFilter(v); setPage(1); }}
                                 placeholder="All Statuses"
                                 allLabel="All Statuses"
+                                align="right"
                             />
                         </div>
                         <div className="space-y-1 z-30">
@@ -229,6 +231,7 @@ function TransactionSpecialistListingView() {
                                 onChange={v => { setSpecialistFilter(v); setPage(1); }}
                                 placeholder="All Specialists"
                                 allLabel="All Specialists"
+                                align="right"
                             />
                         </div>
                     </div>

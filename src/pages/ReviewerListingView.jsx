@@ -30,6 +30,7 @@ function ReviewerListingView() {
     const [ssStatusFilter, setSsStatusFilter] = useState([]);
     const [reviewerFilter, setReviewerFilter] = useState([]);
     const [stageFilter, setStageFilter] = useState([]);
+    const [typeOfSaleFilter, setTypeOfSaleFilter] = useState([]);
 
     // Stored filter dropdown options loaded from API
     const [availableFilters, setAvailableFilters] = useState(null);
@@ -60,6 +61,7 @@ function ReviewerListingView() {
         ssStatusFilter.forEach(s => params.append('status', s));
         reviewerFilter.forEach(r => params.append('reviewer', r));
         stageFilter.forEach(st => params.append('stage_name', st));
+        typeOfSaleFilter.forEach(t => params.append('type_of_sale', t));
 
         const url = `${REVIEWER_API}?${params.toString()}`;
 
@@ -88,12 +90,14 @@ function ReviewerListingView() {
                         const state_list = Array.isArray(json.filters.state_list) ? [...json.filters.state_list].sort() : [];
                         const status_list = Array.isArray(json.filters.status_list) ? [...json.filters.status_list].sort() : [];
                         const reviewer_list = Array.isArray(json.filters.reviewer_list) ? [...json.filters.reviewer_list].sort() : [];
+                        const type_of_sale_list = Array.isArray(json.filters.type_of_sale_list) ? [...json.filters.type_of_sale_list].sort() : [];
 
                         return {
                             stage_list,
                             state_list,
                             status_list,
-                            reviewer_list
+                            reviewer_list,
+                            type_of_sale_list
                         };
                     });
                 }
@@ -109,7 +113,7 @@ function ReviewerListingView() {
         return () => {
             active = false;
         };
-    }, [page, dateFrom, dateTo, stateFilter, ssStatusFilter, reviewerFilter, stageFilter, searchQuery]);
+    }, [page, dateFrom, dateTo, stateFilter, ssStatusFilter, reviewerFilter, stageFilter, typeOfSaleFilter, searchQuery]);
 
     // Parse options for the MultiSelects, fallback to empty arrays before load
     const filterOptions = useMemo(() => {
@@ -118,7 +122,8 @@ function ReviewerListingView() {
                 stage_list: [],
                 state_list: [],
                 status_list: [],
-                reviewer_list: []
+                reviewer_list: [],
+                type_of_sale_list: []
             };
         }
         return availableFilters;
@@ -137,6 +142,7 @@ function ReviewerListingView() {
             ssStatusFilter.forEach(s => params.append('status', s));
             reviewerFilter.forEach(r => params.append('reviewer', r));
             stageFilter.forEach(st => params.append('stage_name', st));
+            typeOfSaleFilter.forEach(t => params.append('type_of_sale', t));
 
             const query = params.toString();
             const url = `https://roa-data-backend.vercel.app/reviewer_listing/download${query ? `?${query}` : ''}`;
@@ -173,7 +179,8 @@ function ReviewerListingView() {
 
     const hasActiveFilters = searchInput || searchQuery || dateFrom || dateTo ||
         stateFilter.length > 0 || ssStatusFilter.length > 0 ||
-        reviewerFilter.length > 0 || stageFilter.length > 0;
+        reviewerFilter.length > 0 || stageFilter.length > 0 ||
+        typeOfSaleFilter.length > 0;
 
     const clearAllFilters = () => {
         setSearchInput('');
@@ -184,6 +191,7 @@ function ReviewerListingView() {
         setSsStatusFilter([]);
         setReviewerFilter([]);
         setStageFilter([]);
+        setTypeOfSaleFilter([]);
         setPage(1);
     };
 
@@ -249,7 +257,7 @@ function ReviewerListingView() {
                         )}
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 items-end">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3 items-end">
                         <div className="space-y-1">
                             <label htmlFor="rev-date-from" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Close From</label>
                             <DateFilterInput
@@ -299,6 +307,7 @@ function ReviewerListingView() {
                                 onChange={v => { setReviewerFilter(v); setPage(1); }}
                                 placeholder="All Reviewers"
                                 allLabel="All Reviewers"
+                                align="right"
                             />
                         </div>
                         <div className="space-y-1 z-30">
@@ -310,6 +319,19 @@ function ReviewerListingView() {
                                 onChange={v => { setStageFilter(v); setPage(1); }}
                                 placeholder="All Stages"
                                 allLabel="All Stages"
+                                align="right"
+                            />
+                        </div>
+                        <div className="space-y-1 z-30">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Type of Sale</label>
+                            <MultiSelect
+                                id="rev-type-of-sale-filter"
+                                options={filterOptions.type_of_sale_list}
+                                selected={typeOfSaleFilter}
+                                onChange={v => { setTypeOfSaleFilter(v); setPage(1); }}
+                                placeholder="All Types"
+                                allLabel="All Types"
+                                align="right"
                             />
                         </div>
                     </div>
@@ -346,11 +368,11 @@ function ReviewerListingView() {
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>Sale GUID</TableHead>
                                     <TableHead className="min-w-[200px]">Property Address</TableHead>
                                     <TableHead>Reviewer</TableHead>
                                     <TableHead>Stage</TableHead>
                                     <TableHead>State</TableHead>
+                                    <TableHead>Type of Sale</TableHead>
                                     <TableHead>Sale Price</TableHead>
                                     <TableHead>Listing Price</TableHead>
                                     <TableHead>Escrow Close Date</TableHead>
@@ -360,7 +382,6 @@ function ReviewerListingView() {
                             <TableBody>
                                 {data.map((row, i) => (
                                     <TableRow key={i} className="hover:bg-slate-50/55 transition-colors">
-                                        <TableCell className="font-mono text-xs text-slate-500">{row.saleguid || '-'}</TableCell>
                                         <TableCell className="font-semibold text-slate-800 text-xs py-2.5">{row.propertyaddress || '-'}</TableCell>
                                         <TableCell className="text-xs text-slate-600 font-medium">{row.reviewer_name || '-'}</TableCell>
                                         <TableCell>
@@ -371,6 +392,7 @@ function ReviewerListingView() {
                                             ) : '-'}
                                         </TableCell>
                                         <TableCell className="text-xs text-slate-500 font-medium font-mono uppercase">{row.state || extractState(row.propertyaddress) || '-'}</TableCell>
+                                        <TableCell className="text-xs text-slate-600 font-medium">{row.type_of_sale || '-'}</TableCell>
                                         <TableCell className="text-xs font-semibold text-slate-700">{row.sale_price != null ? `$${Number(row.sale_price).toLocaleString()}` : '-'}</TableCell>
                                         <TableCell className="text-xs font-semibold text-slate-700">{row.listing_price != null ? `$${Number(row.listing_price).toLocaleString()}` : '-'}</TableCell>
                                         <TableCell className="text-xs text-slate-500 font-medium">{formatDateUS(row.escrow_close_date)}</TableCell>
