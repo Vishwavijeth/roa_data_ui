@@ -24,8 +24,14 @@ function ReviewerDashboardView() {
     });
     const [dateFrom, setDateFrom] = useState('');
     const [dateTo, setDateTo] = useState('');
-    const [stateFilter, setStateFilter] = useState([]); // multi-select → array
-    const [uniqueStates, setUniqueStates] = useState([]);
+    const [stateFilter, setStateFilter] = useState([]);
+    const [ssStatusFilter, setSsStatusFilter] = useState([]);
+    const [reviewerFilter, setReviewerFilter] = useState([]);
+    const [stageFilter, setStageFilter] = useState([]);
+    const [typeOfSaleFilter, setTypeOfSaleFilter] = useState([]);
+
+    // Stored filter dropdown options loaded from API
+    const [availableFilters, setAvailableFilters] = useState(null);
 
 
 
@@ -36,24 +42,72 @@ function ReviewerDashboardView() {
         if (dateFrom) params.append('from_date', dateFrom);
         if (dateTo) params.append('to_date', dateTo);
         stateFilter.forEach(s => params.append('state', s));
-        const queryString = params.toString();
-        const url = queryString ? `${REVIEWER_SUMMARY_API}?${queryString}` : REVIEWER_SUMMARY_API;
+        ssStatusFilter.forEach(s => params.append('status', s));
+        reviewerFilter.forEach(r => params.append('reviewer', r));
+        stageFilter.forEach(st => params.append('stage_name', st));
+        typeOfSaleFilter.forEach(t => params.append('type_of_sale', t));
+
+        const url = `${REVIEWER_SUMMARY_API}?${params.toString()}`;
 
         fetch(url)
             .then(res => { if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`); return res.json(); })
             .then(json => {
-                // API returns { states: [...], data: [...] }
-                if (json && Array.isArray(json.states)) {
-                    // Deduplicate and sort states (API may have duplicates like 'Ca', 'CA')
-                    const deduped = [...new Set(json.states.map(s => s.toUpperCase()))].sort();
-                    setUniqueStates(deduped);
-                }
                 const rows = json && Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : []);
                 setData(rows);
+
+                if (json.filters) {
+                    setAvailableFilters(prev => {
+                        if (prev && prev.state_list && prev.state_list.length > 0) {
+                            return prev;
+                        }
+
+                        const stage_list = Array.isArray(json.filters.stage_list) ? [...json.filters.stage_list].sort() : [];
+                        const state_list = Array.isArray(json.filters.state_list) ? [...json.filters.state_list].sort() : [];
+                        const status_list = Array.isArray(json.filters.status_list) ? [...json.filters.status_list].sort() : [];
+                        const reviewer_list = Array.isArray(json.filters.reviewer_list) ? [...json.filters.reviewer_list].sort() : [];
+                        const type_of_sale_list = Array.isArray(json.filters.type_of_sale_list) ? [...json.filters.type_of_sale_list].sort() : [];
+
+                        return {
+                            stage_list,
+                            state_list,
+                            status_list,
+                            reviewer_list,
+                            type_of_sale_list
+                        };
+                    });
+                } else if (json.states) {
+                    // Fallback for older states format
+                    setAvailableFilters(prev => {
+                        if (prev && prev.state_list && prev.state_list.length > 0) return prev;
+                        const state_list = Array.isArray(json.states) ? [...new Set(json.states.map(s => s.toUpperCase()))].sort() : [];
+                        return {
+                            stage_list: [],
+                            state_list,
+                            status_list: [],
+                            reviewer_list: [],
+                            type_of_sale_list: []
+                        };
+                    });
+                }
+
                 setLoading(false);
             })
             .catch(err => { console.error(err); setError(err.message); setLoading(false); });
-    }, [dateFrom, dateTo, stateFilter]);
+    }, [dateFrom, dateTo, stateFilter, ssStatusFilter, reviewerFilter, stageFilter, typeOfSaleFilter]);
+
+    // Parse options for the MultiSelects, fallback to empty arrays before load
+    const filterOptions = useMemo(() => {
+        if (!availableFilters) {
+            return {
+                stage_list: [],
+                state_list: [],
+                status_list: [],
+                reviewer_list: [],
+                type_of_sale_list: []
+            };
+        }
+        return availableFilters;
+    }, [availableFilters]);
 
     const filteredData = useMemo(() => {
         if (!searchQuery.trim()) return data;
@@ -62,9 +116,10 @@ function ReviewerDashboardView() {
     }, [data, searchQuery]);
 
     const totals = useMemo(() => {
-        const outstanding = data.reduce((sum, r) => sum + (r.transactions_outstanding || 0), 0);
+        const outstanding = data.reduce((sum, r) => sum + (r.transactions_pending || 0), 0);
         const closed = data.reduce((sum, r) => sum + (r.transactions_closed || 0), 0);
-        return { reviewers: data.length, outstanding, closed, total: outstanding + closed };
+        const total = data.reduce((sum, r) => sum + (r.total_transactions || 0), 0);
+        return { reviewers: data.length, outstanding, closed, total };
     }, [data]);
 
     const handleDownload = () => {
@@ -74,12 +129,19 @@ function ReviewerDashboardView() {
         writeFile(wb, 'Reviewer_Summary.xlsx');
     };
 
-    const hasActiveFilters = dateFrom || dateTo || stateFilter.length > 0 || searchQuery;
+    const hasActiveFilters = dateFrom || dateTo || searchQuery ||
+        stateFilter.length > 0 || ssStatusFilter.length > 0 ||
+        reviewerFilter.length > 0 || stageFilter.length > 0 ||
+        typeOfSaleFilter.length > 0;
 
     const clearAllFilters = () => {
         setDateFrom('');
         setDateTo('');
         setStateFilter([]);
+        setSsStatusFilter([]);
+        setReviewerFilter([]);
+        setStageFilter([]);
+        setTypeOfSaleFilter([]);
         setSearchQuery('');
     };
 
@@ -101,7 +163,7 @@ function ReviewerDashboardView() {
             </div>
 
             {/* Metrics cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <Card className="hover:border-slate-300 transition-all select-none">
                     <CardContent className="pt-6">
                         <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Total Reviewers</span>
@@ -129,14 +191,6 @@ function ReviewerDashboardView() {
                     </CardContent>
                 </Card>
 
-                <Card className="hover:border-indigo-200 hover:bg-indigo-50/5 transition-all select-none">
-                    <CardContent className="pt-6">
-                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Total Managed</span>
-                        <div className="text-2xl font-bold text-indigo-600 mt-2">
-                            {totals.total.toLocaleString()}
-                        </div>
-                    </CardContent>
-                </Card>
             </div>
 
             {/* Table Card */}
@@ -176,7 +230,7 @@ function ReviewerDashboardView() {
                         )}
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 items-end">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3 items-end">
                         <div className="space-y-1">
                             <label htmlFor="rev-dash-date-from" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Close From</label>
                             <DateFilterInput
@@ -195,30 +249,76 @@ function ReviewerDashboardView() {
                                 className="h-9 text-xs text-slate-700"
                             />
                         </div>
-                        <div className="space-y-1 z-20">
+                        <div className="space-y-1 z-30">
                             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">State</label>
                             <MultiSelect
                                 id="rev-dash-state-filter"
-                                options={uniqueStates}
+                                options={filterOptions.state_list}
                                 selected={stateFilter}
-                                onChange={v => setStateFilter(v)}
+                                onChange={v => { setStateFilter(v); }}
                                 placeholder="All States"
                                 allLabel="All States"
                             />
                         </div>
-                        
-                        {hasActiveFilters && (
-                            <div>
-                                <Button
-                                    variant="ghost"
-                                    onClick={clearAllFilters}
-                                    className="h-9 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 font-bold w-full md:w-auto"
-                                >
-                                    Clear Filters
-                                </Button>
-                            </div>
-                        )}
+                        <div className="space-y-1 z-30">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">SS Status</label>
+                            <MultiSelect
+                                id="rev-dash-ss-status-filter"
+                                options={filterOptions.status_list}
+                                selected={ssStatusFilter}
+                                onChange={v => { setSsStatusFilter(v); }}
+                                placeholder="All Statuses"
+                                allLabel="All Statuses"
+                            />
+                        </div>
+                        <div className="space-y-1 z-30">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Reviewer</label>
+                            <MultiSelect
+                                id="rev-dash-reviewer-filter"
+                                options={filterOptions.reviewer_list}
+                                selected={reviewerFilter}
+                                onChange={v => { setReviewerFilter(v); }}
+                                placeholder="All Reviewers"
+                                allLabel="All Reviewers"
+                                align="right"
+                            />
+                        </div>
+                        <div className="space-y-1 z-30">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Stage</label>
+                            <MultiSelect
+                                id="rev-dash-stage-filter"
+                                options={filterOptions.stage_list}
+                                selected={stageFilter}
+                                onChange={v => { setStageFilter(v); }}
+                                placeholder="All Stages"
+                                allLabel="All Stages"
+                                align="right"
+                            />
+                        </div>
+                        <div className="space-y-1 z-30">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Type of Sale</label>
+                            <MultiSelect
+                                id="rev-dash-type-of-sale-filter"
+                                options={filterOptions.type_of_sale_list}
+                                selected={typeOfSaleFilter}
+                                onChange={v => { setTypeOfSaleFilter(v); }}
+                                placeholder="All Types"
+                                allLabel="All Types"
+                                align="right"
+                            />
+                        </div>
                     </div>
+                    {hasActiveFilters && (
+                        <div className="flex justify-end pt-1">
+                            <Button
+                                variant="ghost"
+                                onClick={clearAllFilters}
+                                className="h-8.5 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 font-bold"
+                            >
+                                Clear All Filters
+                            </Button>
+                        </div>
+                    )}
                 </div>
 
                 {/* Main Content */}
@@ -241,56 +341,144 @@ function ReviewerDashboardView() {
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead className="w-12 text-center">#</TableHead>
-                                    <TableHead>Reviewer</TableHead>
-                                    <TableHead className="w-40">Outstanding</TableHead>
-                                    <TableHead className="w-40">Closed</TableHead>
-                                    <TableHead className="w-28">Total</TableHead>
-                                    <TableHead className="min-w-[220px]">Distribution</TableHead>
+                                    <TableHead className="w-12 text-center sticky left-0 z-20 bg-slate-50/75">#</TableHead>
+                                    <TableHead className="sticky left-12 z-20 bg-slate-50/75 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]">Reviewer</TableHead>
+                                    <TableHead className="text-center w-36">Outstanding (Pending)</TableHead>
+                                    <TableHead className="text-center w-24">Closed</TableHead>
+                                    <TableHead className="text-center w-24">Cancelled</TableHead>
+                                    <TableHead className="text-center w-24">Archived</TableHead>
+                                    <TableHead className="text-center w-24">Expired</TableHead>
+                                    <TableHead className="text-center w-24">Incomplete</TableHead>
+                                    <TableHead className="text-center w-28">Pre-Contract</TableHead>
+                                    <TableHead className="text-center w-24 font-bold text-slate-900">Total</TableHead>
+                                    <TableHead className="min-w-[180px]">Distribution</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {filteredData.map((row, i) => {
-                                    const outstanding = row.transactions_outstanding || 0;
+                                    const total = row.total_transactions || 0;
+                                    const pending = row.transactions_pending || 0;
                                     const closed = row.transactions_closed || 0;
-                                    const total = outstanding + closed;
-                                    const outPct = total > 0 ? (outstanding / total * 100).toFixed(0) : 0;
-                                    const closedPct = total > 0 ? (closed / total * 100).toFixed(0) : 0;
+                                    const canceled = row.transactions_canceled || 0;
+                                    const archived = row.transactions_archived || 0;
+                                    const expired = row.transactions_expired || 0;
+                                    const incomplete = row.transactions_incomplete || 0;
+                                    const preContract = row.transactions_pre_contract || 0;
+
+                                    const denom = total || 1;
+                                    const pendingPct = (pending / denom * 100).toFixed(1);
+                                    const closedPct = (closed / denom * 100).toFixed(1);
+                                    const canceledPct = (canceled / denom * 100).toFixed(1);
+                                    const archivedPct = (archived / denom * 100).toFixed(1);
+                                    const expiredPct = (expired / denom * 100).toFixed(1);
+                                    const incompletePct = (incomplete / denom * 100).toFixed(1);
+                                    const preContractPct = (preContract / denom * 100).toFixed(1);
+
                                     return (
-                                        <TableRow key={i}>
-                                            <TableCell className="text-center font-mono text-xs text-slate-400">{i + 1}</TableCell>
-                                            <TableCell className="font-semibold text-slate-800 text-xs">{row.reviewer_full_name || '-'}</TableCell>
-                                            <TableCell>
-                                                <Badge variant="warning" className="w-9 justify-center rounded font-semibold text-xs">
-                                                    {outstanding}
+                                        <TableRow key={i} className="hover:bg-slate-50/55 transition-colors">
+                                            <TableCell className="text-center font-mono text-xs text-slate-400 sticky left-0 z-10 bg-white">{i + 1}</TableCell>
+                                            <TableCell className="font-semibold text-slate-800 text-xs py-3 sticky left-12 z-10 bg-white shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]">{row.reviewer_full_name || '-'}</TableCell>
+                                            
+                                            {/* Outstanding (Pending) */}
+                                            <TableCell className="text-center">
+                                                <Badge variant="warning" className="w-10 justify-center rounded font-bold text-xs">
+                                                    {pending}
                                                 </Badge>
                                             </TableCell>
-                                            <TableCell>
-                                                <Badge variant="success" className="w-9 justify-center rounded font-semibold text-xs">
+                                            
+                                            {/* Closed */}
+                                            <TableCell className="text-center">
+                                                <Badge variant="success" className="w-10 justify-center rounded font-bold text-xs">
                                                     {closed}
                                                 </Badge>
                                             </TableCell>
-                                            <TableCell className="font-semibold text-slate-800 text-xs">{total}</TableCell>
-                                            <TableCell>
+                                            
+                                            {/* Cancelled */}
+                                            <TableCell className="text-center font-semibold text-slate-600 text-xs">
+                                                {canceled}
+                                            </TableCell>
+                                            
+                                            {/* Archived */}
+                                            <TableCell className="text-center font-semibold text-slate-600 text-xs">
+                                                {archived}
+                                            </TableCell>
+                                            
+                                            {/* Expired */}
+                                            <TableCell className="text-center font-medium text-slate-500 text-xs">
+                                                {expired}
+                                            </TableCell>
+                                            
+                                            {/* Incomplete */}
+                                            <TableCell className="text-center font-medium text-slate-500 text-xs">
+                                                {incomplete}
+                                            </TableCell>
+                                            
+                                            {/* Pre-Contract */}
+                                            <TableCell className="text-center font-medium text-slate-500 text-xs">
+                                                {preContract}
+                                            </TableCell>
+                                            
+                                            {/* Total */}
+                                            <TableCell className="text-center font-bold text-slate-900 text-xs">
+                                                {total}
+                                            </TableCell>
+                                            
+                                            {/* Distribution Bar */}
+                                            <TableCell className="py-3">
                                                 <div className="flex items-center gap-2">
-                                                    <div className="flex h-5 rounded-md overflow-hidden flex-1 min-w-[120px] bg-slate-100">
-                                                        {outstanding > 0 && (
+                                                    <div className="flex h-5 rounded-md overflow-hidden flex-1 min-w-[150px] bg-slate-100 shadow-inner">
+                                                        {pending > 0 && (
                                                             <div 
-                                                                style={{ width: `${outPct}%` }} 
-                                                                className="bg-red-500 transition-all duration-500 ease-out"
-                                                                title={`Outstanding: ${outstanding} (${outPct}%)`} 
+                                                                style={{ width: `${pendingPct}%` }} 
+                                                                className="bg-amber-500 transition-all duration-500 ease-out shrink-0"
+                                                                title={`Outstanding (Pending): ${pending} (${pendingPct}%)`} 
                                                             />
                                                         )}
                                                         {closed > 0 && (
                                                             <div 
                                                                 style={{ width: `${closedPct}%` }} 
-                                                                className="bg-blue-500 transition-all duration-500 ease-out"
+                                                                className="bg-emerald-500 transition-all duration-500 ease-out shrink-0"
                                                                 title={`Closed: ${closed} (${closedPct}%)`} 
                                                             />
                                                         )}
+                                                        {canceled > 0 && (
+                                                            <div 
+                                                                style={{ width: `${canceledPct}%` }} 
+                                                                className="bg-slate-400 transition-all duration-500 ease-out shrink-0"
+                                                                title={`Cancelled: ${canceled} (${canceledPct}%)`} 
+                                                            />
+                                                        )}
+                                                        {archived > 0 && (
+                                                            <div 
+                                                                style={{ width: `${archivedPct}%` }} 
+                                                                className="bg-slate-600 transition-all duration-500 ease-out shrink-0"
+                                                                title={`Archived: ${archived} (${archivedPct}%)`} 
+                                                            />
+                                                        )}
+                                                        {expired > 0 && (
+                                                            <div 
+                                                                style={{ width: `${expiredPct}%` }} 
+                                                                className="bg-amber-600/70 transition-all duration-500 ease-out shrink-0"
+                                                                title={`Expired: ${expired} (${expiredPct}%)`} 
+                                                            />
+                                                        )}
+                                                        {incomplete > 0 && (
+                                                            <div 
+                                                                style={{ width: `${incompletePct}%` }} 
+                                                                className="bg-orange-500 transition-all duration-500 ease-out shrink-0"
+                                                                title={`Incomplete: ${incomplete} (${incompletePct}%)`} 
+                                                            />
+                                                        )}
+                                                        {preContract > 0 && (
+                                                            <div 
+                                                                style={{ width: `${preContractPct}%` }} 
+                                                                className="bg-teal-500 transition-all duration-500 ease-out shrink-0"
+                                                                title={`Pre-Contract: ${preContract} (${preContractPct}%)`} 
+                                                            />
+                                                        )}
                                                     </div>
-                                                    <span className="text-[10px] text-slate-400 font-bold white-space-nowrap shrink-0">
-                                                        {closedPct}% closed
+                                                    <span className="text-[10px] text-slate-400 font-bold whitespace-nowrap shrink-0">
+                                                        {((closed / denom) * 100).toFixed(0)}% closed
                                                     </span>
                                                 </div>
                                             </TableCell>
@@ -299,7 +487,7 @@ function ReviewerDashboardView() {
                                 })}
                                 {filteredData.length === 0 && (
                                     <TableRow>
-                                        <TableCell colSpan={6} className="text-center text-slate-400 py-10 font-medium">
+                                        <TableCell colSpan={11} className="text-center text-slate-400 py-10 font-medium">
                                             No data available
                                         </TableCell>
                                     </TableRow>
@@ -308,14 +496,34 @@ function ReviewerDashboardView() {
                         </Table>
 
                         {/* Legend */}
-                        <div className="flex gap-4 p-4 px-6 border-t border-slate-100 bg-slate-50/20 text-xs font-bold text-slate-400 select-none">
+                        <div className="flex flex-wrap gap-x-6 gap-y-2 p-4 px-6 border-t border-slate-100 bg-slate-50/20 text-xs font-bold text-slate-400 select-none">
                             <span className="flex items-center gap-1.5">
-                                <span className="w-3 h-3 rounded bg-red-500 block shrink-0" />
-                                Outstanding
+                                <span className="w-2.5 h-2.5 rounded bg-amber-500 block shrink-0" />
+                                Outstanding (Pending)
                             </span>
                             <span className="flex items-center gap-1.5">
-                                <span className="w-3 h-3 rounded bg-blue-500 block shrink-0" />
+                                <span className="w-2.5 h-2.5 rounded bg-emerald-500 block shrink-0" />
                                 Closed
+                            </span>
+                            <span className="flex items-center gap-1.5">
+                                <span className="w-2.5 h-2.5 rounded bg-slate-400 block shrink-0" />
+                                Cancelled
+                            </span>
+                            <span className="flex items-center gap-1.5">
+                                <span className="w-2.5 h-2.5 rounded bg-slate-600 block shrink-0" />
+                                Archived
+                            </span>
+                            <span className="flex items-center gap-1.5">
+                                <span className="w-2.5 h-2.5 rounded bg-amber-600/70 block shrink-0" />
+                                Expired
+                            </span>
+                            <span className="flex items-center gap-1.5">
+                                <span className="w-2.5 h-2.5 rounded bg-orange-500 block shrink-0" />
+                                Incomplete
+                            </span>
+                            <span className="flex items-center gap-1.5">
+                                <span className="w-2.5 h-2.5 rounded bg-teal-500 block shrink-0" />
+                                Pre-Contract
                             </span>
                         </div>
                     </>
