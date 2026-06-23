@@ -11,6 +11,7 @@ function Sidebar({ activePage, setActivePage, onLogout }) {
             label: 'GENERAL',
             items: [
                 { id: 'dashboard', label: 'Dashboard', icon: <IconDashboard /> },
+                { id: 'reconciliation_new', label: 'Reconciliation New', icon: <IconDashboard /> },
             ],
         },
         {
