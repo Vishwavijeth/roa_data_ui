@@ -36,6 +36,7 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
     const [syncInfo, setSyncInfo] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    const [downloading, setDownloading] = useState(false);
     const [page, setPage] = useState(1);
     const [searchInput, setSearchInput] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
@@ -218,11 +219,31 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
 
     const totalPages = Math.ceil(totalCount / 50);
 
-    const handleDownload = () => {
-        const ws = utils.json_to_sheet(data);
-        const wb = utils.book_new();
-        utils.book_append_sheet(wb, ws, 'SkySlope Data');
-        writeFile(wb, 'SkySlope_Data_report.xlsx');
+    const handleDownload = async () => {
+        setDownloading(true);
+        try {
+            const response = await fetch('https://roa-data-backend.vercel.app/skyslope/download');
+            if (!response.ok) throw new Error(`Download API error: ${response.status}`);
+            const blob = await response.blob();
+            const contentDisposition = response.headers.get('Content-Disposition');
+            let filename = 'SkySlope_Data_report.xlsx';
+            if (contentDisposition) {
+                const match = contentDisposition.match(/filename[^;=\n]*=(['"]?)([^'"\n]*)\1/);
+                if (match && match[2]) filename = match[2].trim();
+            }
+            const downloadUrl = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = downloadUrl;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => { a.remove(); window.URL.revokeObjectURL(downloadUrl); }, 200);
+        } catch (err) {
+            console.error('SkySlope download failed:', err);
+            alert(`Download failed: ${err.message}. Please try again.`);
+        } finally {
+            setDownloading(false);
+        }
     };
 
     if (selectedRecord) {
@@ -430,12 +451,16 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
                         View Sync Logs
                     </Button>
                     <Button
+                        id="ss-download-btn"
                         variant="outline"
                         onClick={handleDownload}
-                        disabled={!data.length}
+                        disabled={downloading}
                         className="font-semibold text-xs gap-2 h-9 hover:bg-slate-50"
                     >
-                        <IconDownload /> Download Report
+                        <svg className={`h-4 w-4 ${downloading ? 'animate-bounce' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        {downloading ? 'Generating Report…' : 'Download Report'}
                     </Button>
                 </div>
             </div>
