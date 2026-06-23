@@ -8,24 +8,24 @@ import {
 function Sidebar({ activePage, setActivePage, onLogout }) {
     const navSections = [
         {
-            label: 'GENERAL',
-            items: [
-                { id: 'dashboard', label: 'Dashboard', icon: <IconDashboard /> },
-                { id: 'reconciliation_new', label: 'Reconciliation New', icon: <IconDashboard /> },
-            ],
-        },
-        {
             label: 'RECONCILIATION',
             items: [
-                { id: 'brokerage', label: 'Brokerage Engine', icon: <IconBrokerage /> },
-                { id: 'skyslope', label: 'SkySlope Data', icon: <IconSkySlope /> },
+                { id: 'dashboard', label: 'Dashboard', icon: <IconDashboard /> },
+                { id: 'reconciliation_new', label: 'Reconciliation', icon: <IconDashboard /> },
             ],
         },
         {
-            label: 'CDA SENT',
+            label: 'LISTING',
+            items: [
+                { id: 'brokerage', label: 'Brokerage Engine', icon: <IconBrokerage /> },
+                { id: 'skyslope', label: 'SkySlope', icon: <IconSkySlope /> },
+            ],
+        },
+        {
+            label: 'CDA LISTING',
             items: [
                 { id: 'cda_sent', label: 'CDA Sent', icon: <IconCdaSent /> },
-                { id: 'pre_cda', label: 'PreCDA', icon: <IconPreCda /> },
+                { id: 'pre_cda', label: 'Pre CDA', icon: <IconPreCda /> },
             ],
         },
         {
