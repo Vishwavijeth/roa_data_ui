@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from './components/layout/Sidebar';
 import ReconciliationView from './pages/ReconciliationView';
+import ReconciliationNew from './pages/ReconciliationNew';
 import BrokerageView from './pages/BrokerageView';
 import SkySlopeView from './pages/SkySlopeView';
 import TransactionSpecialistListingView from './pages/TransactionSpecialistListingView';
@@ -14,7 +15,7 @@ import PreCDA from './pages/PreCDA';
 // ── Dashboard Shell (layout + sidebar + lifted sync state) ───────────────────
 function Dashboard({ setIsAuthenticated }) {
     // Restore the active page from the URL hash on refresh
-    const validPages = ['dashboard', 'brokerage', 'skyslope', 'cda_sent', 'pre_cda', 'month_closing', 'txn_specialist', 'reviewer', 'txn_specialist_dash', 'reviewer_dash'];
+    const validPages = ['dashboard', 'reconciliation_new', 'brokerage', 'skyslope', 'cda_sent', 'pre_cda', 'month_closing', 'txn_specialist', 'reviewer', 'txn_specialist_dash', 'reviewer_dash'];
 
     const hashPage = window.location.hash.replace('#', '').split('?')[0];
     const [activePage, setActivePage] = useState(validPages.includes(hashPage) ? hashPage : 'dashboard');
@@ -155,6 +156,8 @@ function Dashboard({ setIsAuthenticated }) {
         switch (activePage) {
             case 'dashboard':
                 return <ReconciliationView />;
+            case 'reconciliation_new':
+                return <ReconciliationNew />;
             case 'brokerage':
                 return <BrokerageView syncingBE={syncingBE} syncProgress={syncProgress} syncBEResult={syncBEResult} handleSyncBE={handleSyncBE} setSyncBEResult={setSyncBEResult} />;
             case 'skyslope':

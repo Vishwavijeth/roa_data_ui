@@ -10,6 +10,11 @@
   to   { transform: translateX(0);    opacity: 1; }
 }
 
+@keyframes slideDown {
+  from { max-height: 0; opacity: 0; transform: translateY(-4px); }
+  to   { max-height: 800px; opacity: 1; transform: translateY(0); }
+}
+
 /* ── App layout ──────────────────────────────────────────────────────────── */
 .app-layout {
   display: flex;
@@ -1197,7 +1202,9 @@ input[type="date"].filter-select {
   position: absolute;
   top: calc(100% + 4px);
   left: 0;
-  right: 0;
+  min-width: 100%;
+  width: max-content;
+  max-width: 360px;
   z-index: 9999;
   background: #ffffff;
   border: 1px solid var(--border);
@@ -1249,6 +1256,7 @@ input[type="date"].filter-select {
   cursor: pointer;
   transition: background 0.1s ease;
   user-select: none;
+  white-space: nowrap;
 }
 
 .ms-option:hover {
