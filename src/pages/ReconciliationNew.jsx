@@ -35,6 +35,10 @@ function ReconciliationNew() {
     const [availableParams, setAvailableParams] = useState([]);
     const [selectedParams, setSelectedParams] = useState([]);
 
+    // ── Source Table Toggle ───────────────────────────────────────────────────
+    // null = all, 'sale income' = sale income only, 'other income' = other income only
+    const [sourceTableFilter, setSourceTableFilter] = useState(null);
+
     // ── Search ────────────────────────────────────────────────────────────────
     const [searchQuery, setSearchQuery] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -90,6 +94,9 @@ function ReconciliationNew() {
             // The API param key is `mismatch_parameter`; values come from filters.parameter list
             selectedParams.forEach(p => params.append('mismatch_parameter', p));
         }
+        if (sourceTableFilter) {
+            params.set('source_table', sourceTableFilter);
+        }
 
         fetch(`${API_BASE}/reconciliation/transactions?${params}`)
             .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
@@ -105,8 +112,8 @@ function ReconciliationNew() {
                 setLoading(false);
             })
             .catch(err => { setError(err.message); setLoading(false); });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [page, debouncedSearch, selectedParams]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [page, debouncedSearch, selectedParams, sourceTableFilter]);
 
     // ─────────────────────────────────────────────────────────────────────────
     // Inline row expansion – fetch /reconciliation/transaction/:id
@@ -147,10 +154,11 @@ function ReconciliationNew() {
         if (!saleguid && !txnId) return;
 
         setDrawerDetailLoading(true);
-        const url = saleguid
-            ? `${API_BASE}/skyslope/detail?saleguid=${encodeURIComponent(saleguid)}`
-            : (row.source_table === 'otherincome_transactions'
-                ? `${API_BASE}/otherincome_transactions/detail?transactionid=${encodeURIComponent(txnId)}`
+        const isOtherIncome = row.source_table === 'other income' || row.source_table === 'otherincome_transactions';
+        const url = isOtherIncome
+            ? `${API_BASE}/otherincome_transactions/detail?transactionid=${encodeURIComponent(txnId)}`
+            : (saleguid
+                ? `${API_BASE}/skyslope/detail?saleguid=${encodeURIComponent(saleguid)}`
                 : `${API_BASE}/brokerage_engine/detail?transactionid=${encodeURIComponent(txnId)}`);
 
         fetch(url)
@@ -279,7 +287,7 @@ function ReconciliationNew() {
         }
     };
 
-    const hasActiveFilters = selectedParams.length > 0 || searchQuery;
+    const hasActiveFilters = selectedParams.length > 0 || searchQuery || sourceTableFilter;
 
     // ─────────────────────────────────────────────────────────────────────────
     // RENDER
@@ -328,32 +336,76 @@ function ReconciliationNew() {
                 </div>
 
                 {/* ── Search + Filter Bar ──────────────────────────────────── */}
-                <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm space-y-3">
-                    <div className="flex flex-col md:flex-row items-start md:items-center gap-3">
-                        {/* Search */}
-                        <div className="relative flex-1 min-w-0 max-w-lg">
+                <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
+                    {/* Row 1: Search + Clear */}
+                    <div className="flex items-center gap-3 px-5 pt-4 pb-3 border-b border-slate-100">
+                        <div className="relative flex-1 min-w-0">
                             <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                             </svg>
                             <Input
                                 id="txn-search"
                                 type="text"
-                                placeholder="Search by ID, GUID or property address…"
+                                placeholder="Search by address, transaction ID or GUID…"
                                 value={searchQuery}
                                 onChange={e => setSearchQuery(e.target.value)}
-                                className="pl-9 pr-8 w-full"
+                                className="pl-9 pr-8 w-full text-sm"
                             />
                             {searchQuery && (
                                 <button
-                                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold"
+                                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                                     onClick={() => setSearchQuery('')}
-                                >✕</button>
+                                >
+                                    <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                                </button>
                             )}
                         </div>
+                        {hasActiveFilters && (
+                            <button
+                                className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 border border-red-100 transition-all"
+                                onClick={() => { setSearchQuery(''); setSelectedParams([]); setSourceTableFilter(null); setPage(1); }}
+                            >
+                                <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                                Clear all
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Row 2: Source toggle + Parameters */}
+                    <div className="flex flex-wrap items-center gap-4 px-5 py-3">
+                        {/* Source Table Segmented Control */}
+                        <div className="flex items-center gap-2">
+                            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Source</span>
+                            <div className="flex items-center gap-0.5 bg-slate-100 rounded-lg p-0.5">
+                                {[
+                                    { label: 'All', value: null },
+                                    { label: 'Sale Income', value: 'sale income' },
+                                    { label: 'Other Income', value: 'other income' },
+                                ].map(opt => (
+                                    <button
+                                        key={String(opt.value)}
+                                        onClick={() => { setSourceTableFilter(opt.value); setPage(1); setExpandedTxnId(null); }}
+                                        className={`px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all whitespace-nowrap leading-none ${sourceTableFilter === opt.value
+                                                ? opt.value === 'sale income'
+                                                    ? 'bg-indigo-600 text-white shadow-sm'
+                                                    : opt.value === 'other income'
+                                                        ? 'bg-emerald-600 text-white shadow-sm'
+                                                        : 'bg-white text-slate-800 shadow-sm'
+                                                : 'text-slate-500 hover:text-slate-700'
+                                            }`}
+                                    >
+                                        {opt.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Divider */}
+                        <div className="h-6 w-px bg-slate-200" />
 
                         {/* Parameters MultiSelect */}
                         <div className="flex items-center gap-2">
-                            <span className="text-xs font-semibold text-slate-500 whitespace-nowrap">Parameters:</span>
+                            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider whitespace-nowrap">Parameters</span>
                             <MultiSelect
                                 id="param-filter"
                                 options={availableParams}
@@ -364,33 +416,23 @@ function ReconciliationNew() {
                             />
                         </div>
 
-                        {/* Clear all filters */}
-                        {hasActiveFilters && (
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 whitespace-nowrap"
-                                onClick={() => { setSearchQuery(''); setSelectedParams([]); setPage(1); }}
-                            >
-                                ✕ Clear Filters
-                            </Button>
+                        {/* Active param chips */}
+                        {selectedParams.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5">
+                                {selectedParams.map(p => (
+                                    <span key={p} className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                        {p}
+                                        <button
+                                            className="ml-0.5 text-indigo-400 hover:text-red-500 transition-colors"
+                                            onClick={() => setSelectedParams(prev => prev.filter(v => v !== p))}
+                                        >
+                                            <svg className="h-2.5 w-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                                        </button>
+                                    </span>
+                                ))}
+                            </div>
                         )}
                     </div>
-
-                    {/* Active filter chips */}
-                    {selectedParams.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5 pt-1">
-                            {selectedParams.map(p => (
-                                <span key={p} className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
-                                    {p}
-                                    <button
-                                        className="hover:text-red-500 ml-0.5"
-                                        onClick={() => setSelectedParams(prev => prev.filter(v => v !== p))}
-                                    >✕</button>
-                                </span>
-                            ))}
-                        </div>
-                    )}
                 </div>
 
                 {/* ── Transactions Table ───────────────────────────────────── */}
@@ -431,10 +473,11 @@ function ReconciliationNew() {
                             <Table>
                                 <TableHeader>
                                     <TableRow className="bg-slate-50/50 hover:bg-slate-50/50 border-b border-slate-200/60">
-                                        <TableHead className="w-[35%] font-bold text-[10px] uppercase tracking-wider text-slate-400">Property Details</TableHead>
-                                        <TableHead className="w-[25%] font-bold text-[10px] uppercase tracking-wider text-slate-400">Mismatched Parameters</TableHead>
+                                        <TableHead className="w-[24%] font-bold text-[10px] uppercase tracking-wider text-slate-400">Property Address</TableHead>
+                                        <TableHead className="w-[22%]"></TableHead>
+                                        <TableHead className="w-[18%] font-bold text-[10px] uppercase tracking-wider text-slate-400">Mismatched Parameters</TableHead>
                                         <TableHead className="w-[22%] font-bold text-[10px] uppercase tracking-wider text-slate-400">Review Status</TableHead>
-                                        <TableHead className="w-[18%] text-center font-bold text-[10px] uppercase tracking-wider text-slate-400">Action</TableHead>
+                                        <TableHead className="w-[14%] text-center font-bold text-[10px] uppercase tracking-wider text-slate-400">Action</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -451,24 +494,65 @@ function ReconciliationNew() {
                                                     onClick={(e) => handleRowClick(row, e)}
                                                     className={`align-middle cursor-pointer select-none transition-colors border-b border-slate-100/60 ${isExpanded ? 'bg-indigo-50/20' : 'hover:bg-slate-50/40'}`}
                                                 >
-                                                    {/* Property Details */}
-                                                    <TableCell className="py-4 pr-4">
-                                                        <div className="flex flex-col gap-0.5 min-w-0">
-                                                            {(() => {
-                                                                const addr = row.propertyaddress || '';
-                                                                const ci = addr.indexOf(',');
-                                                                const l1 = ci !== -1 ? addr.slice(0, ci) : addr;
-                                                                const l2 = ci !== -1 ? addr.slice(ci + 1).trim() : '';
-                                                                return (
-                                                                    <>
-                                                                        <span className="text-sm font-semibold text-slate-800 hover:text-indigo-600 transition-colors truncate" title={addr}>
-                                                                            {l1 || '—'}
+                                                    {/* Property Address */}
+                                                    <TableCell className="py-3.5 pr-4 min-w-0">
+                                                        {(() => {
+                                                            const addr = row.propertyaddress || '';
+                                                            const ci = addr.indexOf(',');
+                                                            const l1 = ci !== -1 ? addr.slice(0, ci) : addr;
+                                                            const l2 = ci !== -1 ? addr.slice(ci + 1).trim() : '';
+                                                            return (
+                                                                <div className="flex flex-col min-w-0">
+                                                                    {/* Street Address */}
+                                                                    <span
+                                                                        className="text-sm font-semibold text-slate-800 hover:text-indigo-600 transition-colors truncate block"
+                                                                        title={addr}
+                                                                    >
+                                                                        {l1 || '—'}
+                                                                    </span>
+                                                                    {/* City, State, Zip */}
+                                                                    {l2 && (
+                                                                        <span className="text-xs text-slate-400 font-medium truncate block" title={l2}>
+                                                                            {l2}
                                                                         </span>
-                                                                        {l2 && <span className="text-xs text-slate-400 font-medium truncate">{l2}</span>}
-                                                                    </>
-                                                                );
-                                                            })()}
-                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })()}
+                                                    </TableCell>
+
+                                                    {/* Source & SkySlope Stage */}
+                                                    <TableCell className="py-3.5 pr-4 min-w-0">
+                                                        {row.source_table || row.skyslope_stage || !row.saleguid || row.saleguid === 'null' ? (
+                                                            <div className="flex flex-col gap-1.5 items-start">
+                                                                {/* Source Table Badge */}
+                                                                {row.source_table && (
+                                                                    <span className={`inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-md border whitespace-nowrap ${row.source_table === 'sale income'
+                                                                            ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                                                            : 'bg-sky-50 text-sky-700 border-sky-200'
+                                                                        }`}>
+                                                                        {row.source_table === 'sale income' ? 'Sale Income' : 'Other Income'}
+                                                                    </span>
+                                                                )}
+                                                                {/* SkySlope Stage or No SkySlope File ID Badge */}
+                                                                {!row.saleguid || row.saleguid === 'null' ? (
+                                                                    <span className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 border border-rose-200 whitespace-nowrap shadow-sm">
+                                                                        No SkySlope File ID
+                                                                    </span>
+                                                                ) : (
+                                                                    row.skyslope_stage && (
+                                                                        <span
+                                                                            className="inline-block whitespace-normal break-words max-w-[200px] text-[10px] font-medium px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200 text-left"
+                                                                            title={row.skyslope_stage}
+                                                                        >
+                                                                            {row.skyslope_stage}
+                                                                        </span>
+                                                                    )
+                                                                )}
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-slate-300 text-xs">—</span>
+                                                        )}
                                                     </TableCell>
 
                                                     {/* Mismatched Parameters */}
@@ -494,24 +578,22 @@ function ReconciliationNew() {
                                                     <TableCell className="py-4 pr-4">
                                                         {row.review && row.review.review_status ? (
                                                             <div className="flex flex-col gap-1 items-start">
-                                                                <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full capitalize border whitespace-nowrap shadow-sm ${
-                                                                    row.review.review_status === 'review_done'
+                                                                <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full capitalize border whitespace-nowrap shadow-sm ${row.review.review_status === 'review_done'
                                                                         ? 'bg-emerald-50 text-emerald-700 border-emerald-100/80'
                                                                         : row.review.review_status === 'not_a_mismatch'
                                                                             ? 'bg-slate-50 text-slate-600 border-slate-200/80'
                                                                             : 'bg-blue-50 text-blue-700 border-blue-100/80'
-                                                                }`}>
-                                                                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                                                                        row.review.review_status === 'review_done'
+                                                                    }`}>
+                                                                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${row.review.review_status === 'review_done'
                                                                             ? 'bg-emerald-500'
                                                                             : row.review.review_status === 'not_a_mismatch'
                                                                                 ? 'bg-slate-400'
                                                                                 : 'bg-blue-500'
-                                                                    }`} />
+                                                                        }`} />
                                                                     {row.review.review_status.replace(/_/g, ' ')}
                                                                 </span>
                                                                 {row.review.notes && (
-                                                                    <span className="text-[10px] text-slate-400 font-medium max-w-[160px] truncate" title={row.review.notes}>
+                                                                    <span className="text-[10px] text-slate-400 font-medium max-w-[160px] truncate block" title={row.review.notes}>
                                                                         📝 {row.review.notes}
                                                                     </span>
                                                                 )}
@@ -530,12 +612,12 @@ function ReconciliationNew() {
 
                                                     {/* Action */}
                                                     <TableCell className="py-4 text-center">
-                                                        <div className="flex items-center justify-center gap-2">
+                                                        <div className="flex flex-col lg:flex-row items-center justify-center gap-1">
                                                             <button
                                                                 onClick={(e) => { e.stopPropagation(); openDrawer(row); }}
-                                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white text-slate-700 border border-slate-200 shadow-sm hover:bg-slate-50 hover:border-slate-300 transition-all select-none"
+                                                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-semibold bg-white text-slate-700 border border-slate-200 shadow-sm hover:bg-slate-50 hover:border-slate-300 transition-all select-none whitespace-nowrap"
                                                             >
-                                                                <svg className="h-3.5 w-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                                                                <svg className="h-3 w-3 text-slate-500 mr-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
                                                                     <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                                                     <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                                                 </svg>
@@ -543,16 +625,16 @@ function ReconciliationNew() {
                                                             </button>
                                                             <button
                                                                 onClick={(e) => { e.stopPropagation(); openReviewModal(row); }}
-                                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-50 text-indigo-600 border border-indigo-100 shadow-sm hover:bg-indigo-100 hover:text-indigo-700 transition-all select-none"
+                                                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-semibold bg-indigo-50 text-indigo-600 border border-indigo-100 shadow-sm hover:bg-indigo-100 hover:text-indigo-700 transition-all select-none whitespace-nowrap"
                                                             >
-                                                                <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                                                                <svg className="h-3 w-3 mr-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
                                                                     <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                                                 </svg>
                                                                 Review
                                                             </button>
                                                             {/* Chevron expand indicator */}
-                                                            <span className={`text-slate-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}>
-                                                                <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                                                            <span className={`text-slate-400 transition-transform duration-200 ml-1 shrink-0 ${isExpanded ? 'rotate-180' : ''}`}>
+                                                                <svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
                                                                     <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                                                                 </svg>
                                                             </span>
@@ -563,7 +645,7 @@ function ReconciliationNew() {
                                                 {/* ─ Inline Expansion Panel ─ */}
                                                 {isExpanded && (
                                                     <TableRow key={`exp-${i}`}>
-                                                        <TableCell colSpan={4} className="p-0 border-t-0">
+                                                        <TableCell colSpan={5} className="p-0 border-t-0">
                                                             <div style={{ animation: 'slideDown 0.22s ease-out forwards', overflow: 'hidden' }}>
                                                                 <div className="px-6 py-5 bg-gradient-to-b from-slate-50/80 to-white border-t border-indigo-100/60">
                                                                     {isExpLoading ? (
@@ -648,7 +730,7 @@ function ReconciliationNew() {
                                     })}
                                     {transactions.length === 0 && !loading && (
                                         <TableRow>
-                                            <TableCell colSpan={3} className="text-center text-slate-400 py-12 font-medium">
+                                            <TableCell colSpan={6} className="text-center text-slate-400 py-12 font-medium">
                                                 No transactions found
                                             </TableCell>
                                         </TableRow>
