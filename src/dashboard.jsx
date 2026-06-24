@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { logoutUser, setUnauthorizedHandler } from './utils/api';
 import Sidebar from './components/layout/Sidebar';
 import ReconciliationView from './pages/ReconciliationView';
 import ReconciliationNew from './pages/ReconciliationNew';
@@ -147,10 +148,21 @@ function Dashboard({ setIsAuthenticated }) {
         }
     };
 
-    const handleLogout = () => {
-        sessionStorage.removeItem('roa_auth');
+    // Called when user clicks logout – hits the /auth/logout API then clears session
+    const handleLogout = useCallback(async () => {
+        await logoutUser();
         setIsAuthenticated(false);
-    };
+    }, [setIsAuthenticated]);
+
+    // Called automatically when a token refresh fails (session expired)
+    const forceLogout = useCallback(() => {
+        setIsAuthenticated(false);
+    }, [setIsAuthenticated]);
+
+    // Register the global unauthorized handler so all pages auto-logout on token expiry
+    useEffect(() => {
+        setUnauthorizedHandler(forceLogout);
+    }, [forceLogout]);
 
     const renderPage = () => {
         switch (activePage) {

@@ -10,8 +10,12 @@ function App() {
   );
 
   // ── Auth handler ─────────────────────────────────────────────────────────
-  const handleLogin = () => {
+  const handleLogin = (tokens) => {
     sessionStorage.setItem('roa_auth', 'true');
+    if (tokens && tokens.access_token) {
+      sessionStorage.setItem('access_token', tokens.access_token);
+      sessionStorage.setItem('refresh_token', tokens.refresh_token);
+    }
     setIsAuthenticated(true);
   };
 

@@ -9,23 +9,41 @@ function Login({ onLogin }) {
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
         setError('');
 
-        // Simulating subtle login loader for premium UX
-        setTimeout(() => {
-            const validEmail = import.meta.env.VITE_USER_EMAIL || 'dev@roaworld.com';
-            const validPassword = import.meta.env.VITE_USER_PASSWORD || 'Wecandoit@2026';
+        try {
+            const response = await fetch('https://roa-data-backend.vercel.app/auth/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    email: email.trim(),
+                    password: password,
+                }),
+            });
 
-            if (email.trim() === validEmail.trim() && password === validPassword) {
-                onLogin();
+            const data = await response.json();
+
+            if (response.ok) {
+                if (data.access_token) {
+                    onLogin(data);
+                } else {
+                    setError('Invalid server response. Please try again.');
+                    setLoading(false);
+                }
             } else {
-                setError('Invalid email or password. Please try again.');
+                const errorMessage = data.detail || 'Invalid email or password';
+                setError(errorMessage);
                 setLoading(false);
             }
-        }, 600);
+        } catch (err) {
+            setError('Failed to connect to the authentication server. Please check your connection and try again.');
+            setLoading(false);
+        }
     };
 
     return (
@@ -35,17 +53,9 @@ function Login({ onLogin }) {
             <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] rounded-full bg-indigo-100/40 blur-3xl" />
 
             <div className="w-full max-w-md bg-white rounded-2xl border border-slate-100 shadow-xl p-8 z-10 relative">
-                {/* Logo or icon */}
-                <div className="flex justify-center mb-6">
-                    <div className="h-12 w-12 rounded-xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-600/20">
-                        <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 009 11.5c0-2.48-.567-4.836-1.57-6.914m1.802-1.885A5.002 5.002 0 0113 6v1a1 1 0 001 1h3m-3-7a9 9 0 018.665 7.74M12 21A9.013 9.013 0 013 12c0-2.387.613-4.63 1.697-6.582M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                    </div>
-                </div>
 
                 <div className="text-center mb-8">
-                    <h1 className="text-2xl font-bold tracking-tight text-slate-900">Data Hub Portal</h1>
+                    <h1 className="text-2xl font-bold tracking-tight text-slate-900">ROA Data Portal</h1>
                     <p className="text-sm text-slate-500 mt-1.5">Sign in to access the reconciliation dashboard</p>
                 </div>
 
