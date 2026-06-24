@@ -4,7 +4,7 @@ import { Badge } from '../components/ui/Badge';
 import { Input } from '../components/ui/Input';
 import { Skeleton } from '../components/ui/Skeleton';
 import { Button } from '../components/ui/Button';
-import MultiSelect from '../components/MultiSelect';
+import MultiSelect from '../components/shared/MultiSelect';
 import SectionedDetailView from '../components/shared/SectionedDetailView';
 import {
     Table,
@@ -336,7 +336,7 @@ function ReconciliationNew() {
                 </div>
 
                 {/* ── Search + Filter Bar ──────────────────────────────────── */}
-                <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
+                <div className="bg-white rounded-xl border border-slate-100 shadow-sm relative z-20">
                     {/* Row 1: Search + Clear */}
                     <div className="flex items-center gap-3 px-5 pt-4 pb-3 border-b border-slate-100">
                         <div className="relative flex-1 min-w-0">
