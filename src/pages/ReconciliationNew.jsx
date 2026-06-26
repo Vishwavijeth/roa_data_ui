@@ -5,6 +5,7 @@ import { Input } from '../components/ui/Input';
 import { Skeleton } from '../components/ui/Skeleton';
 import { Button } from '../components/ui/Button';
 import MultiSelect from '../components/shared/MultiSelect';
+import DateFilterInput from '../components/shared/DateFilterInput';
 import SectionedDetailView from '../components/shared/SectionedDetailView';
 import {
     Table,
@@ -19,6 +20,12 @@ import { PARAMETERS } from '../constants';
 const API_BASE = 'https://roa-data-backend.vercel.app';
 
 function ReconciliationNew() {
+    // Refs to control when the main transactions effect fires.
+    // bootstrappedRef: becomes true after the initial bootstrap call completes.
+    // skipNextRef:     set to true right before we programmatically update selectedParams
+    //                  so the main effect ignores that one triggered re-run.
+    const bootstrappedRef = React.useRef(false);
+    const skipNextRef = React.useRef(false);
     // ── Metrics ──────────────────────────────────────────────────────────────
     const [metrics, setMetrics] = useState(null);
     const [metricsLoading, setMetricsLoading] = useState(true);
@@ -42,6 +49,16 @@ function ReconciliationNew() {
     // ── Search ────────────────────────────────────────────────────────────────
     const [searchQuery, setSearchQuery] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
+
+    // ── Advanced Filters ─────────────────────────────────────────────────────
+    const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+    const [closeDateFrom, setCloseDateFrom] = useState('');
+    const [closeDateTo, setCloseDateTo] = useState('');
+    const [selectedStatuses, setSelectedStatuses] = useState([]);
+    const [availableStatuses, setAvailableStatuses] = useState([]);
+    const [filterSaleNoSkyslope, setFilterSaleNoSkyslope] = useState(false);
+    const [filterOtherNoSkyslope, setFilterOtherNoSkyslope] = useState(false);
+    const [selectedReviewStatuses, setSelectedReviewStatuses] = useState([]);
 
     // ── Inline row expansion ──────────────────────────────────────────────────
     const [expandedTxnId, setExpandedTxnId] = useState(null);
@@ -76,26 +93,92 @@ function ReconciliationNew() {
         setMetricsLoading(true);
         fetch(`${API_BASE}/reconciliation/summary`)
             .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
-            .then(data => { setMetrics(data); setMetricsLoading(false); })
+            .then(data => {
+                setMetrics(data);
+                setMetricsLoading(false);
+                // Populate status filter options from summary API
+                if (Array.isArray(data.status_filters) && data.status_filters.length > 0) {
+                    setAvailableStatuses(data.status_filters);
+                }
+            })
             .catch(() => setMetricsLoading(false));
     }, []);
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Fetch transactions (page / search / parameter filter)
+    // Bootstrap (runs once on mount):
+    //   1. Calls the transactions API to discover available parameter filters.
+    //   2. Pre-selects all discovered parameters.
+    //   3. Loads the first page of data with all parameters already selected.
+    //   4. Sets bootstrappedRef so the main effect knows it can fire freely.
     // ─────────────────────────────────────────────────────────────────────────
     useEffect(() => {
+        setLoading(true);
+        setError(null);
+
+        fetch(`${API_BASE}/reconciliation/transactions?page=1`)
+            .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+            .then(json => {
+                // Discover and pre-select all available parameter filters.
+                if (json.filters?.parameter?.length) {
+                    const allParams = json.filters.parameter;
+                    setAvailableParams(allParams);
+                    // Tell the main effect to skip the re-trigger caused by this setState.
+                    skipNextRef.current = true;
+                    setSelectedParams([...allParams]);
+                }
+
+                // Use this response as the initial data.
+                setTransactions(Array.isArray(json.data) ? json.data : []);
+                setTotalPages(json.pagination?.total_pages || 1);
+                setTotalCount(json.count || 0);
+
+                // Unlock the main effect for all future user-driven changes.
+                bootstrappedRef.current = true;
+                setLoading(false);
+            })
+            .catch(err => {
+                setError(err.message);
+                bootstrappedRef.current = true;
+                setLoading(false);
+            });
+    }, []); // runs exactly once
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Main transactions fetch – fires only when the user changes a filter/page.
+    // Gated by bootstrappedRef so it does NOT fire on initial mount or during
+    // the bootstrap's programmatic selectedParams update.
+    // ─────────────────────────────────────────────────────────────────────────
+    useEffect(() => {
+        // Skip until bootstrap is done.
+        if (!bootstrappedRef.current) return;
+
+        // Skip the single re-trigger caused by the bootstrap pre-selecting params.
+        if (skipNextRef.current) {
+            skipNextRef.current = false;
+            return;
+        }
+
         setLoading(true);
         setError(null);
 
         const params = new URLSearchParams({ page });
         if (debouncedSearch.trim()) params.set('search', debouncedSearch.trim());
         if (selectedParams.length > 0) {
-            // API expects the label values (e.g. "Close Date") mapped to snake_case
-            // The API param key is `mismatch_parameter`; values come from filters.parameter list
             selectedParams.forEach(p => params.append('mismatch_parameter', p));
         }
         if (sourceTableFilter) {
             params.set('source_table', sourceTableFilter);
+        }
+        // Advanced filters
+        if (closeDateFrom) params.set('from_close_date', closeDateFrom);
+        if (closeDateTo) params.set('to_close_date', closeDateTo);
+        if (selectedStatuses.length > 0) {
+            selectedStatuses.forEach(s => params.append('status', s));
+        }
+        if (filterSaleNoSkyslope) params.set('saleincome_no_skyslopefileid', 'true');
+        if (filterOtherNoSkyslope) params.set('otherincome_no_skyslopefileid', 'true');
+        if (selectedReviewStatuses.length > 0) {
+            selectedReviewStatuses.forEach(s => params.append('review_status', s));
         }
 
         fetch(`${API_BASE}/reconciliation/transactions?${params}`)
@@ -104,16 +187,11 @@ function ReconciliationNew() {
                 setTransactions(Array.isArray(json.data) ? json.data : []);
                 setTotalPages(json.pagination?.total_pages || 1);
                 setTotalCount(json.count || 0);
-
-                // Populate filter options from the first successful response
-                if (json.filters?.parameter?.length && availableParams.length === 0) {
-                    setAvailableParams(json.filters.parameter);
-                }
                 setLoading(false);
             })
             .catch(err => { setError(err.message); setLoading(false); });
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [page, debouncedSearch, selectedParams, sourceTableFilter]);
+    }, [page, debouncedSearch, selectedParams, sourceTableFilter, closeDateFrom, closeDateTo, selectedStatuses, filterSaleNoSkyslope, filterOtherNoSkyslope, selectedReviewStatuses]);
 
     // ─────────────────────────────────────────────────────────────────────────
     // Inline row expansion – fetch /reconciliation/transaction/:id
@@ -287,7 +365,8 @@ function ReconciliationNew() {
         }
     };
 
-    const hasActiveFilters = selectedParams.length > 0 || searchQuery || sourceTableFilter;
+    const hasAdvancedFilters = closeDateFrom || closeDateTo || selectedStatuses.length > 0 || filterSaleNoSkyslope || filterOtherNoSkyslope || selectedReviewStatuses.length > 0;
+    const hasActiveFilters = selectedParams.length > 0 || searchQuery || sourceTableFilter || hasAdvancedFilters;
 
     // ─────────────────────────────────────────────────────────────────────────
     // RENDER
@@ -363,12 +442,41 @@ function ReconciliationNew() {
                         {hasActiveFilters && (
                             <button
                                 className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 border border-red-100 transition-all"
-                                onClick={() => { setSearchQuery(''); setSelectedParams([]); setSourceTableFilter(null); setPage(1); }}
+                                onClick={() => {
+                                    setSearchQuery('');
+                                    setSelectedParams([]);
+                                    setSourceTableFilter(null);
+                                    setCloseDateFrom('');
+                                    setCloseDateTo('');
+                                    setSelectedStatuses([]);
+                                    setFilterSaleNoSkyslope(false);
+                                    setFilterOtherNoSkyslope(false);
+                                    setPage(1);
+                                }}
                             >
                                 <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                                 Clear all
                             </button>
                         )}
+                        {/* Advanced Filters Toggle */}
+                        <button
+                            className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${showAdvancedFilters || hasAdvancedFilters
+                                    ? 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100'
+                                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                                }`}
+                            onClick={() => setShowAdvancedFilters(v => !v)}
+                        >
+                            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z" />
+                            </svg>
+                            Advanced Filters
+                            {hasAdvancedFilters && (
+                                <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-indigo-600 text-white text-[9px] font-bold ml-0.5">
+                                    {[closeDateFrom || closeDateTo ? 1 : 0, selectedStatuses.length > 0 ? 1 : 0, filterSaleNoSkyslope ? 1 : 0, filterOtherNoSkyslope ? 1 : 0].filter(Boolean).length}
+                                </span>
+                            )}
+                            <svg className={`h-3 w-3 ml-0.5 transition-transform ${showAdvancedFilters ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                        </button>
                     </div>
 
                     {/* Row 2: Source toggle + Parameters */}
@@ -386,12 +494,12 @@ function ReconciliationNew() {
                                         key={String(opt.value)}
                                         onClick={() => { setSourceTableFilter(opt.value); setPage(1); setExpandedTxnId(null); }}
                                         className={`px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all whitespace-nowrap leading-none ${sourceTableFilter === opt.value
-                                                ? opt.value === 'sale income'
-                                                    ? 'bg-indigo-600 text-white shadow-sm'
-                                                    : opt.value === 'other income'
-                                                        ? 'bg-emerald-600 text-white shadow-sm'
-                                                        : 'bg-white text-slate-800 shadow-sm'
-                                                : 'text-slate-500 hover:text-slate-700'
+                                            ? opt.value === 'sale income'
+                                                ? 'bg-indigo-600 text-white shadow-sm'
+                                                : opt.value === 'other income'
+                                                    ? 'bg-emerald-600 text-white shadow-sm'
+                                                    : 'bg-white text-slate-800 shadow-sm'
+                                            : 'text-slate-500 hover:text-slate-700'
                                             }`}
                                     >
                                         {opt.label}
@@ -433,6 +541,237 @@ function ReconciliationNew() {
                             </div>
                         )}
                     </div>
+
+                    {/* ── Advanced Filters Panel ────────────────────────────── */}
+                    {showAdvancedFilters && (
+                        <div className="px-5 pb-4 pt-1 border-t border-slate-100 bg-slate-50/40">
+                            <div className="flex items-center gap-2 mb-3">
+                                <svg className="h-3.5 w-3.5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z" />
+                                </svg>
+                                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Advanced Filters</span>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+                                {/* Close Date From */}
+                                <div className="space-y-1.5">
+                                    <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+                                        Close Date From
+                                    </label>
+                                    <DateFilterInput
+                                        id="adv-close-date-from"
+                                        value={closeDateFrom}
+                                        onChange={v => { setCloseDateFrom(v); setPage(1); }}
+                                        placeholder="MM/DD/YYYY"
+                                    />
+                                </div>
+
+                                {/* Close Date To */}
+                                <div className="space-y-1.5">
+                                    <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+                                        Close Date To
+                                    </label>
+                                    <DateFilterInput
+                                        id="adv-close-date-to"
+                                        value={closeDateTo}
+                                        onChange={v => { setCloseDateTo(v); setPage(1); }}
+                                        placeholder="MM/DD/YYYY"
+                                    />
+                                </div>
+
+                                {/* Status Multi-Select */}
+                                <div className="space-y-1.5">
+                                    <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+                                        Status
+                                    </label>
+                                    <MultiSelect
+                                        id="adv-status-filter"
+                                        options={availableStatuses}
+                                        selected={selectedStatuses}
+                                        onChange={vals => { setSelectedStatuses(vals); setPage(1); }}
+                                        placeholder={availableStatuses.length === 0 ? 'Loading…' : 'All statuses'}
+                                        allLabel="All statuses"
+                                    />
+                                </div>
+
+                                {/* No SkySlope File ID + Review Status — single full-width row */}
+                                <div className="space-y-1.5 sm:col-span-2 lg:col-span-4">
+                                    <div className="flex items-center gap-6">
+
+                                        {/* No SkySlope File ID */}
+                                        <div className="flex flex-col gap-1">
+                                            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">No SkySlope File ID</span>
+                                            <div className="flex flex-row gap-2">
+                                                {/* Sale Income */}
+                                                <button
+                                                    onClick={() => {
+                                                        const next = !filterSaleNoSkyslope;
+                                                        setFilterSaleNoSkyslope(next);
+                                                        if (next) setFilterOtherNoSkyslope(false);
+                                                        setPage(1);
+                                                    }}
+                                                    className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${filterSaleNoSkyslope
+                                                            ? 'bg-amber-50 text-amber-700 border-amber-300 shadow-sm'
+                                                            : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                                                        }`}
+                                                >
+                                                    <span className={`w-3.5 h-3.5 flex items-center justify-center rounded border text-[9px] font-bold transition-all ${filterSaleNoSkyslope ? 'bg-amber-500 border-amber-500 text-white' : 'border-slate-300 bg-white text-transparent'
+                                                        }`}>
+                                                        {filterSaleNoSkyslope ? '✓' : ''}
+                                                    </span>
+                                                    Sale Income
+                                                    {metrics?.saleincome_no_skyslopefileid != null && (
+                                                        <span className={`ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full ${filterSaleNoSkyslope ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'
+                                                            }`}>
+                                                            {metrics.saleincome_no_skyslopefileid.toLocaleString()}
+                                                        </span>
+                                                    )}
+                                                </button>
+
+                                                {/* Other Income */}
+                                                <button
+                                                    onClick={() => {
+                                                        const next = !filterOtherNoSkyslope;
+                                                        setFilterOtherNoSkyslope(next);
+                                                        if (next) setFilterSaleNoSkyslope(false);
+                                                        setPage(1);
+                                                    }}
+                                                    className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${filterOtherNoSkyslope
+                                                            ? 'bg-sky-50 text-sky-700 border-sky-300 shadow-sm'
+                                                            : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                                                        }`}
+                                                >
+                                                    <span className={`w-3.5 h-3.5 flex items-center justify-center rounded border text-[9px] font-bold transition-all ${filterOtherNoSkyslope ? 'bg-sky-500 border-sky-500 text-white' : 'border-slate-300 bg-white text-transparent'
+                                                        }`}>
+                                                        {filterOtherNoSkyslope ? '✓' : ''}
+                                                    </span>
+                                                    Other Income
+                                                    {metrics?.otherincome_no_skyslopefileid != null && (
+                                                        <span className={`ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full ${filterOtherNoSkyslope ? 'bg-sky-100 text-sky-700' : 'bg-slate-100 text-slate-500'
+                                                            }`}>
+                                                            {metrics.otherincome_no_skyslopefileid.toLocaleString()}
+                                                        </span>
+                                                    )}
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {/* Divider */}
+                                        <div className="w-px self-stretch bg-slate-200" />
+
+                                        {/* Review Status */}
+                                        <div className="flex flex-col gap-1">
+                                            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Review Status</span>
+                                            <div className="flex flex-row flex-wrap gap-2">
+                                                {[
+                                                    { value: 'in_review', label: 'In Review', active: 'bg-indigo-50 text-indigo-700 border-indigo-300 shadow-sm', dot: 'bg-indigo-500' },
+                                                    { value: 'review_done', label: 'Review Done', active: 'bg-emerald-50 text-emerald-700 border-emerald-300 shadow-sm', dot: 'bg-emerald-500' },
+                                                    { value: 'not_a_mismatch', label: 'Not a Mismatch', active: 'bg-slate-100 text-slate-700 border-slate-400 shadow-sm', dot: 'bg-slate-500' },
+                                                ].map(opt => {
+                                                    const isActive = selectedReviewStatuses.includes(opt.value);
+                                                    return (
+                                                        <button
+                                                            key={opt.value}
+                                                            onClick={() => {
+                                                                setSelectedReviewStatuses(prev =>
+                                                                    isActive ? prev.filter(v => v !== opt.value) : [...prev, opt.value]
+                                                                );
+                                                                setPage(1);
+                                                            }}
+                                                            className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${
+                                                                isActive ? opt.active : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                                                            }`}
+                                                        >
+                                                            <span className={`w-3.5 h-3.5 flex items-center justify-center rounded border text-[9px] font-bold transition-all ${
+                                                                isActive ? `${opt.dot} border-transparent text-white` : 'border-slate-300 bg-white text-transparent'
+                                                            }`}>
+                                                                {isActive ? '✓' : ''}
+                                                            </span>
+                                                            {opt.label}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Active advanced filter chips */}
+                            {hasAdvancedFilters && (
+                                <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-slate-100">
+                                    {closeDateFrom && (
+                                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-violet-50 text-violet-700 border border-violet-200">
+                                            From: {closeDateFrom}
+                                            <button className="ml-0.5 text-violet-400 hover:text-red-500 transition-colors" onClick={() => { setCloseDateFrom(''); setPage(1); }}>
+                                                <svg className="h-2.5 w-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                                            </button>
+                                        </span>
+                                    )}
+                                    {closeDateTo && (
+                                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-violet-50 text-violet-700 border border-violet-200">
+                                            To: {closeDateTo}
+                                            <button className="ml-0.5 text-violet-400 hover:text-red-500 transition-colors" onClick={() => { setCloseDateTo(''); setPage(1); }}>
+                                                <svg className="h-2.5 w-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                                            </button>
+                                        </span>
+                                    )}
+                                    {selectedStatuses.map(s => (
+                                        <span key={s} className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                                            {s}
+                                            <button className="ml-0.5 text-blue-400 hover:text-red-500 transition-colors" onClick={() => { setSelectedStatuses(prev => prev.filter(v => v !== s)); setPage(1); }}>
+                                                <svg className="h-2.5 w-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                                            </button>
+                                        </span>
+                                    ))}
+                                    {filterSaleNoSkyslope && (
+                                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                                            Sale: No SkySlope ID
+                                            <button className="ml-0.5 text-amber-400 hover:text-red-500 transition-colors" onClick={() => { setFilterSaleNoSkyslope(false); setPage(1); }}>
+                                                <svg className="h-2.5 w-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                                            </button>
+                                        </span>
+                                    )}
+                                    {filterOtherNoSkyslope && (
+                                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-sky-50 text-sky-700 border border-sky-200">
+                                            Other Income: No SkySlope ID
+                                            <button className="ml-0.5 text-sky-400 hover:text-red-500 transition-colors" onClick={() => { setFilterOtherNoSkyslope(false); setPage(1); }}>
+                                                <svg className="h-2.5 w-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                                            </button>
+                                        </span>
+                                    )}
+                                    {selectedReviewStatuses.map(s => {
+                                        const labels = { in_review: 'In Review', review_done: 'Review Done', not_a_mismatch: 'Not a Mismatch' };
+                                        return (
+                                            <span key={s} className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                                Review: {labels[s] || s}
+                                                <button className="ml-0.5 text-indigo-400 hover:text-red-500 transition-colors" onClick={() => { setSelectedReviewStatuses(prev => prev.filter(v => v !== s)); setPage(1); }}>
+                                                    <svg className="h-2.5 w-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                                                </button>
+                                            </span>
+                                        );
+                                    })}
+                                    <button
+                                        className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full text-red-600 bg-red-50 border border-red-100 hover:bg-red-100 transition-all"
+                                        onClick={() => {
+                                            setCloseDateFrom('');
+                                            setCloseDateTo('');
+                                            setSelectedStatuses([]);
+                                            setFilterSaleNoSkyslope(false);
+                                            setFilterOtherNoSkyslope(false);
+                                            setSelectedReviewStatuses([]);
+                                            setPage(1);
+                                        }}
+                                    >
+                                        <svg className="h-2.5 w-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                                        Clear advanced
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 {/* ── Transactions Table ───────────────────────────────────── */}
@@ -528,8 +867,8 @@ function ReconciliationNew() {
                                                                 {/* Source Table Badge */}
                                                                 {row.source_table && (
                                                                     <span className={`inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-md border whitespace-nowrap ${row.source_table === 'sale income'
-                                                                            ? 'bg-amber-50 text-amber-700 border-amber-200'
-                                                                            : 'bg-sky-50 text-sky-700 border-sky-200'
+                                                                        ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                                                        : 'bg-sky-50 text-sky-700 border-sky-200'
                                                                         }`}>
                                                                         {row.source_table === 'sale income' ? 'Sale Income' : 'Other Income'}
                                                                     </span>
@@ -579,16 +918,16 @@ function ReconciliationNew() {
                                                         {row.review && row.review.review_status ? (
                                                             <div className="flex flex-col gap-1 items-start">
                                                                 <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full capitalize border whitespace-nowrap shadow-sm ${row.review.review_status === 'review_done'
-                                                                        ? 'bg-emerald-50 text-emerald-700 border-emerald-100/80'
-                                                                        : row.review.review_status === 'not_a_mismatch'
-                                                                            ? 'bg-slate-50 text-slate-600 border-slate-200/80'
-                                                                            : 'bg-blue-50 text-blue-700 border-blue-100/80'
+                                                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-100/80'
+                                                                    : row.review.review_status === 'not_a_mismatch'
+                                                                        ? 'bg-slate-50 text-slate-600 border-slate-200/80'
+                                                                        : 'bg-blue-50 text-blue-700 border-blue-100/80'
                                                                     }`}>
                                                                     <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${row.review.review_status === 'review_done'
-                                                                            ? 'bg-emerald-500'
-                                                                            : row.review.review_status === 'not_a_mismatch'
-                                                                                ? 'bg-slate-400'
-                                                                                : 'bg-blue-500'
+                                                                        ? 'bg-emerald-500'
+                                                                        : row.review.review_status === 'not_a_mismatch'
+                                                                            ? 'bg-slate-400'
+                                                                            : 'bg-blue-500'
                                                                         }`} />
                                                                     {row.review.review_status.replace(/_/g, ' ')}
                                                                 </span>
@@ -966,34 +1305,28 @@ function ReconciliationNew() {
                                     <svg className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
                                         <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                                     </svg>
-                                    Status updated successfully!
+                                    {reviewModal.success}
                                 </div>
                             )}
+
                         </div>
 
                         {/* Modal Footer */}
-                        <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/40 flex items-center justify-end gap-2">
+                        <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-2">
                             <button
+                                type="button"
                                 onClick={closeReviewModal}
-                                disabled={reviewModal.submitting}
-                                className="px-4 py-2 text-xs font-semibold text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-all disabled:opacity-50"
+                                className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-all"
                             >
                                 Cancel
                             </button>
                             <button
+                                type="button"
                                 onClick={handleReviewSubmit}
-                                disabled={reviewModal.submitting || reviewModal.success}
-                                className="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-all shadow-sm shadow-indigo-600/20 disabled:opacity-60 flex items-center gap-1.5"
+                                disabled={reviewModal.submitting || !reviewForm.track_status}
+                                className="px-4 py-2 text-sm font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
                             >
-                                {reviewModal.submitting ? (
-                                    <>
-                                        <svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24">
-                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                                        </svg>
-                                        Saving…
-                                    </>
-                                ) : 'Save Review'}
+                                {reviewModal.submitting ? 'Saving…' : 'Save Review'}
                             </button>
                         </div>
                     </div>
