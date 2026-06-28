@@ -118,13 +118,9 @@ function ReconciliationNew() {
         fetch(`${API_BASE}/reconciliation/transactions?page=1`)
             .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
             .then(json => {
-                // Discover and pre-select all available parameter filters.
+                // Discover available parameter filters (but do NOT pre-select any).
                 if (json.filters?.parameter?.length) {
-                    const allParams = json.filters.parameter;
-                    setAvailableParams(allParams);
-                    // Tell the main effect to skip the re-trigger caused by this setState.
-                    skipNextRef.current = true;
-                    setSelectedParams([...allParams]);
+                    setAvailableParams(json.filters.parameter);
                 }
 
                 // Use this response as the initial data.
@@ -971,6 +967,18 @@ function ReconciliationNew() {
                                                                 </svg>
                                                                 Review
                                                             </button>
+                                                            {row.skyslope_url && (
+                                                                <button
+                                                                    onClick={(e) => { e.stopPropagation(); window.open(row.skyslope_url, '_blank', 'noopener,noreferrer'); }}
+                                                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-semibold bg-sky-50 text-sky-700 border border-sky-200 shadow-sm hover:bg-sky-100 hover:text-sky-800 transition-all select-none whitespace-nowrap"
+                                                                    title="Open in SkySlope"
+                                                                >
+                                                                    <svg className="h-3 w-3 mr-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                                                    </svg>
+                                                                    SkySlope
+                                                                </button>
+                                                            )}
                                                             {/* Chevron expand indicator */}
                                                             <span className={`text-slate-400 transition-transform duration-200 ml-1 shrink-0 ${isExpanded ? 'rotate-180' : ''}`}>
                                                                 <svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
