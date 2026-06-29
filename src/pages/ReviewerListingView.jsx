@@ -24,13 +24,43 @@ function ReviewerListingView() {
     const [searchQuery, setSearchQuery] = useState('');
 
     // Filters — all multi-select (arrays), except date range
-    const [dateFrom, setDateFrom] = useState('');
-    const [dateTo, setDateTo] = useState('');
-    const [stateFilter, setStateFilter] = useState([]);
-    const [ssStatusFilter, setSsStatusFilter] = useState([]);
-    const [reviewerFilter, setReviewerFilter] = useState([]);
-    const [stageFilter, setStageFilter] = useState([]);
-    const [typeOfSaleFilter, setTypeOfSaleFilter] = useState([]);
+    const [dateFrom, setDateFrom] = useState(() => sessionStorage.getItem('reviewer_filter_dateFrom') || '');
+    const [dateTo, setDateTo] = useState(() => sessionStorage.getItem('reviewer_filter_dateTo') || '');
+    const [stateFilter, setStateFilter] = useState(() => {
+        try {
+            return JSON.parse(sessionStorage.getItem('reviewer_filter_state')) || [];
+        } catch {
+            return [];
+        }
+    });
+    const [ssStatusFilter, setSsStatusFilter] = useState(() => {
+        try {
+            return JSON.parse(sessionStorage.getItem('reviewer_filter_ssStatus')) || [];
+        } catch {
+            return [];
+        }
+    });
+    const [reviewerFilter, setReviewerFilter] = useState(() => {
+        try {
+            return JSON.parse(sessionStorage.getItem('reviewer_filter_reviewer')) || [];
+        } catch {
+            return [];
+        }
+    });
+    const [stageFilter, setStageFilter] = useState(() => {
+        try {
+            return JSON.parse(sessionStorage.getItem('reviewer_filter_stage')) || [];
+        } catch {
+            return [];
+        }
+    });
+    const [typeOfSaleFilter, setTypeOfSaleFilter] = useState(() => {
+        try {
+            return JSON.parse(sessionStorage.getItem('reviewer_filter_typeOfSale')) || [];
+        } catch {
+            return [];
+        }
+    });
 
     // Stored filter dropdown options loaded from API
     const [availableFilters, setAvailableFilters] = useState(null);
@@ -114,6 +144,17 @@ function ReviewerListingView() {
             active = false;
         };
     }, [page, dateFrom, dateTo, stateFilter, ssStatusFilter, reviewerFilter, stageFilter, typeOfSaleFilter, searchQuery]);
+
+    // Save filters to sessionStorage when they change
+    useEffect(() => {
+        sessionStorage.setItem('reviewer_filter_dateFrom', dateFrom);
+        sessionStorage.setItem('reviewer_filter_dateTo', dateTo);
+        sessionStorage.setItem('reviewer_filter_state', JSON.stringify(stateFilter));
+        sessionStorage.setItem('reviewer_filter_ssStatus', JSON.stringify(ssStatusFilter));
+        sessionStorage.setItem('reviewer_filter_reviewer', JSON.stringify(reviewerFilter));
+        sessionStorage.setItem('reviewer_filter_stage', JSON.stringify(stageFilter));
+        sessionStorage.setItem('reviewer_filter_typeOfSale', JSON.stringify(typeOfSaleFilter));
+    }, [dateFrom, dateTo, stateFilter, ssStatusFilter, reviewerFilter, stageFilter, typeOfSaleFilter]);
 
     // Parse options for the MultiSelects, fallback to empty arrays before load
     const filterOptions = useMemo(() => {

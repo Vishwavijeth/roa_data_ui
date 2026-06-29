@@ -22,13 +22,43 @@ function ReviewerDashboardView() {
         }
         return '';
     });
-    const [dateFrom, setDateFrom] = useState('');
-    const [dateTo, setDateTo] = useState('');
-    const [stateFilter, setStateFilter] = useState([]);
-    const [ssStatusFilter, setSsStatusFilter] = useState([]);
-    const [reviewerFilter, setReviewerFilter] = useState([]);
-    const [stageFilter, setStageFilter] = useState([]);
-    const [typeOfSaleFilter, setTypeOfSaleFilter] = useState([]);
+    const [dateFrom, setDateFrom] = useState(() => sessionStorage.getItem('reviewer_filter_dateFrom') || '');
+    const [dateTo, setDateTo] = useState(() => sessionStorage.getItem('reviewer_filter_dateTo') || '');
+    const [stateFilter, setStateFilter] = useState(() => {
+        try {
+            return JSON.parse(sessionStorage.getItem('reviewer_filter_state')) || [];
+        } catch {
+            return [];
+        }
+    });
+    const [ssStatusFilter, setSsStatusFilter] = useState(() => {
+        try {
+            return JSON.parse(sessionStorage.getItem('reviewer_filter_ssStatus')) || [];
+        } catch {
+            return [];
+        }
+    });
+    const [reviewerFilter, setReviewerFilter] = useState(() => {
+        try {
+            return JSON.parse(sessionStorage.getItem('reviewer_filter_reviewer')) || [];
+        } catch {
+            return [];
+        }
+    });
+    const [stageFilter, setStageFilter] = useState(() => {
+        try {
+            return JSON.parse(sessionStorage.getItem('reviewer_filter_stage')) || [];
+        } catch {
+            return [];
+        }
+    });
+    const [typeOfSaleFilter, setTypeOfSaleFilter] = useState(() => {
+        try {
+            return JSON.parse(sessionStorage.getItem('reviewer_filter_typeOfSale')) || [];
+        } catch {
+            return [];
+        }
+    });
 
     // Stored filter dropdown options loaded from API
     const [availableFilters, setAvailableFilters] = useState(null);
@@ -93,6 +123,17 @@ function ReviewerDashboardView() {
                 setLoading(false);
             })
             .catch(err => { console.error(err); setError(err.message); setLoading(false); });
+    }, [dateFrom, dateTo, stateFilter, ssStatusFilter, reviewerFilter, stageFilter, typeOfSaleFilter]);
+
+    // Save filters to sessionStorage when they change
+    useEffect(() => {
+        sessionStorage.setItem('reviewer_filter_dateFrom', dateFrom);
+        sessionStorage.setItem('reviewer_filter_dateTo', dateTo);
+        sessionStorage.setItem('reviewer_filter_state', JSON.stringify(stateFilter));
+        sessionStorage.setItem('reviewer_filter_ssStatus', JSON.stringify(ssStatusFilter));
+        sessionStorage.setItem('reviewer_filter_reviewer', JSON.stringify(reviewerFilter));
+        sessionStorage.setItem('reviewer_filter_stage', JSON.stringify(stageFilter));
+        sessionStorage.setItem('reviewer_filter_typeOfSale', JSON.stringify(typeOfSaleFilter));
     }, [dateFrom, dateTo, stateFilter, ssStatusFilter, reviewerFilter, stageFilter, typeOfSaleFilter]);
 
     // Parse options for the MultiSelects, fallback to empty arrays before load
@@ -351,7 +392,6 @@ function ReviewerDashboardView() {
                                     <TableHead className="text-center w-24">Incomplete</TableHead>
                                     <TableHead className="text-center w-28">Pre-Contract</TableHead>
                                     <TableHead className="text-center w-24 font-bold text-slate-900">Total</TableHead>
-                                    <TableHead className="min-w-[180px]">Distribution</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -365,17 +405,14 @@ function ReviewerDashboardView() {
                                     const incomplete = row.transactions_incomplete || 0;
                                     const preContract = row.transactions_pre_contract || 0;
 
-                                    const denom = total || 1;
-                                    const pendingPct = (pending / denom * 100).toFixed(1);
-                                    const closedPct = (closed / denom * 100).toFixed(1);
-                                    const canceledPct = (canceled / denom * 100).toFixed(1);
-                                    const archivedPct = (archived / denom * 100).toFixed(1);
-                                    const expiredPct = (expired / denom * 100).toFixed(1);
-                                    const incompletePct = (incomplete / denom * 100).toFixed(1);
-                                    const preContractPct = (preContract / denom * 100).toFixed(1);
-
                                     return (
-                                        <TableRow key={i} className="hover:bg-slate-50/55 transition-colors">
+                                        <TableRow 
+                                            key={i} 
+                                            className="hover:bg-slate-50/55 transition-colors cursor-pointer"
+                                            onClick={() => {
+                                                window.location.hash = '#reviewer';
+                                            }}
+                                        >
                                             <TableCell className="text-center font-mono text-xs text-slate-400 sticky left-0 z-10 bg-white">{i + 1}</TableCell>
                                             <TableCell className="font-semibold text-slate-800 text-xs py-3 sticky left-12 z-10 bg-white shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]">{row.reviewer_full_name || '-'}</TableCell>
                                             
@@ -422,72 +459,12 @@ function ReviewerDashboardView() {
                                             <TableCell className="text-center font-bold text-slate-900 text-xs">
                                                 {total}
                                             </TableCell>
-                                            
-                                            {/* Distribution Bar */}
-                                            <TableCell className="py-3">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="flex h-5 rounded-md overflow-hidden flex-1 min-w-[150px] bg-slate-100 shadow-inner">
-                                                        {pending > 0 && (
-                                                            <div 
-                                                                style={{ width: `${pendingPct}%` }} 
-                                                                className="bg-amber-500 transition-all duration-500 ease-out shrink-0"
-                                                                title={`Outstanding (Pending): ${pending} (${pendingPct}%)`} 
-                                                            />
-                                                        )}
-                                                        {closed > 0 && (
-                                                            <div 
-                                                                style={{ width: `${closedPct}%` }} 
-                                                                className="bg-emerald-500 transition-all duration-500 ease-out shrink-0"
-                                                                title={`Closed: ${closed} (${closedPct}%)`} 
-                                                            />
-                                                        )}
-                                                        {canceled > 0 && (
-                                                            <div 
-                                                                style={{ width: `${canceledPct}%` }} 
-                                                                className="bg-slate-400 transition-all duration-500 ease-out shrink-0"
-                                                                title={`Cancelled: ${canceled} (${canceledPct}%)`} 
-                                                            />
-                                                        )}
-                                                        {archived > 0 && (
-                                                            <div 
-                                                                style={{ width: `${archivedPct}%` }} 
-                                                                className="bg-slate-600 transition-all duration-500 ease-out shrink-0"
-                                                                title={`Archived: ${archived} (${archivedPct}%)`} 
-                                                            />
-                                                        )}
-                                                        {expired > 0 && (
-                                                            <div 
-                                                                style={{ width: `${expiredPct}%` }} 
-                                                                className="bg-amber-600/70 transition-all duration-500 ease-out shrink-0"
-                                                                title={`Expired: ${expired} (${expiredPct}%)`} 
-                                                            />
-                                                        )}
-                                                        {incomplete > 0 && (
-                                                            <div 
-                                                                style={{ width: `${incompletePct}%` }} 
-                                                                className="bg-orange-500 transition-all duration-500 ease-out shrink-0"
-                                                                title={`Incomplete: ${incomplete} (${incompletePct}%)`} 
-                                                            />
-                                                        )}
-                                                        {preContract > 0 && (
-                                                            <div 
-                                                                style={{ width: `${preContractPct}%` }} 
-                                                                className="bg-teal-500 transition-all duration-500 ease-out shrink-0"
-                                                                title={`Pre-Contract: ${preContract} (${preContractPct}%)`} 
-                                                            />
-                                                        )}
-                                                    </div>
-                                                    <span className="text-[10px] text-slate-400 font-bold whitespace-nowrap shrink-0">
-                                                        {((closed / denom) * 100).toFixed(0)}% closed
-                                                    </span>
-                                                </div>
-                                            </TableCell>
                                         </TableRow>
                                     );
                                 })}
                                 {filteredData.length === 0 && (
                                     <TableRow>
-                                        <TableCell colSpan={11} className="text-center text-slate-400 py-10 font-medium">
+                                        <TableCell colSpan={10} className="text-center text-slate-400 py-10 font-medium">
                                             No data available
                                         </TableCell>
                                     </TableRow>
