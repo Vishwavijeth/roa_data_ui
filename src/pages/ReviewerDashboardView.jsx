@@ -22,39 +22,39 @@ function ReviewerDashboardView() {
         }
         return '';
     });
-    const [dateFrom, setDateFrom] = useState(() => sessionStorage.getItem('reviewer_filter_dateFrom') || '');
-    const [dateTo, setDateTo] = useState(() => sessionStorage.getItem('reviewer_filter_dateTo') || '');
+    const [dateFrom, setDateFrom] = useState(() => sessionStorage.getItem('reviewer_dash_filter_dateFrom') || '');
+    const [dateTo, setDateTo] = useState(() => sessionStorage.getItem('reviewer_dash_filter_dateTo') || '');
     const [stateFilter, setStateFilter] = useState(() => {
         try {
-            return JSON.parse(sessionStorage.getItem('reviewer_filter_state')) || [];
+            return JSON.parse(sessionStorage.getItem('reviewer_dash_filter_state')) || [];
         } catch {
             return [];
         }
     });
     const [ssStatusFilter, setSsStatusFilter] = useState(() => {
         try {
-            return JSON.parse(sessionStorage.getItem('reviewer_filter_ssStatus')) || [];
+            return JSON.parse(sessionStorage.getItem('reviewer_dash_filter_ssStatus')) || [];
         } catch {
             return [];
         }
     });
     const [reviewerFilter, setReviewerFilter] = useState(() => {
         try {
-            return JSON.parse(sessionStorage.getItem('reviewer_filter_reviewer')) || [];
+            return JSON.parse(sessionStorage.getItem('reviewer_dash_filter_reviewer')) || [];
         } catch {
             return [];
         }
     });
     const [stageFilter, setStageFilter] = useState(() => {
         try {
-            return JSON.parse(sessionStorage.getItem('reviewer_filter_stage')) || [];
+            return JSON.parse(sessionStorage.getItem('reviewer_dash_filter_stage')) || [];
         } catch {
             return [];
         }
     });
     const [typeOfSaleFilter, setTypeOfSaleFilter] = useState(() => {
         try {
-            return JSON.parse(sessionStorage.getItem('reviewer_filter_typeOfSale')) || [];
+            return JSON.parse(sessionStorage.getItem('reviewer_dash_filter_typeOfSale')) || [];
         } catch {
             return [];
         }
@@ -127,13 +127,13 @@ function ReviewerDashboardView() {
 
     // Save filters to sessionStorage when they change
     useEffect(() => {
-        sessionStorage.setItem('reviewer_filter_dateFrom', dateFrom);
-        sessionStorage.setItem('reviewer_filter_dateTo', dateTo);
-        sessionStorage.setItem('reviewer_filter_state', JSON.stringify(stateFilter));
-        sessionStorage.setItem('reviewer_filter_ssStatus', JSON.stringify(ssStatusFilter));
-        sessionStorage.setItem('reviewer_filter_reviewer', JSON.stringify(reviewerFilter));
-        sessionStorage.setItem('reviewer_filter_stage', JSON.stringify(stageFilter));
-        sessionStorage.setItem('reviewer_filter_typeOfSale', JSON.stringify(typeOfSaleFilter));
+        sessionStorage.setItem('reviewer_dash_filter_dateFrom', dateFrom);
+        sessionStorage.setItem('reviewer_dash_filter_dateTo', dateTo);
+        sessionStorage.setItem('reviewer_dash_filter_state', JSON.stringify(stateFilter));
+        sessionStorage.setItem('reviewer_dash_filter_ssStatus', JSON.stringify(ssStatusFilter));
+        sessionStorage.setItem('reviewer_dash_filter_reviewer', JSON.stringify(reviewerFilter));
+        sessionStorage.setItem('reviewer_dash_filter_stage', JSON.stringify(stageFilter));
+        sessionStorage.setItem('reviewer_dash_filter_typeOfSale', JSON.stringify(typeOfSaleFilter));
     }, [dateFrom, dateTo, stateFilter, ssStatusFilter, reviewerFilter, stageFilter, typeOfSaleFilter]);
 
     // Parse options for the MultiSelects, fallback to empty arrays before load
@@ -184,6 +184,29 @@ function ReviewerDashboardView() {
         setStageFilter([]);
         setTypeOfSaleFilter([]);
         setSearchQuery('');
+    };
+
+    const handleRowClick = (reviewerName, specificStatus = undefined) => {
+        // Carry over current dashboard filters to listing keys in sessionStorage
+        sessionStorage.setItem('reviewer_filter_dateFrom', dateFrom);
+        sessionStorage.setItem('reviewer_filter_dateTo', dateTo);
+        sessionStorage.setItem('reviewer_filter_state', JSON.stringify(stateFilter));
+        sessionStorage.setItem('reviewer_filter_stage', JSON.stringify(stageFilter));
+        sessionStorage.setItem('reviewer_filter_typeOfSale', JSON.stringify(typeOfSaleFilter));
+
+        if (reviewerName) {
+            sessionStorage.setItem('reviewer_filter_reviewer', JSON.stringify([reviewerName]));
+        }
+        
+        if (specificStatus === 'clear') {
+            sessionStorage.setItem('reviewer_filter_ssStatus', JSON.stringify([]));
+        } else if (specificStatus) {
+            sessionStorage.setItem('reviewer_filter_ssStatus', JSON.stringify([specificStatus]));
+        } else {
+            sessionStorage.setItem('reviewer_filter_ssStatus', JSON.stringify(ssStatusFilter));
+        }
+        
+        window.location.hash = '#reviewer';
     };
 
     return (
@@ -409,54 +432,76 @@ function ReviewerDashboardView() {
                                         <TableRow 
                                             key={i} 
                                             className="hover:bg-slate-50/55 transition-colors cursor-pointer"
-                                            onClick={() => {
-                                                window.location.hash = '#reviewer';
-                                            }}
+                                            onClick={() => handleRowClick(row.reviewer_full_name)}
                                         >
                                             <TableCell className="text-center font-mono text-xs text-slate-400 sticky left-0 z-10 bg-white">{i + 1}</TableCell>
                                             <TableCell className="font-semibold text-slate-800 text-xs py-3 sticky left-12 z-10 bg-white shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]">{row.reviewer_full_name || '-'}</TableCell>
                                             
                                             {/* Outstanding (Pending) */}
-                                            <TableCell className="text-center">
-                                                <Badge variant="warning" className="w-10 justify-center rounded font-bold text-xs">
+                                            <TableCell 
+                                                className="text-center"
+                                                onClick={(e) => { e.stopPropagation(); handleRowClick(row.reviewer_full_name, 'Pending'); }}
+                                            >
+                                                <Badge variant="warning" className="w-10 justify-center rounded font-bold text-xs cursor-pointer">
                                                     {pending}
                                                 </Badge>
                                             </TableCell>
                                             
                                             {/* Closed */}
-                                            <TableCell className="text-center">
-                                                <Badge variant="success" className="w-10 justify-center rounded font-bold text-xs">
+                                            <TableCell 
+                                                className="text-center"
+                                                onClick={(e) => { e.stopPropagation(); handleRowClick(row.reviewer_full_name, 'Closed'); }}
+                                            >
+                                                <Badge variant="success" className="w-10 justify-center rounded font-bold text-xs cursor-pointer">
                                                     {closed}
                                                 </Badge>
                                             </TableCell>
                                             
                                             {/* Cancelled */}
-                                            <TableCell className="text-center font-semibold text-slate-600 text-xs">
+                                            <TableCell 
+                                                className="text-center font-semibold text-slate-600 text-xs cursor-pointer"
+                                                onClick={(e) => { e.stopPropagation(); handleRowClick(row.reviewer_full_name, 'Cancelled'); }}
+                                            >
                                                 {canceled}
                                             </TableCell>
                                             
                                             {/* Archived */}
-                                            <TableCell className="text-center font-semibold text-slate-600 text-xs">
+                                            <TableCell 
+                                                className="text-center font-semibold text-slate-600 text-xs cursor-pointer"
+                                                onClick={(e) => { e.stopPropagation(); handleRowClick(row.reviewer_full_name, 'Archived'); }}
+                                            >
                                                 {archived}
                                             </TableCell>
                                             
                                             {/* Expired */}
-                                            <TableCell className="text-center font-medium text-slate-500 text-xs">
+                                            <TableCell 
+                                                className="text-center font-medium text-slate-500 text-xs cursor-pointer"
+                                                onClick={(e) => { e.stopPropagation(); handleRowClick(row.reviewer_full_name, 'Expired'); }}
+                                            >
                                                 {expired}
                                             </TableCell>
                                             
                                             {/* Incomplete */}
-                                            <TableCell className="text-center font-medium text-slate-500 text-xs">
+                                            <TableCell 
+                                                className="text-center font-medium text-slate-500 text-xs cursor-pointer"
+                                                onClick={(e) => { e.stopPropagation(); handleRowClick(row.reviewer_full_name, 'Incomplete'); }}
+                                            >
                                                 {incomplete}
                                             </TableCell>
                                             
                                             {/* Pre-Contract */}
-                                            <TableCell className="text-center font-medium text-slate-500 text-xs">
+                                            <TableCell 
+                                                className="text-center font-medium text-slate-500 text-xs cursor-pointer"
+                                                onClick={(e) => { e.stopPropagation(); handleRowClick(row.reviewer_full_name, 'Pre-Contract'); }}
+                                            >
                                                 {preContract}
                                             </TableCell>
                                             
                                             {/* Total */}
-                                            <TableCell className="text-center font-bold text-slate-900 text-xs">
+                                            <TableCell 
+                                                className="text-center font-bold text-slate-900 text-xs cursor-pointer"
+                                                onClick={(e) => { e.stopPropagation(); handleRowClick(row.reviewer_full_name, 'clear'); }}
+                                            >
                                                 {total}
                                             </TableCell>
                                         </TableRow>

@@ -7,6 +7,7 @@ import { Button } from '../components/ui/Button';
 import MultiSelect from '../components/shared/MultiSelect';
 import DateFilterInput from '../components/shared/DateFilterInput';
 import SectionedDetailView from '../components/shared/SectionedDetailView';
+import ReconciliationAnalytics from './ReconciliationAnalytics';
 import {
     Table,
     TableHeader,
@@ -26,6 +27,7 @@ function ReconciliationNew() {
     //                  so the main effect ignores that one triggered re-run.
     const bootstrappedRef = React.useRef(false);
     const skipNextRef = React.useRef(false);
+    const [activeSubTab, setActiveSubTab] = useState('transactions');
     // ── Metrics ──────────────────────────────────────────────────────────────
     const [metrics, setMetrics] = useState(null);
     const [metricsLoading, setMetricsLoading] = useState(true);
@@ -372,18 +374,48 @@ function ReconciliationNew() {
             <div className="p-8 max-w-7xl mx-auto w-full space-y-8">
 
                 {/* ── Page Header ─────────────────────────────────────────── */}
-                <div className="border-b border-slate-200 pb-5">
-                    <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-                        Reconciliation Transactions
-                    </h1>
-                    <p className="text-sm text-slate-500 mt-1">
-                        All transactions with Brokerage Engine and SkySlope parameter comparison.
-                        Click any row to see the full parameter breakdown.
-                    </p>
+                <div className="border-b border-slate-200 pb-5 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+                    <div>
+                        <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+                            Reconciliation Transactions
+                        </h1>
+                        <p className="text-sm text-slate-500 mt-1">
+                            All transactions with Brokerage Engine and SkySlope parameter comparison.
+                            Click any row to see the full parameter breakdown.
+                        </p>
+                    </div>
+
+                    {/* Secondary Navigation Sub-Tabs */}
+                    <div className="flex border-b border-slate-200 shrink-0">
+                        <button
+                            onClick={() => setActiveSubTab('transactions')}
+                            className={`py-2 px-4 text-xs font-bold border-b-2 transition-all leading-none ${
+                                activeSubTab === 'transactions'
+                                    ? 'border-indigo-600 text-indigo-600 font-bold'
+                                    : 'border-transparent text-slate-400 hover:text-slate-600 hover:border-slate-300'
+                            }`}
+                        >
+                            Transactions
+                        </button>
+                        <button
+                            onClick={() => setActiveSubTab('analytics')}
+                            className={`py-2 px-4 text-xs font-bold border-b-2 transition-all leading-none ${
+                                activeSubTab === 'analytics'
+                                    ? 'border-indigo-600 text-indigo-600 font-bold'
+                                    : 'border-transparent text-slate-400 hover:text-slate-600 hover:border-slate-300'
+                            }`}
+                        >
+                            Analytics
+                        </button>
+                    </div>
                 </div>
 
-                {/* ── Metrics Cards ────────────────────────────────────────── */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                {activeSubTab === 'analytics' ? (
+                    <ReconciliationAnalytics />
+                ) : (
+                    <>
+                        {/* ── Metrics Cards ────────────────────────────────────────── */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
                     <Card className="hover:border-slate-300 transition-all select-none">
                         <CardContent className="pt-6">
                             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Total Records</span>
@@ -1100,6 +1132,8 @@ function ReconciliationNew() {
                         </>
                     )}
                 </Card>
+                    </>
+                )}
             </div>
 
             {/* ── SkySlope / Detail Modal ─────────────────────────────────── */}
