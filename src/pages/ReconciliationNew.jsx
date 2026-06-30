@@ -58,6 +58,10 @@ function ReconciliationNew({ syncingData, syncProgress, syncResult, handleSyncDa
     const [closeDateTo, setCloseDateTo] = useState('');
     const [selectedStatuses, setSelectedStatuses] = useState([]);
     const [availableStatuses, setAvailableStatuses] = useState([]);
+    const [selectedSpecialists, setSelectedSpecialists] = useState([]);
+    const [availableSpecialists, setAvailableSpecialists] = useState([]);
+    const [selectedReviewers, setSelectedReviewers] = useState([]);
+    const [availableReviewers, setAvailableReviewers] = useState([]);
     const [filterSaleNoSkyslope, setFilterSaleNoSkyslope] = useState(false);
     const [filterOtherNoSkyslope, setFilterOtherNoSkyslope] = useState(false);
     const [selectedReviewStatuses, setSelectedReviewStatuses] = useState([]);
@@ -112,6 +116,14 @@ function ReconciliationNew({ syncingData, syncProgress, syncResult, handleSyncDa
                 // Populate status filter options from transactions filters key
                 if (json.filters?.status?.length) {
                     setAvailableStatuses(json.filters.status);
+                }
+
+                if (json.filters?.specialist?.length) {
+                    setAvailableSpecialists(json.filters.specialist);
+                }
+
+                if (json.filters?.reviewer?.length) {
+                    setAvailableReviewers(json.filters.reviewer);
                 }
 
                 // Set metrics summary from summary key
@@ -169,6 +181,12 @@ function ReconciliationNew({ syncingData, syncProgress, syncResult, handleSyncDa
         if (selectedStatuses.length > 0) {
             selectedStatuses.forEach(s => params.append('status', s));
         }
+        if (selectedSpecialists.length > 0) {
+            selectedSpecialists.forEach(s => params.append('specialist', s));
+        }
+        if (selectedReviewers.length > 0) {
+            selectedReviewers.forEach(r => params.append('reviewer', r));
+        }
         if (filterSaleNoSkyslope) params.set('saleincome_no_skyslopefileid', 'true');
         if (filterOtherNoSkyslope) params.set('otherincome_no_skyslopefileid', 'true');
         if (selectedReviewStatuses.length > 0) {
@@ -181,6 +199,12 @@ function ReconciliationNew({ syncingData, syncProgress, syncResult, handleSyncDa
                 // Populate status filter options from transactions filters key
                 if (json.filters?.status?.length) {
                     setAvailableStatuses(json.filters.status);
+                }
+                if (json.filters?.specialist?.length) {
+                    setAvailableSpecialists(json.filters.specialist);
+                }
+                if (json.filters?.reviewer?.length) {
+                    setAvailableReviewers(json.filters.reviewer);
                 }
 
                 // Set metrics summary from summary key
@@ -198,7 +222,7 @@ function ReconciliationNew({ syncingData, syncProgress, syncResult, handleSyncDa
                 setLoading(false);
             });
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [page, debouncedSearch, selectedParams, sourceTableFilter, closeDateFrom, closeDateTo, selectedStatuses, filterSaleNoSkyslope, filterOtherNoSkyslope, selectedReviewStatuses, refreshTrigger]);
+    }, [page, debouncedSearch, selectedParams, sourceTableFilter, closeDateFrom, closeDateTo, selectedStatuses, selectedSpecialists, selectedReviewers, filterSaleNoSkyslope, filterOtherNoSkyslope, selectedReviewStatuses, refreshTrigger]);
 
     // ─────────────────────────────────────────────────────────────────────────
     // Inline row expansion – fetch /reconciliation/transaction/:id
@@ -372,7 +396,7 @@ function ReconciliationNew({ syncingData, syncProgress, syncResult, handleSyncDa
         }
     };
 
-    const hasAdvancedFilters = closeDateFrom || closeDateTo || selectedStatuses.length > 0 || filterSaleNoSkyslope || filterOtherNoSkyslope || selectedReviewStatuses.length > 0;
+    const hasAdvancedFilters = closeDateFrom || closeDateTo || selectedStatuses.length > 0 || selectedSpecialists.length > 0 || selectedReviewers.length > 0 || filterSaleNoSkyslope || filterOtherNoSkyslope || selectedReviewStatuses.length > 0;
     const hasActiveFilters = selectedParams.length > 0 || searchQuery || sourceTableFilter || hasAdvancedFilters;
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -503,7 +527,35 @@ function ReconciliationNew({ syncingData, syncProgress, syncResult, handleSyncDa
                 )}
 
                 {activeSubTab === 'analytics' ? (
-                    <ReconciliationAnalytics />
+                    <ReconciliationAnalytics
+                        fromCloseDate={closeDateFrom}
+                        setFromCloseDate={setCloseDateFrom}
+                        toCloseDate={closeDateTo}
+                        setToCloseDate={setCloseDateTo}
+                        transactionSpecialist={selectedSpecialists.length > 0 ? selectedSpecialists[0] : ''}
+                        setTransactionSpecialist={val => setSelectedSpecialists(val ? [val] : [])}
+                        reviewer={selectedReviewers.length > 0 ? selectedReviewers[0] : ''}
+                        setReviewer={val => setSelectedReviewers(val ? [val] : [])}
+                        onSeeTransactions={(paramName) => {
+                            const paramMap = {
+                                gross_commission: 'Gross Commission',
+                                close_date: 'Close Date',
+                                status: 'Status',
+                                sale_price: 'Sale Price',
+                                listing_price: 'Listing Price',
+                                buyer_name: 'Buyer Name',
+                                seller_name: 'Seller Name',
+                                buying_agent_name: 'Buying Agent Name',
+                                title_company: 'Title Company'
+                            };
+                            const humanLabel = paramMap[paramName];
+                            if (humanLabel) {
+                                setSelectedParams([humanLabel]);
+                            }
+                            setPage(1);
+                            setActiveSubTab('transactions');
+                        }}
+                    />
                 ) : (
                     <>
                         {/* ── Metrics Cards ────────────────────────────────────────── */}
@@ -569,6 +621,8 @@ function ReconciliationNew({ syncingData, syncProgress, syncResult, handleSyncDa
                                             setCloseDateFrom('');
                                             setCloseDateTo('');
                                             setSelectedStatuses([]);
+                                            setSelectedSpecialists([]);
+                                            setSelectedReviewers([]);
                                             setFilterSaleNoSkyslope(false);
                                             setFilterOtherNoSkyslope(false);
                                             setPage(1);
@@ -592,7 +646,7 @@ function ReconciliationNew({ syncingData, syncProgress, syncResult, handleSyncDa
                                     Advanced Filters
                                     {hasAdvancedFilters && (
                                         <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-indigo-600 text-white text-[9px] font-bold ml-0.5">
-                                            {[closeDateFrom || closeDateTo ? 1 : 0, selectedStatuses.length > 0 ? 1 : 0, filterSaleNoSkyslope ? 1 : 0, filterOtherNoSkyslope ? 1 : 0].filter(Boolean).length}
+                                            {[closeDateFrom || closeDateTo ? 1 : 0, selectedStatuses.length > 0 ? 1 : 0, selectedSpecialists.length > 0 ? 1 : 0, selectedReviewers.length > 0 ? 1 : 0, filterSaleNoSkyslope ? 1 : 0, filterOtherNoSkyslope ? 1 : 0].filter(Boolean).length}
                                         </span>
                                     )}
                                     <svg className={`h-3 w-3 ml-0.5 transition-transform ${showAdvancedFilters ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
@@ -672,7 +726,7 @@ function ReconciliationNew({ syncingData, syncProgress, syncResult, handleSyncDa
                                         <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Advanced Filters</span>
                                     </div>
 
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
 
                                         {/* Close Date From */}
                                         <div className="space-y-1.5">
@@ -715,8 +769,38 @@ function ReconciliationNew({ syncingData, syncProgress, syncResult, handleSyncDa
                                             />
                                         </div>
 
+                                        {/* Specialist Multi-Select */}
+                                        <div className="space-y-1.5">
+                                            <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+                                                Specialist
+                                            </label>
+                                            <MultiSelect
+                                                id="adv-specialist-filter"
+                                                options={availableSpecialists}
+                                                selected={selectedSpecialists}
+                                                onChange={vals => { setSelectedSpecialists(vals); setPage(1); }}
+                                                placeholder={availableSpecialists.length === 0 ? 'Loading…' : 'All specialists'}
+                                                allLabel="All specialists"
+                                            />
+                                        </div>
+
+                                        {/* Reviewer Multi-Select */}
+                                        <div className="space-y-1.5">
+                                            <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+                                                Reviewer
+                                            </label>
+                                            <MultiSelect
+                                                id="adv-reviewer-filter"
+                                                options={availableReviewers}
+                                                selected={selectedReviewers}
+                                                onChange={vals => { setSelectedReviewers(vals); setPage(1); }}
+                                                placeholder={availableReviewers.length === 0 ? 'Loading…' : 'All reviewers'}
+                                                allLabel="All reviewers"
+                                            />
+                                        </div>
+
                                         {/* No SkySlope File ID + Review Status — single full-width row */}
-                                        <div className="space-y-1.5 sm:col-span-2 lg:col-span-4">
+                                        <div className="space-y-1.5 sm:col-span-2 lg:col-span-5">
                                             <div className="flex items-center gap-6">
 
                                                 {/* No SkySlope File ID */}
@@ -860,6 +944,22 @@ function ReconciliationNew({ syncingData, syncProgress, syncResult, handleSyncDa
                                                     </button>
                                                 </span>
                                             )}
+                                            {selectedSpecialists.map(s => (
+                                                <span key={s} className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-orange-50 text-orange-700 border border-orange-200">
+                                                    Specialist: {s}
+                                                    <button className="ml-0.5 text-orange-400 hover:text-red-500 transition-colors" onClick={() => { setSelectedSpecialists(prev => prev.filter(v => v !== s)); setPage(1); }}>
+                                                        <svg className="h-2.5 w-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                                                    </button>
+                                                </span>
+                                            ))}
+                                            {selectedReviewers.map(r => (
+                                                <span key={r} className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-teal-50 text-teal-700 border border-teal-200">
+                                                    Reviewer: {r}
+                                                    <button className="ml-0.5 text-teal-400 hover:text-red-500 transition-colors" onClick={() => { setSelectedReviewers(prev => prev.filter(v => v !== r)); setPage(1); }}>
+                                                        <svg className="h-2.5 w-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                                                    </button>
+                                                </span>
+                                            ))}
                                             {selectedReviewStatuses.map(s => {
                                                 const labels = { in_review: 'In Review', review_done: 'Review Done', not_a_mismatch: 'Not a Mismatch' };
                                                 return (
@@ -877,6 +977,8 @@ function ReconciliationNew({ syncingData, syncProgress, syncResult, handleSyncDa
                                                     setCloseDateFrom('');
                                                     setCloseDateTo('');
                                                     setSelectedStatuses([]);
+                                                    setSelectedSpecialists([]);
+                                                    setSelectedReviewers([]);
                                                     setFilterSaleNoSkyslope(false);
                                                     setFilterOtherNoSkyslope(false);
                                                     setSelectedReviewStatuses([]);
