@@ -148,6 +148,66 @@ function Dashboard({ setIsAuthenticated }) {
         }
     };
 
+    // ── Sync Reconciliation Data state (lifted here so it persists across page navigation) ──
+    const [syncingRecon, setSyncingRecon] = useState(false);
+    const [syncReconResult, setSyncReconResult] = useState(null);
+    const [syncReconProgress, setSyncReconProgress] = useState(0);
+    const [refreshReconTrigger, setRefreshReconTrigger] = useState(0);
+
+    // Auto-dismiss the sync success banner after 3 seconds
+    useEffect(() => {
+        if (syncReconResult && syncReconResult.ok) {
+            const timer = setTimeout(() => setSyncReconResult(null), 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [syncReconResult]);
+
+    const handleSyncRecon = async () => {
+        setSyncingRecon(true);
+        setSyncReconResult(null);
+        setSyncReconProgress(0);
+
+        const startTime = Date.now();
+        const progressInterval = setInterval(() => {
+            setSyncReconProgress(prev => {
+                if (prev >= 90) return prev;
+                const elapsed = (Date.now() - startTime) / 1000;
+                const target = Math.min(90, 20 * Math.log(elapsed + 1) + 3);
+                return Math.max(prev, Math.round(target));
+            });
+        }, 300);
+
+        const finishSync = (success, message) => {
+            clearInterval(progressInterval);
+            setSyncReconProgress(100);
+            if (success) {
+                setSyncReconResult({ ok: true, message });
+                setRefreshReconTrigger(prev => prev + 1);
+            } else {
+                setSyncReconResult({ ok: false, message: message || 'Sync failed.' });
+            }
+            setTimeout(() => {
+                setSyncingRecon(false);
+                setSyncReconProgress(0);
+            }, 3000);
+        };
+
+        try {
+            const res = await fetch('https://roa-data-backend.vercel.app/data-sync');
+            const json = await res.json().catch(() => ({}));
+
+            if (res.ok) {
+                finishSync(true, json.message || json.detail || 'Data synced successfully');
+            } else {
+                console.warn('[Sync Data] Server error:', res.status, json);
+                finishSync(false, json.message || json.detail || `Server error: ${res.status}`);
+            }
+        } catch (err) {
+            console.warn('[Sync Data] Network error:', err.message);
+            finishSync(false, err.message);
+        }
+    };
+
     // Called when user clicks logout – hits the /auth/logout API then clears session
     const handleLogout = useCallback(async () => {
         await logoutUser();
@@ -169,7 +229,16 @@ function Dashboard({ setIsAuthenticated }) {
             case 'dashboard':
                 return <ReconciliationView />;
             case 'reconciliation_new':
-                return <ReconciliationNew />;
+                return (
+                    <ReconciliationNew
+                        syncingData={syncingRecon}
+                        syncProgress={syncReconProgress}
+                        syncResult={syncReconResult}
+                        handleSyncData={handleSyncRecon}
+                        setSyncResult={setSyncReconResult}
+                        refreshTrigger={refreshReconTrigger}
+                    />
+                );
             case 'brokerage':
                 return <BrokerageView syncingBE={syncingBE} syncProgress={syncProgress} syncBEResult={syncBEResult} handleSyncBE={handleSyncBE} setSyncBEResult={setSyncBEResult} />;
             case 'skyslope':

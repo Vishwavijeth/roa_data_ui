@@ -428,26 +428,7 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
                     )}
                 </div>
                 <div className="flex flex-wrap items-center gap-2 shrink-0">
-                    <Button
-                        id="sync-be-data-btn"
-                        onClick={handleSyncBE}
-                        disabled={syncingBE}
-                        className={`font-semibold text-xs shadow-md select-none gap-2 h-9 ${syncingBE
-                            ? 'bg-indigo-700/80'
-                            : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/10'
-                            }`}
-                    >
-                        {syncingBE ? (
-                            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24" className="animate-spin">
-                                <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582M20 20v-5h-.581M5.635 15A9 9 0 1 0 6 6.071" />
-                            </svg>
-                        ) : (
-                            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582M20 20v-5h-.581M5.635 15A9 9 0 1 0 6 6.071" />
-                            </svg>
-                        )}
-                        {syncingBE ? 'Syncing…' : 'Sync BE Data'}
-                    </Button>
+
                     <Button
                         id="view-sync-logs-btn"
                         onClick={handleViewSyncLogs}

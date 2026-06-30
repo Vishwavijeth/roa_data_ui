@@ -420,26 +420,7 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
                     )}
                 </div>
                 <div className="flex flex-wrap items-center gap-2 shrink-0">
-                    <Button
-                        id="sync-skyslope-data-btn"
-                        onClick={handleSyncSS}
-                        disabled={syncingSS}
-                        className={`font-semibold text-xs shadow-md select-none gap-2 h-9 ${syncingSS
-                            ? 'bg-sky-700/80'
-                            : 'bg-sky-600 hover:bg-sky-700 shadow-sky-600/10'
-                            }`}
-                    >
-                        {syncingSS ? (
-                            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24" className="animate-spin">
-                                <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582M20 20v-5h-.581M5.635 15A9 9 0 1 0 6 6.071" />
-                            </svg>
-                        ) : (
-                            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582M20 20v-5h-.581M5.635 15A9 9 0 1 0 6 6.071" />
-                            </svg>
-                        )}
-                        {syncingSS ? 'Syncing…' : 'Sync SkySlope Data'}
-                    </Button>
+
                     <Button
                         id="view-ss-sync-logs-btn"
                         onClick={handleViewSyncLogs}
