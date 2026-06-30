@@ -39,6 +39,7 @@ function ReconciliationNew({ syncingData, syncProgress, syncResult, handleSyncDa
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [totalCount, setTotalCount] = useState(0);
+    const [downloadingReport, setDownloadingReport] = useState(false);
 
     // ── Filter options (populated from API on first fetch) ────────────────────
     const [availableParams, setAvailableParams] = useState([]);
@@ -221,8 +222,69 @@ function ReconciliationNew({ syncingData, syncProgress, syncResult, handleSyncDa
                 setError(err.message);
                 setLoading(false);
             });
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [page, debouncedSearch, selectedParams, sourceTableFilter, closeDateFrom, closeDateTo, selectedStatuses, selectedSpecialists, selectedReviewers, filterSaleNoSkyslope, filterOtherNoSkyslope, selectedReviewStatuses, refreshTrigger]);
+
+    const handleDownloadReport = async () => {
+        setDownloadingReport(true);
+        try {
+            const params = new URLSearchParams();
+            if (debouncedSearch.trim()) params.set('search', debouncedSearch.trim());
+            if (selectedParams.length > 0) {
+                selectedParams.forEach(p => params.append('mismatch_parameter', p));
+            }
+            if (sourceTableFilter) {
+                params.set('source_table', sourceTableFilter);
+            }
+            if (closeDateFrom) params.set('from_close_date', closeDateFrom);
+            if (closeDateTo) params.set('to_close_date', closeDateTo);
+            if (selectedStatuses.length > 0) {
+                selectedStatuses.forEach(s => params.append('status', s));
+            }
+            if (selectedSpecialists.length > 0) {
+                selectedSpecialists.forEach(s => params.append('specialist', s));
+            }
+            if (selectedReviewers.length > 0) {
+                selectedReviewers.forEach(r => params.append('reviewer', r));
+            }
+            if (filterSaleNoSkyslope) params.set('saleincome_no_skyslopefileid', 'true');
+            if (filterOtherNoSkyslope) params.set('otherincome_no_skyslopefileid', 'true');
+            if (selectedReviewStatuses.length > 0) {
+                selectedReviewStatuses.forEach(s => params.append('review_status', s));
+            }
+
+            const url = `https://roa-data-backend.vercel.app/recon-data/download?${params.toString()}`;
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            const blob = await response.blob();
+            
+            // Get content disposition header if available to extract filename
+            const contentDisposition = response.headers.get('content-disposition');
+            let filename = 'reconciliation_report.xlsx';
+            if (contentDisposition && contentDisposition.includes('filename=')) {
+                filename = contentDisposition.split('filename=')[1].replace(/["']/g, '');
+            }
+
+            const downloadUrl = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = downloadUrl;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => {
+                a.remove();
+                window.URL.revokeObjectURL(downloadUrl);
+            }, 200);
+        } catch (err) {
+            console.error('Download report failed:', err);
+            alert(`Download failed: ${err.message}`);
+        } finally {
+            setDownloadingReport(false);
+        }
+    };
 
     // ─────────────────────────────────────────────────────────────────────────
     // Inline row expansion – fetch /reconciliation/transaction/:id
@@ -459,6 +521,18 @@ function ReconciliationNew({ syncingData, syncProgress, syncResult, handleSyncDa
                                 </svg>
                             )}
                             {syncingData ? 'Syncing…' : 'Sync Data'}
+                        </Button>
+                        <Button
+                            id="recon-download-btn"
+                            variant="outline"
+                            onClick={handleDownloadReport}
+                            disabled={downloadingReport}
+                            className="font-semibold text-xs shadow-sm select-none gap-2 h-9 border-slate-200 text-slate-700 bg-white hover:bg-slate-50"
+                        >
+                            <svg className={`h-4 w-4 ${downloadingReport ? 'animate-bounce' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                            </svg>
+                            {downloadingReport ? 'Generating Report…' : 'Download Report'}
                         </Button>
                     </div>
                 </div>
