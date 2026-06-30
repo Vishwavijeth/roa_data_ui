@@ -6,16 +6,20 @@ import { Skeleton } from '../components/ui/Skeleton';
 import { Button } from '../components/ui/Button';
 import DateFilterInput from '../components/shared/DateFilterInput';
 
-function ReconciliationAnalytics() {
+function ReconciliationAnalytics({
+    fromCloseDate = '',
+    setFromCloseDate = () => {},
+    toCloseDate = '',
+    setToCloseDate = () => {},
+    transactionSpecialist = '',
+    setTransactionSpecialist = () => {},
+    reviewer = '',
+    setReviewer = () => {},
+    onSeeTransactions = () => {}
+}) {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-
-    // Filter states
-    const [fromCloseDate, setFromCloseDate] = useState('');
-    const [toCloseDate, setToCloseDate] = useState('');
-    const [transactionSpecialist, setTransactionSpecialist] = useState('');
-    const [reviewer, setReviewer] = useState('');
 
     // Available filter option lists (cached from API filters on initial load)
     const [filtersOptions, setFiltersOptions] = useState({
@@ -338,9 +342,22 @@ function ReconciliationAnalytics() {
                                 {stats.paramMismatches.map((param) => (
                                     <div key={param.key} className="space-y-1">
                                         <div className="flex items-center justify-between text-xs">
-                                            <span className="font-semibold text-slate-700 capitalize">
-                                                {param.label}
-                                            </span>
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-semibold text-slate-700 capitalize">
+                                                    {param.label}
+                                                </span>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => onSeeTransactions && onSeeTransactions(param.key)}
+                                                    className="h-6 px-2 text-[10px] text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 font-bold flex items-center gap-1 transition-all rounded bg-slate-50 border border-slate-100 hover:border-indigo-100"
+                                                >
+                                                    See Transactions
+                                                    <svg className="h-2.5 w-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                                                    </svg>
+                                                </Button>
+                                            </div>
                                             <div className="flex items-center gap-2 font-mono">
                                                 <span className="font-bold text-slate-900">
                                                     {param.count.toLocaleString()}
