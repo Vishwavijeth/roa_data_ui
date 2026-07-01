@@ -12,16 +12,10 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '.
 
 function ReviewerDashboardView() {
     const [data, setData] = useState([]);
+    const [summary, setSummary] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
-    const [searchQuery, setSearchQuery] = useState(() => {
-        const stored = sessionStorage.getItem('reviewer_dash_search');
-        if (stored) {
-            sessionStorage.removeItem('reviewer_dash_search');
-            return stored;
-        }
-        return '';
-    });
+    const [searchQuery, setSearchQuery] = useState(() => sessionStorage.getItem('reviewer_dash_search') || '');
     const [dateFrom, setDateFrom] = useState(() => sessionStorage.getItem('reviewer_dash_filter_dateFrom') || '');
     const [dateTo, setDateTo] = useState(() => sessionStorage.getItem('reviewer_dash_filter_dateTo') || '');
     const [stateFilter, setStateFilter] = useState(() => {
@@ -84,6 +78,12 @@ function ReviewerDashboardView() {
             .then(json => {
                 const rows = json && Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : []);
                 setData(rows);
+                
+                if (json && json.summary) {
+                    setSummary(json.summary);
+                } else {
+                    setSummary(null);
+                }
 
                 if (json.filters) {
                     setAvailableFilters(prev => {
@@ -127,6 +127,7 @@ function ReviewerDashboardView() {
 
     // Save filters to sessionStorage when they change
     useEffect(() => {
+        sessionStorage.setItem('reviewer_dash_search', searchQuery);
         sessionStorage.setItem('reviewer_dash_filter_dateFrom', dateFrom);
         sessionStorage.setItem('reviewer_dash_filter_dateTo', dateTo);
         sessionStorage.setItem('reviewer_dash_filter_state', JSON.stringify(stateFilter));
@@ -134,7 +135,7 @@ function ReviewerDashboardView() {
         sessionStorage.setItem('reviewer_dash_filter_reviewer', JSON.stringify(reviewerFilter));
         sessionStorage.setItem('reviewer_dash_filter_stage', JSON.stringify(stageFilter));
         sessionStorage.setItem('reviewer_dash_filter_typeOfSale', JSON.stringify(typeOfSaleFilter));
-    }, [dateFrom, dateTo, stateFilter, ssStatusFilter, reviewerFilter, stageFilter, typeOfSaleFilter]);
+    }, [searchQuery, dateFrom, dateTo, stateFilter, ssStatusFilter, reviewerFilter, stageFilter, typeOfSaleFilter]);
 
     // Parse options for the MultiSelects, fallback to empty arrays before load
     const filterOptions = useMemo(() => {
@@ -157,11 +158,19 @@ function ReviewerDashboardView() {
     }, [data, searchQuery]);
 
     const totals = useMemo(() => {
-        const outstanding = data.reduce((sum, r) => sum + (r.transactions_pending || 0), 0);
-        const closed = data.reduce((sum, r) => sum + (r.transactions_closed || 0), 0);
+        if (summary) {
+            return {
+                reviewers: summary.count ?? data.length,
+                outstanding: summary.outstanding_transactions ?? 0,
+                closed: summary.closed_transactions ?? 0,
+                total: (summary.outstanding_transactions ?? 0) + (summary.closed_transactions ?? 0)
+            };
+        }
+        const outstanding = data.reduce((sum, r) => sum + (r.transactions_pending || 0) + (r.transactions_expired || 0), 0);
+        const closed = data.reduce((sum, r) => sum + (r.transactions_closed || 0) + (r.transactions_archived || 0), 0);
         const total = data.reduce((sum, r) => sum + (r.total_transactions || 0), 0);
         return { reviewers: data.length, outstanding, closed, total };
-    }, [data]);
+    }, [data, summary]);
 
     const handleDownload = () => {
         const ws = utils.json_to_sheet(data);
@@ -196,16 +205,22 @@ function ReviewerDashboardView() {
 
         if (reviewerName) {
             sessionStorage.setItem('reviewer_filter_reviewer', JSON.stringify([reviewerName]));
+        } else {
+            sessionStorage.setItem('reviewer_filter_reviewer', JSON.stringify(reviewerFilter));
         }
-        
+
         if (specificStatus === 'clear') {
             sessionStorage.setItem('reviewer_filter_ssStatus', JSON.stringify([]));
+        } else if (specificStatus === 'Cancelled') {
+            sessionStorage.setItem('reviewer_filter_ssStatus', JSON.stringify(['Canceled/App', 'Canceled/Pend']));
+        } else if (Array.isArray(specificStatus)) {
+            sessionStorage.setItem('reviewer_filter_ssStatus', JSON.stringify(specificStatus));
         } else if (specificStatus) {
             sessionStorage.setItem('reviewer_filter_ssStatus', JSON.stringify([specificStatus]));
         } else {
             sessionStorage.setItem('reviewer_filter_ssStatus', JSON.stringify(ssStatusFilter));
         }
-        
+
         window.location.hash = '#reviewer';
     };
 
@@ -217,8 +232,8 @@ function ReviewerDashboardView() {
                     <h1 className="text-2xl font-bold tracking-tight text-slate-900">Reviewer Dashboard</h1>
                     <p className="text-sm text-slate-500 mt-1">Summary of reviewers — outstanding vs closed transactions.</p>
                 </div>
-                <Button 
-                    onClick={handleDownload} 
+                <Button
+                    onClick={handleDownload}
                     disabled={!data.length}
                     className="font-semibold text-xs gap-2 h-9 shadow-md shadow-blue-600/10"
                 >
@@ -228,27 +243,36 @@ function ReviewerDashboardView() {
 
             {/* Metrics cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <Card className="hover:border-slate-300 transition-all select-none">
+                <Card 
+                    className="hover:border-slate-300 transition-all select-none cursor-pointer"
+                    onClick={() => handleRowClick(undefined, 'clear')}
+                >
                     <CardContent className="pt-6">
-                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Total Reviewers</span>
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">total reviewer</span>
                         <div className="text-2xl font-bold text-slate-800 mt-2">
                             {totals.reviewers.toLocaleString()}
                         </div>
                     </CardContent>
                 </Card>
 
-                <Card className="hover:border-amber-200 hover:bg-amber-50/5 transition-all select-none">
+                <Card 
+                    className="hover:border-amber-200 hover:bg-amber-50/5 transition-all select-none cursor-pointer"
+                    onClick={() => handleRowClick(undefined, ['Pending', 'Expired'])}
+                >
                     <CardContent className="pt-6">
-                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Outstanding Transactions</span>
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">outstanding transactions (pending & expired)</span>
                         <div className="text-2xl font-bold text-amber-600 mt-2">
                             {totals.outstanding.toLocaleString()}
                         </div>
                     </CardContent>
                 </Card>
 
-                <Card className="hover:border-emerald-200 hover:bg-emerald-50/5 transition-all select-none">
+                <Card 
+                    className="hover:border-emerald-200 hover:bg-emerald-50/5 transition-all select-none cursor-pointer"
+                    onClick={() => handleRowClick(undefined, ['Closed', 'Archived'])}
+                >
                     <CardContent className="pt-6">
-                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Closed Transactions</span>
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">closed transactions (closed & archived)</span>
                         <div className="text-2xl font-bold text-emerald-600 mt-2">
                             {totals.closed.toLocaleString()}
                         </div>
@@ -285,8 +309,8 @@ function ReviewerDashboardView() {
                             className="pl-9 pr-8 w-full"
                         />
                         {searchQuery && (
-                            <button 
-                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold" 
+                            <button
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold"
                                 onClick={() => setSearchQuery('')}
                             >
                                 ✕
@@ -407,11 +431,11 @@ function ReviewerDashboardView() {
                                 <TableRow>
                                     <TableHead className="w-12 text-center sticky left-0 z-20 bg-slate-50/75">#</TableHead>
                                     <TableHead className="sticky left-12 z-20 bg-slate-50/75 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]">Reviewer</TableHead>
-                                    <TableHead className="text-center w-36">Outstanding (Pending)</TableHead>
-                                    <TableHead className="text-center w-24">Closed</TableHead>
-                                    <TableHead className="text-center w-24">Cancelled</TableHead>
-                                    <TableHead className="text-center w-24">Archived</TableHead>
                                     <TableHead className="text-center w-24">Expired</TableHead>
+                                    <TableHead className="text-center w-36">Pending</TableHead>
+                                    <TableHead className="text-center w-24">Closed</TableHead>
+                                    <TableHead className="text-center w-24">Archived</TableHead>
+                                    <TableHead className="text-center w-24">Canceled</TableHead>
                                     <TableHead className="text-center w-24">Incomplete</TableHead>
                                     <TableHead className="text-center w-28">Pre-Contract</TableHead>
                                     <TableHead className="text-center w-24 font-bold text-slate-900">Total</TableHead>
@@ -429,16 +453,24 @@ function ReviewerDashboardView() {
                                     const preContract = row.transactions_pre_contract || 0;
 
                                     return (
-                                        <TableRow 
-                                            key={i} 
+                                        <TableRow
+                                            key={i}
                                             className="hover:bg-slate-50/55 transition-colors cursor-pointer"
                                             onClick={() => handleRowClick(row.reviewer_full_name)}
                                         >
                                             <TableCell className="text-center font-mono text-xs text-slate-400 sticky left-0 z-10 bg-white">{i + 1}</TableCell>
                                             <TableCell className="font-semibold text-slate-800 text-xs py-3 sticky left-12 z-10 bg-white shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]">{row.reviewer_full_name || '-'}</TableCell>
-                                            
-                                            {/* Outstanding (Pending) */}
-                                            <TableCell 
+
+                                            {/* Expired */}
+                                            <TableCell
+                                                className="text-center font-medium text-slate-500 text-xs cursor-pointer"
+                                                onClick={(e) => { e.stopPropagation(); handleRowClick(row.reviewer_full_name, 'Expired'); }}
+                                            >
+                                                {expired}
+                                            </TableCell>
+
+                                            {/* Pending */}
+                                            <TableCell
                                                 className="text-center"
                                                 onClick={(e) => { e.stopPropagation(); handleRowClick(row.reviewer_full_name, 'Pending'); }}
                                             >
@@ -446,9 +478,9 @@ function ReviewerDashboardView() {
                                                     {pending}
                                                 </Badge>
                                             </TableCell>
-                                            
+
                                             {/* Closed */}
-                                            <TableCell 
+                                            <TableCell
                                                 className="text-center"
                                                 onClick={(e) => { e.stopPropagation(); handleRowClick(row.reviewer_full_name, 'Closed'); }}
                                             >
@@ -456,49 +488,41 @@ function ReviewerDashboardView() {
                                                     {closed}
                                                 </Badge>
                                             </TableCell>
-                                            
-                                            {/* Cancelled */}
-                                            <TableCell 
-                                                className="text-center font-semibold text-slate-600 text-xs cursor-pointer"
-                                                onClick={(e) => { e.stopPropagation(); handleRowClick(row.reviewer_full_name, 'Cancelled'); }}
-                                            >
-                                                {canceled}
-                                            </TableCell>
-                                            
+
                                             {/* Archived */}
-                                            <TableCell 
+                                            <TableCell
                                                 className="text-center font-semibold text-slate-600 text-xs cursor-pointer"
                                                 onClick={(e) => { e.stopPropagation(); handleRowClick(row.reviewer_full_name, 'Archived'); }}
                                             >
                                                 {archived}
                                             </TableCell>
-                                            
-                                            {/* Expired */}
-                                            <TableCell 
-                                                className="text-center font-medium text-slate-500 text-xs cursor-pointer"
-                                                onClick={(e) => { e.stopPropagation(); handleRowClick(row.reviewer_full_name, 'Expired'); }}
+
+                                            {/* Canceled */}
+                                            <TableCell
+                                                className="text-center font-semibold text-slate-600 text-xs cursor-pointer"
+                                                onClick={(e) => { e.stopPropagation(); handleRowClick(row.reviewer_full_name, 'Cancelled'); }}
                                             >
-                                                {expired}
+                                                {canceled}
                                             </TableCell>
-                                            
+
                                             {/* Incomplete */}
-                                            <TableCell 
+                                            <TableCell
                                                 className="text-center font-medium text-slate-500 text-xs cursor-pointer"
                                                 onClick={(e) => { e.stopPropagation(); handleRowClick(row.reviewer_full_name, 'Incomplete'); }}
                                             >
                                                 {incomplete}
                                             </TableCell>
-                                            
+
                                             {/* Pre-Contract */}
-                                            <TableCell 
+                                            <TableCell
                                                 className="text-center font-medium text-slate-500 text-xs cursor-pointer"
                                                 onClick={(e) => { e.stopPropagation(); handleRowClick(row.reviewer_full_name, 'Pre-Contract'); }}
                                             >
                                                 {preContract}
                                             </TableCell>
-                                            
+
                                             {/* Total */}
-                                            <TableCell 
+                                            <TableCell
                                                 className="text-center font-bold text-slate-900 text-xs cursor-pointer"
                                                 onClick={(e) => { e.stopPropagation(); handleRowClick(row.reviewer_full_name, 'clear'); }}
                                             >

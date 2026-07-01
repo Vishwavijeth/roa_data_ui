@@ -27,7 +27,38 @@ function ReconciliationNew({ syncingData, syncProgress, syncResult, handleSyncDa
     //                  so the main effect ignores that one triggered re-run.
     const bootstrappedRef = React.useRef(false);
     const skipNextRef = React.useRef(false);
-    const [activeSubTab, setActiveSubTab] = useState('transactions');
+
+    // ── Sub-tab routing via hash (reconciliation_new/analytics | reconciliation_new/transactions)
+    const getSubTabFromHash = () => {
+        const hash = window.location.hash.replace('#', '');
+        if (hash === 'reconciliation_new/analytics') return 'analytics';
+        return 'transactions';
+    };
+    const [activeSubTab, setActiveSubTab] = useState(getSubTabFromHash);
+
+    // Sync sub-tab when browser back/forward is pressed
+    useEffect(() => {
+        const onHashChange = () => {
+            const hash = window.location.hash.replace('#', '');
+            // Only handle sub-tabs for this page; let dashboard handle top-level page changes
+            if (hash === 'reconciliation_new/analytics') {
+                setActiveSubTab('analytics');
+            } else if (hash === 'reconciliation_new' || hash === 'reconciliation_new/transactions') {
+                setActiveSubTab('transactions');
+            }
+        };
+        window.addEventListener('hashchange', onHashChange);
+        return () => window.removeEventListener('hashchange', onHashChange);
+    }, []);
+
+    // Helper: navigate sub-tab and push to browser history
+    const navigateSubTab = (tab) => {
+        const newHash = tab === 'analytics' ? 'reconciliation_new/analytics' : 'reconciliation_new/transactions';
+        if (window.location.hash !== `#${newHash}`) {
+            window.location.hash = newHash;
+        }
+        setActiveSubTab(tab);
+    };
     // ── Metrics ──────────────────────────────────────────────────────────────
     const [metrics, setMetrics] = useState(null);
     const [metricsLoading, setMetricsLoading] = useState(true);
@@ -484,7 +515,7 @@ function ReconciliationNew({ syncingData, syncProgress, syncResult, handleSyncDa
                     <div className="flex flex-col sm:flex-row sm:items-center gap-4 shrink-0">
                         <div className="flex border-b border-slate-200">
                             <button
-                                onClick={() => setActiveSubTab('transactions')}
+                                onClick={() => navigateSubTab('transactions')}
                                 className={`py-2 px-4 text-xs font-bold border-b-2 transition-all leading-none ${activeSubTab === 'transactions'
                                         ? 'border-indigo-600 text-indigo-600 font-bold'
                                         : 'border-transparent text-slate-400 hover:text-slate-600 hover:border-slate-300'
@@ -493,7 +524,7 @@ function ReconciliationNew({ syncingData, syncProgress, syncResult, handleSyncDa
                                 Transactions
                             </button>
                             <button
-                                onClick={() => setActiveSubTab('analytics')}
+                                onClick={() => navigateSubTab('analytics')}
                                 className={`py-2 px-4 text-xs font-bold border-b-2 transition-all leading-none ${activeSubTab === 'analytics'
                                         ? 'border-indigo-600 text-indigo-600 font-bold'
                                         : 'border-transparent text-slate-400 hover:text-slate-600 hover:border-slate-300'
@@ -627,7 +658,7 @@ function ReconciliationNew({ syncingData, syncProgress, syncResult, handleSyncDa
                                 setSelectedParams([humanLabel]);
                             }
                             setPage(1);
-                            setActiveSubTab('transactions');
+                            navigateSubTab('transactions');
                         }}
                     />
                 ) : (
