@@ -18,20 +18,30 @@ function Dashboard({ setIsAuthenticated }) {
     // Restore the active page from the URL hash on refresh
     const validPages = ['dashboard', 'reconciliation_new', 'brokerage', 'skyslope', 'cda_sent', 'pre_cda', 'month_closing', 'txn_specialist', 'reviewer', 'txn_specialist_dash', 'reviewer_dash'];
 
-    const hashPage = window.location.hash.replace('#', '').split('?')[0];
+    // Normalise sub-tab hashes to their top-level page id
+    // e.g. 'reconciliation_new/analytics' → 'reconciliation_new'
+    const normaliseHash = (raw) => raw.split('/')[0];
+
+    const hashPage = normaliseHash(window.location.hash.replace('#', '').split('?')[0]);
     const [activePage, setActivePage] = useState(validPages.includes(hashPage) ? hashPage : 'dashboard');
 
-    // Keep the URL hash in sync with the active page
+    // Keep the URL hash in sync with the active page.
+    // Only update the hash when the top-level page changes; sub-tab transitions
+    // inside ReconciliationNew manage their own hashes.
     useEffect(() => {
-        window.location.hash = activePage;
+        const currentTop = normaliseHash(window.location.hash.replace('#', ''));
+        if (currentTop !== activePage) {
+            window.location.hash = activePage;
+        }
     }, [activePage]);
 
     // Handle back button and external hash routing dynamically
     useEffect(() => {
         const handleHashChange = () => {
-            const hash = window.location.hash.replace('#', '').split('?')[0];
-            if (validPages.includes(hash)) {
-                setActivePage(hash);
+            const raw = window.location.hash.replace('#', '').split('?')[0];
+            const top = normaliseHash(raw);
+            if (validPages.includes(top)) {
+                setActivePage(top);
             }
         };
         window.addEventListener('hashchange', handleHashChange);
