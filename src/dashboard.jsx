@@ -12,11 +12,12 @@ import ReviewerDashboardView from './pages/ReviewerDashboardView';
 import CdaSent from './pages/CdaSent';
 import MonthClosing from './pages/MonthClosing';
 import PreCDA from './pages/PreCDA';
+import ChecklistTypeMappingView from './pages/ChecklistTypeMappingView';
 
 // ── Dashboard Shell (layout + sidebar + lifted sync state) ───────────────────
 function Dashboard({ setIsAuthenticated }) {
     // Restore the active page from the URL hash on refresh
-    const validPages = ['dashboard', 'reconciliation_new', 'brokerage', 'skyslope', 'cda_sent', 'pre_cda', 'month_closing', 'txn_specialist', 'reviewer', 'txn_specialist_dash', 'reviewer_dash'];
+    const validPages = ['dashboard', 'reconciliation_new', 'brokerage', 'skyslope', 'cda_sent', 'pre_cda', 'month_closing', 'txn_specialist', 'reviewer', 'txn_specialist_dash', 'reviewer_dash', 'checklist_type_mapping'];
 
     // Normalise sub-tab hashes to their top-level page id
     // e.g. 'reconciliation_new/analytics' → 'reconciliation_new'
@@ -267,6 +268,8 @@ function Dashboard({ setIsAuthenticated }) {
                 return <TransactionSpecialistDashboardView />;
             case 'reviewer_dash':
                 return <ReviewerDashboardView />;
+            case 'checklist_type_mapping':
+                return <ChecklistTypeMappingView />;
             default:
                 return <ReconciliationView />;
         }

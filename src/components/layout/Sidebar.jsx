@@ -2,7 +2,7 @@ import React from 'react';
 import {
     IconDashboard, IconBrokerage, IconSkySlope, IconChevron,
     IconLogout, IconSpecialist, IconReviewer, IconSpecialistDash, IconReviewerDash, IconCdaSent,
-    IconMonthClosing, IconPreCda
+    IconMonthClosing, IconPreCda, IconChecklist
 } from '../shared/Icons';
 
 function Sidebar({ activePage, setActivePage, onLogout }) {
@@ -46,6 +46,7 @@ function Sidebar({ activePage, setActivePage, onLogout }) {
             items: [
                 { id: 'txn_specialist_dash', label: 'Transaction Specialist Dashboard', icon: <IconSpecialistDash /> },
                 { id: 'reviewer_dash', label: 'Reviewer Dashboard', icon: <IconReviewerDash /> },
+                { id: 'checklist_type_mapping', label: 'Checklist Type Mapping', icon: <IconChecklist /> },
             ],
         },
     ];

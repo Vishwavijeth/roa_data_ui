@@ -21,6 +21,7 @@ export const TXN_SPECIALIST_API = 'https://roa-data-backend.vercel.app/transacti
 export const REVIEWER_API = 'https://roa-data-backend.vercel.app/reviewer_listing';
 export const TXN_SPECIALIST_SUMMARY_API = 'https://roa-data-backend.vercel.app/transaction_specialist_dashboard';
 export const REVIEWER_SUMMARY_API = 'https://roa-data-backend.vercel.app/reviewer_dashboard';
+export const CHECKLIST_TYPE_MAPPING_API = 'https://roa-data-backend.vercel.app/checklist-type-validation';
 
 export const ROWS_PER_PAGE = 50;
 
