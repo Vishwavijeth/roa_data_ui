@@ -637,10 +637,12 @@ function ReconciliationNew({ syncingData, syncProgress, syncResult, handleSyncDa
                         setFromCloseDate={setCloseDateFrom}
                         toCloseDate={closeDateTo}
                         setToCloseDate={setCloseDateTo}
-                        transactionSpecialist={selectedSpecialists.length > 0 ? selectedSpecialists[0] : ''}
-                        setTransactionSpecialist={val => setSelectedSpecialists(val ? [val] : [])}
-                        reviewer={selectedReviewers.length > 0 ? selectedReviewers[0] : ''}
-                        setReviewer={val => setSelectedReviewers(val ? [val] : [])}
+                        selectedSpecialists={selectedSpecialists}
+                        setSelectedSpecialists={setSelectedSpecialists}
+                        selectedReviewers={selectedReviewers}
+                        setSelectedReviewers={setSelectedReviewers}
+                        selectedStatuses={selectedStatuses}
+                        setSelectedStatuses={setSelectedStatuses}
                         onSeeTransactions={(paramName) => {
                             const paramMap = {
                                 gross_commission: 'Gross Commission',
@@ -651,7 +653,8 @@ function ReconciliationNew({ syncingData, syncProgress, syncResult, handleSyncDa
                                 buyer_name: 'Buyer Name',
                                 seller_name: 'Seller Name',
                                 buying_agent_name: 'Buying Agent Name',
-                                title_company: 'Title Company'
+                                title_company: 'Title Company',
+                                contract_date: 'Contract Date'
                             };
                             const humanLabel = paramMap[paramName];
                             if (humanLabel) {
