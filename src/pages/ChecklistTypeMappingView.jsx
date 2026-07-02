@@ -198,43 +198,58 @@ function ChecklistTypeMappingView() {
                     </div>
                 ) : (
                     <>
-                        <Table>
+                        <Table className="table-fixed w-full">
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead className="w-12 text-center sticky left-0 z-20 bg-slate-50/75">#</TableHead>
-                                    <TableHead className="min-w-[280px]">Property Address</TableHead>
-                                    <TableHead className="text-center w-40">Type of Sale</TableHead>
-                                    <TableHead className="text-center w-48">Checklist Type</TableHead>
-                                    <TableHead className="text-center w-32">Match Result</TableHead>
+                                    <TableHead className="w-12 text-center">#</TableHead>
+                                    <TableHead className="text-left w-1/3 min-w-[200px]">Property Address</TableHead>
+                                    <TableHead className="text-center w-1/4 min-w-[150px]">Type of Sale</TableHead>
+                                    <TableHead className="text-center w-1/4 min-w-[150px]">Checklist Type</TableHead>
+                                    <TableHead className="text-center w-28">Match Result</TableHead>
+                                    <TableHead className="text-center w-28">Action</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {data.map((row, i) => (
                                     <TableRow key={row.saleguid ?? i} className="hover:bg-slate-50/55 transition-colors">
-                                        <TableCell className="text-center font-mono text-xs text-slate-400 sticky left-0 z-10 bg-white">
+                                        <TableCell className="text-center font-mono text-xs text-slate-400 py-3">
                                             {(page - 1) * ROWS_PER_PAGE + i + 1}
                                         </TableCell>
-                                        <TableCell className="text-xs text-slate-700 font-medium py-3">
+                                        <TableCell className="text-xs text-slate-700 font-medium py-3 truncate" title={row.propertyaddress}>
                                             {row.propertyaddress || '—'}
                                         </TableCell>
-                                        <TableCell className="text-center">
+                                        <TableCell className="text-center py-3 truncate" title={row.type_of_sale}>
                                             <span className="text-xs font-semibold text-slate-600">
                                                 {row.type_of_sale || '—'}
                                             </span>
                                         </TableCell>
-                                        <TableCell className="text-center">
+                                        <TableCell className="text-center py-3 truncate" title={row.checklist_type_name}>
                                             <span className="text-xs font-semibold text-slate-600">
                                                 {row.checklist_type_name || '—'}
                                             </span>
                                         </TableCell>
-                                        <TableCell className="text-center">
+                                        <TableCell className="text-center py-3">
                                             {matchBadge(row.match_result)}
+                                        </TableCell>
+                                        <TableCell className="text-center py-3">
+                                            {row.url ? (
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="h-7 text-[10px] text-blue-600 border-blue-200 hover:bg-blue-50 font-bold transition-all px-2.5"
+                                                    onClick={() => window.open(row.url, '_blank')}
+                                                >
+                                                    SkySlope
+                                                </Button>
+                                            ) : (
+                                                <span className="text-xs text-slate-400">—</span>
+                                            )}
                                         </TableCell>
                                     </TableRow>
                                 ))}
                                 {data.length === 0 && (
                                     <TableRow>
-                                        <TableCell colSpan={5} className="text-center text-slate-400 py-10 font-medium">
+                                        <TableCell colSpan={6} className="text-center text-slate-400 py-10 font-medium">
                                             No data available
                                         </TableCell>
                                     </TableRow>
