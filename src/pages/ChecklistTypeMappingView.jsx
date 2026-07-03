@@ -22,6 +22,15 @@ function ChecklistTypeMappingView() {
     const [typeOfSaleFilter, setTypeOfSaleFilter] = useState([]);
     const [typeOfSaleOptions, setTypeOfSaleOptions] = useState([]);
 
+    const [stateFilter, setStateFilter] = useState([]);
+    const [stateOptions, setStateOptions] = useState([]);
+
+    const [statusFilter, setStatusFilter] = useState([]);
+    const [statusOptions, setStatusOptions] = useState([]);
+
+    const [stageFilter, setStageFilter] = useState([]);
+    const [stageOptions, setStageOptions] = useState([]);
+
     // Debounce search
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -42,6 +51,9 @@ function ChecklistTypeMappingView() {
         params.append('page_size', ROWS_PER_PAGE);
         if (searchQuery.trim()) params.append('search', searchQuery.trim());
         typeOfSaleFilter.forEach(t => params.append('type_of_sale', t));
+        stateFilter.forEach(s => params.append('state', s));
+        statusFilter.forEach(st => params.append('status', st));
+        stageFilter.forEach(sg => params.append('stage_name', sg));
 
         fetch(`${CHECKLIST_TYPE_MAPPING_API}?${params.toString()}`)
             .then(res => {
@@ -58,6 +70,21 @@ function ChecklistTypeMappingView() {
                         prev.length > 0 ? prev : [...json.filters.type_of_sale].sort()
                     );
                 }
+                if (json.filters?.state) {
+                    setStateOptions(prev =>
+                        prev.length > 0 ? prev : [...json.filters.state].sort()
+                    );
+                }
+                if (json.filters?.status) {
+                    setStatusOptions(prev =>
+                        prev.length > 0 ? prev : [...json.filters.status].sort()
+                    );
+                }
+                if (json.filters?.stage_name) {
+                    setStageOptions(prev =>
+                        prev.length > 0 ? prev : [...json.filters.stage_name].sort()
+                    );
+                }
                 setLoading(false);
             })
             .catch(err => {
@@ -68,15 +95,24 @@ function ChecklistTypeMappingView() {
             });
 
         return () => { active = false; };
-    }, [page, searchQuery, typeOfSaleFilter]);
+    }, [page, searchQuery, typeOfSaleFilter, stateFilter, statusFilter, stageFilter]);
 
     const totalPages = Math.ceil(totalCount / ROWS_PER_PAGE);
 
-    const hasActiveFilters = searchInput || typeOfSaleFilter.length > 0;
+    const hasActiveFilters =
+        searchInput ||
+        typeOfSaleFilter.length > 0 ||
+        stateFilter.length > 0 ||
+        statusFilter.length > 0 ||
+        stageFilter.length > 0;
+
     const clearAllFilters = () => {
         setSearchInput('');
         setSearchQuery('');
         setTypeOfSaleFilter([]);
+        setStateFilter([]);
+        setStatusFilter([]);
+        setStageFilter([]);
         setPage(1);
     };
 
@@ -156,7 +192,7 @@ function ChecklistTypeMappingView() {
                     </div>
 
                     {/* Filter row */}
-                    <div className="flex flex-wrap items-end gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 items-end">
                         <div className="space-y-1 z-30">
                             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Type of Sale</label>
                             <MultiSelect
@@ -169,11 +205,47 @@ function ChecklistTypeMappingView() {
                             />
                         </div>
 
+                        <div className="space-y-1 z-30">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">State</label>
+                            <MultiSelect
+                                id="checklist-state-filter"
+                                options={stateOptions}
+                                selected={stateFilter}
+                                onChange={v => { setStateFilter(v); setPage(1); }}
+                                placeholder="All States"
+                                allLabel="All States"
+                            />
+                        </div>
+
+                        <div className="space-y-1 z-30">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Status</label>
+                            <MultiSelect
+                                id="checklist-status-filter"
+                                options={statusOptions}
+                                selected={statusFilter}
+                                onChange={v => { setStatusFilter(v); setPage(1); }}
+                                placeholder="All Statuses"
+                                allLabel="All Statuses"
+                            />
+                        </div>
+
+                        <div className="space-y-1 z-30">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Stage</label>
+                            <MultiSelect
+                                id="checklist-stage-filter"
+                                options={stageOptions}
+                                selected={stageFilter}
+                                onChange={v => { setStageFilter(v); setPage(1); }}
+                                placeholder="All Stages"
+                                allLabel="All Stages"
+                            />
+                        </div>
+
                         {hasActiveFilters && (
                             <Button
                                 variant="ghost"
                                 onClick={clearAllFilters}
-                                className="h-8.5 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 font-bold self-end"
+                                className="h-9 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 font-bold justify-self-start sm:justify-self-auto"
                             >
                                 Clear Filters
                             </Button>
