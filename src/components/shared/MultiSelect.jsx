@@ -51,42 +51,35 @@ function MultiSelect({ id, options = [], selected = [], onChange, placeholder = 
     const allSelected = selected.length === options.length && options.length > 0;
     const someSelected = selected.length > 0 && !allSelected;
 
-    // Trigger label
+    // Trigger label — always compact, single line to prevent button resizing
     let triggerLabel;
     if (selected.length === 0) {
-        triggerLabel = <span className="text-slate-400 text-xs font-normal">{placeholder}</span>;
+        triggerLabel = <span className="text-slate-400 text-xs font-normal truncate">{placeholder}</span>;
     } else if (selected.length === options.length) {
-        triggerLabel = <span className="text-slate-700 text-xs font-semibold">{allLabel}</span>;
-    } else if (selected.length <= 2) {
         triggerLabel = (
-            <span className="flex flex-wrap gap-1 items-center w-full">
-                {selected.map(v => (
-                    <span key={v} className="inline-flex items-center gap-1 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-800 border border-slate-200/60 whitespace-normal select-none">
-                        <span className="whitespace-normal">{v}</span>
-                        <button
-                            type="button"
-                            className="text-slate-400 hover:text-slate-600 transition-colors ml-0.5 font-bold focus:outline-none"
-                            onMouseDown={e => { e.stopPropagation(); toggle(v); }}
-                            aria-label={`Remove ${v}`}
-                        >✕</button>
-                    </span>
-                ))}
+            <span className="flex items-center gap-1.5 min-w-0">
+                <span className="text-slate-700 text-xs font-semibold truncate">{allLabel}</span>
+                <span className="inline-flex items-center rounded bg-blue-100 border border-blue-200 text-blue-700 px-1.5 py-0.5 text-[10px] font-bold shrink-0">All</span>
+            </span>
+        );
+    } else if (selected.length === 1) {
+        triggerLabel = (
+            <span className="flex items-center gap-1.5 min-w-0">
+                <span className="text-slate-700 text-xs font-semibold truncate">{selected[0]}</span>
+                <button
+                    type="button"
+                    className="text-slate-400 hover:text-slate-600 transition-colors font-bold focus:outline-none shrink-0 text-[10px]"
+                    onMouseDown={e => { e.stopPropagation(); toggle(selected[0]); }}
+                    aria-label={`Remove ${selected[0]}`}
+                >✕</button>
             </span>
         );
     } else {
         triggerLabel = (
-            <span className="flex flex-wrap gap-1 items-center">
-                <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-800 border border-slate-200/60 whitespace-normal select-none">
-                    <span className="whitespace-normal">{selected[0]}</span>
-                    <button 
-                        type="button"
-                        className="text-slate-400 hover:text-slate-600 transition-colors ml-0.5 font-bold focus:outline-none" 
-                        onMouseDown={e => { e.stopPropagation(); toggle(selected[0]); }} 
-                        aria-label={`Remove ${selected[0]}`}
-                    >✕</button>
-                </span>
-                <span className="inline-flex items-center rounded bg-blue-50 border border-blue-100 text-blue-700 px-1.5 py-0.5 text-[10px] font-bold">
-                    +{selected.length - 1} more
+            <span className="flex items-center gap-1.5 min-w-0">
+                <span className="text-slate-700 text-xs font-semibold truncate">{selected[0]}</span>
+                <span className="inline-flex items-center rounded bg-blue-50 border border-blue-100 text-blue-700 px-1.5 py-0.5 text-[10px] font-bold shrink-0">
+                    +{selected.length - 1}
                 </span>
             </span>
         );
@@ -97,7 +90,7 @@ function MultiSelect({ id, options = [], selected = [], onChange, placeholder = 
             <button
                 id={id}
                 type="button"
-                className={`flex min-h-9 w-full items-center justify-between rounded-md border bg-white px-3 py-1 text-sm shadow-sm transition-all focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer select-none text-left ${
+                className={`flex h-9 w-full items-center justify-between rounded-md border bg-white px-3 py-1 text-sm shadow-sm transition-all focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer select-none text-left ${
                     open 
                         ? 'border-blue-500 ring-1 ring-blue-500' 
                         : someSelected || (selected.length > 0 && selected.length < options.length)
@@ -108,14 +101,14 @@ function MultiSelect({ id, options = [], selected = [], onChange, placeholder = 
                 aria-haspopup="listbox"
                 aria-expanded={open}
             >
-                <span className="flex-1 whitespace-normal py-0.5">{triggerLabel}</span>
-                <svg className={`h-3.5 w-3.5 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <span className="flex-1 min-w-0 overflow-hidden">{triggerLabel}</span>
+                <svg className={`h-3.5 w-3.5 text-slate-400 transition-transform shrink-0 ml-1.5 ${open ? 'rotate-180' : ''}`} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M6 9l6 6 6-6" />
                 </svg>
             </button>
 
             {open && (
-                <div className={`absolute ${align === 'right' ? 'right-0' : 'left-0'} mt-1.5 z-30 min-w-full w-max max-w-[360px] rounded-md border border-slate-100 bg-white shadow-lg flex flex-col`} role="listbox" aria-multiselectable="true">
+                <div className={`absolute ${align === 'right' ? 'right-0' : 'left-0'} mt-1.5 z-30 min-w-full w-[320px] rounded-md border border-slate-100 bg-white shadow-lg flex flex-col`} role="listbox" aria-multiselectable="true">
                     {options.length > 5 && (
                         <div className="p-2 border-b border-slate-100 bg-slate-50/50 sticky top-0 z-10">
                             <input
@@ -128,7 +121,7 @@ function MultiSelect({ id, options = [], selected = [], onChange, placeholder = 
                             />
                         </div>
                     )}
-                    <div className="flex-1 overflow-y-auto max-h-64 p-1 space-y-0.5 custom-scrollbar">
+                    <div className="overflow-y-auto overflow-x-hidden h-64 p-1 space-y-0.5 custom-scrollbar">
                         {/* Select all row */}
                         {!search && (
                             <div
@@ -173,7 +166,7 @@ function MultiSelect({ id, options = [], selected = [], onChange, placeholder = 
                                     }`}>
                                         {checked ? '✓' : ''}
                                     </span>
-                                    <span className="whitespace-nowrap">{option}</span>
+                                    <span className="break-words text-left">{option}</span>
                                 </div>
                             );
                         })}

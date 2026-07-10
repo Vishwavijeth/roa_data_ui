@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { CHECKLIST_TYPE_MAPPING_API, ROWS_PER_PAGE } from '../constants';
+import { CHECKLIST_TYPE_MAPPING_API, CHECKLIST_TYPE_MAPPING_FILTERS_API, ROWS_PER_PAGE } from '../constants';
 import MultiSelect from '../components/shared/MultiSelect';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
@@ -31,6 +31,35 @@ function ChecklistTypeMappingView() {
     const [stageFilter, setStageFilter] = useState([]);
     const [stageOptions, setStageOptions] = useState([]);
 
+    const [checklistFilter, setChecklistFilter] = useState([]);
+    const [checklistOptions, setChecklistOptions] = useState([]);
+
+    // Fetch filter options on mount
+    useEffect(() => {
+        let active = true;
+        fetch(CHECKLIST_TYPE_MAPPING_FILTERS_API)
+            .then(res => {
+                if (!res.ok) throw new Error(`Filters API error: ${res.status} ${res.statusText}`);
+                return res.json();
+            })
+            .then(json => {
+                if (!active) return;
+                const filters = json.filters || {};
+
+                setTypeOfSaleOptions(Array.isArray(filters.type_of_sale) ? [...filters.type_of_sale].sort() : []);
+                setStateOptions(Array.isArray(filters.state) ? [...filters.state].sort() : []);
+                setStatusOptions(Array.isArray(filters.status) ? [...filters.status].sort() : []);
+                setStageOptions(Array.isArray(filters.stage_name) ? [...filters.stage_name].sort() : []);
+                setChecklistOptions(Array.isArray(filters.checklist_type) ? [...filters.checklist_type].sort() : []);
+            })
+            .catch(err => {
+                console.error('Failed to fetch checklist filters:', err);
+            });
+        return () => {
+            active = false;
+        };
+    }, []);
+
     // Debounce search
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -54,6 +83,7 @@ function ChecklistTypeMappingView() {
         stateFilter.forEach(s => params.append('state', s));
         statusFilter.forEach(st => params.append('status', st));
         stageFilter.forEach(sg => params.append('stage_name', sg));
+        checklistFilter.forEach(c => params.append('checklist_type', c));
 
         fetch(`${CHECKLIST_TYPE_MAPPING_API}?${params.toString()}`)
             .then(res => {
@@ -64,27 +94,6 @@ function ChecklistTypeMappingView() {
                 if (!active) return;
                 setData(Array.isArray(json.data) ? json.data : []);
                 setTotalCount(json.total_count ?? 0);
-
-                if (json.filters?.type_of_sale) {
-                    setTypeOfSaleOptions(prev =>
-                        prev.length > 0 ? prev : [...json.filters.type_of_sale].sort()
-                    );
-                }
-                if (json.filters?.state) {
-                    setStateOptions(prev =>
-                        prev.length > 0 ? prev : [...json.filters.state].sort()
-                    );
-                }
-                if (json.filters?.status) {
-                    setStatusOptions(prev =>
-                        prev.length > 0 ? prev : [...json.filters.status].sort()
-                    );
-                }
-                if (json.filters?.stage_name) {
-                    setStageOptions(prev =>
-                        prev.length > 0 ? prev : [...json.filters.stage_name].sort()
-                    );
-                }
                 setLoading(false);
             })
             .catch(err => {
@@ -95,7 +104,7 @@ function ChecklistTypeMappingView() {
             });
 
         return () => { active = false; };
-    }, [page, searchQuery, typeOfSaleFilter, stateFilter, statusFilter, stageFilter]);
+    }, [page, searchQuery, typeOfSaleFilter, stateFilter, statusFilter, stageFilter, checklistFilter]);
 
     const totalPages = Math.ceil(totalCount / ROWS_PER_PAGE);
 
@@ -104,7 +113,8 @@ function ChecklistTypeMappingView() {
         typeOfSaleFilter.length > 0 ||
         stateFilter.length > 0 ||
         statusFilter.length > 0 ||
-        stageFilter.length > 0;
+        stageFilter.length > 0 ||
+        checklistFilter.length > 0;
 
     const clearAllFilters = () => {
         setSearchInput('');
@@ -113,6 +123,7 @@ function ChecklistTypeMappingView() {
         setStateFilter([]);
         setStatusFilter([]);
         setStageFilter([]);
+        setChecklistFilter([]);
         setPage(1);
     };
 
@@ -192,7 +203,7 @@ function ChecklistTypeMappingView() {
                     </div>
 
                     {/* Filter row */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 items-end">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 items-end">
                         <div className="space-y-1 z-30">
                             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Type of Sale</label>
                             <MultiSelect
@@ -238,6 +249,20 @@ function ChecklistTypeMappingView() {
                                 onChange={v => { setStageFilter(v); setPage(1); }}
                                 placeholder="All Stages"
                                 allLabel="All Stages"
+                                align="right"
+                            />
+                        </div>
+
+                        <div className="space-y-1 z-30">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Checklist</label>
+                            <MultiSelect
+                                id="checklist-name-filter"
+                                options={checklistOptions}
+                                selected={checklistFilter}
+                                onChange={v => { setChecklistFilter(v); setPage(1); }}
+                                placeholder="All Checklists"
+                                allLabel="All Checklists"
+                                align="right"
                             />
                         </div>
 
