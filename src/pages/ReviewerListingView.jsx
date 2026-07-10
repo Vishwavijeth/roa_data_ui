@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 
-import { REVIEWER_API, ROWS_PER_PAGE } from '../constants';
+import { REVIEWER_API, REVIEWER_FILTERS_API, ROWS_PER_PAGE } from '../constants';
 
-import { extractState, formatDateUS } from '../utils/helpers';
+import { formatDateUS } from '../utils/helpers';
 import DateFilterInput from '../components/shared/DateFilterInput';
 import MultiSelect from '../components/shared/MultiSelect';
 import { Button } from '../components/ui/Button';
@@ -65,6 +65,40 @@ function ReviewerListingView() {
     // Stored filter dropdown options loaded from API
     const [availableFilters, setAvailableFilters] = useState(null);
 
+    // Fetch available filter options once on component mount
+    useEffect(() => {
+        let active = true;
+        fetch(REVIEWER_FILTERS_API)
+            .then(res => {
+                if (!res.ok) throw new Error(`Filters API error: ${res.status} ${res.statusText}`);
+                return res.json();
+            })
+            .then(json => {
+                if (!active) return;
+
+                const stage_list = Array.isArray(json.stage_list) ? [...json.stage_list].sort() : [];
+                const state_list = Array.isArray(json.state_list) ? [...json.state_list].sort() : [];
+                const status_list = Array.isArray(json.status_list) ? [...json.status_list].sort() : [];
+                const reviewer_list = Array.isArray(json.reviewer_list) ? [...json.reviewer_list].sort() : [];
+                const type_of_sale_list = Array.isArray(json.type_of_sale_list) ? [...json.type_of_sale_list].sort() : [];
+
+                setAvailableFilters({
+                    stage_list,
+                    state_list,
+                    status_list,
+                    reviewer_list,
+                    type_of_sale_list
+                });
+            })
+            .catch(err => {
+                console.error('Failed to fetch reviewer filters:', err);
+            });
+        return () => {
+            active = false;
+        };
+    }, []);
+
+
     // Debounce search input
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -82,7 +116,7 @@ function ReviewerListingView() {
 
         const params = new URLSearchParams();
         params.append('page', page);
-        params.append('limit', ROWS_PER_PAGE);
+        params.append('page_size', ROWS_PER_PAGE);
         if (dateFrom) params.append('from_close_date', dateFrom);
         if (dateTo) params.append('to_close_date', dateTo);
         if (searchQuery.trim()) params.append('search', searchQuery.trim());
@@ -108,29 +142,6 @@ function ReviewerListingView() {
 
                 const total = json.total_count != null ? json.total_count : 0;
                 setTotalCount(total);
-
-                if (json.filters) {
-                    setAvailableFilters(prev => {
-                        // Only save the filters on first fetch so they persist in component state
-                        if (prev && prev.state_list && prev.state_list.length > 0) {
-                            return prev;
-                        }
-
-                        const stage_list = Array.isArray(json.filters.stage_list) ? [...json.filters.stage_list].sort() : [];
-                        const state_list = Array.isArray(json.filters.state_list) ? [...json.filters.state_list].sort() : [];
-                        const status_list = Array.isArray(json.filters.status_list) ? [...json.filters.status_list].sort() : [];
-                        const reviewer_list = Array.isArray(json.filters.reviewer_list) ? [...json.filters.reviewer_list].sort() : [];
-                        const type_of_sale_list = Array.isArray(json.filters.type_of_sale_list) ? [...json.filters.type_of_sale_list].sort() : [];
-
-                        return {
-                            stage_list,
-                            state_list,
-                            status_list,
-                            reviewer_list,
-                            type_of_sale_list
-                        };
-                    });
-                }
                 setLoading(false);
             })
             .catch(err => {
@@ -186,7 +197,7 @@ function ReviewerListingView() {
             typeOfSaleFilter.forEach(t => params.append('type_of_sale', t));
 
             const query = params.toString();
-            const url = `https://roa-data-backend.vercel.app/reviewer_listing/download${query ? `?${query}` : ''}`;
+            const url = `https://roa-data-backend.vercel.app/reviewer-listing/download${query ? `?${query}` : ''}`;
 
             const response = await fetch(url);
             if (!response.ok) throw new Error(`Server returned ${response.status}`);
@@ -412,7 +423,7 @@ function ReviewerListingView() {
                                     <TableHead className="min-w-[200px]">Property Address</TableHead>
                                     <TableHead>Reviewer</TableHead>
                                     <TableHead>Stage</TableHead>
-                                    <TableHead>State</TableHead>
+                                    <TableHead>Office</TableHead>
                                     <TableHead>Type of Sale</TableHead>
                                     <TableHead>Sale Price</TableHead>
                                     <TableHead>Listing Price</TableHead>
@@ -432,7 +443,7 @@ function ReviewerListingView() {
                                                 </Badge>
                                             ) : '-'}
                                         </TableCell>
-                                        <TableCell className="text-xs text-slate-500 font-medium font-mono uppercase">{row.state || extractState(row.propertyaddress) || '-'}</TableCell>
+                                        <TableCell className="text-xs text-slate-600 font-medium">{row.office || '-'}</TableCell>
                                         <TableCell className="text-xs text-slate-600 font-medium">{row.type_of_sale || '-'}</TableCell>
                                         <TableCell className="text-xs font-semibold text-slate-700">{row.sale_price != null ? `$${Number(row.sale_price).toLocaleString()}` : '-'}</TableCell>
                                         <TableCell className="text-xs font-semibold text-slate-700">{row.listing_price != null ? `$${Number(row.listing_price).toLocaleString()}` : '-'}</TableCell>

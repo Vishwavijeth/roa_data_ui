@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { utils, writeFile } from 'xlsx';
-import { REVIEWER_SUMMARY_API } from '../constants';
+import { REVIEWER_SUMMARY_API, REVIEWER_FILTERS_API } from '../constants';
 import { IconDownload } from '../components/shared/Icons';
 import MultiSelect from '../components/shared/MultiSelect';
 import DateFilterInput from '../components/shared/DateFilterInput';
@@ -57,6 +57,39 @@ function ReviewerDashboardView() {
     // Stored filter dropdown options loaded from API
     const [availableFilters, setAvailableFilters] = useState(null);
 
+    // Fetch available filter options once on component mount
+    useEffect(() => {
+        let active = true;
+        fetch(REVIEWER_FILTERS_API)
+            .then(res => {
+                if (!res.ok) throw new Error(`Filters API error: ${res.status} ${res.statusText}`);
+                return res.json();
+            })
+            .then(json => {
+                if (!active) return;
+
+                const stage_list = Array.isArray(json.stage_list) ? [...json.stage_list].sort() : [];
+                const state_list = Array.isArray(json.state_list) ? [...json.state_list].sort() : [];
+                const status_list = Array.isArray(json.status_list) ? [...json.status_list].sort() : [];
+                const reviewer_list = Array.isArray(json.reviewer_list) ? [...json.reviewer_list].sort() : [];
+                const type_of_sale_list = Array.isArray(json.type_of_sale_list) ? [...json.type_of_sale_list].sort() : [];
+
+                setAvailableFilters({
+                    stage_list,
+                    state_list,
+                    status_list,
+                    reviewer_list,
+                    type_of_sale_list
+                });
+            })
+            .catch(err => {
+                console.error('Failed to fetch reviewer filters:', err);
+            });
+        return () => {
+            active = false;
+        };
+    }, []);
+
 
 
     useEffect(() => {
@@ -83,41 +116,6 @@ function ReviewerDashboardView() {
                     setSummary(json.summary);
                 } else {
                     setSummary(null);
-                }
-
-                if (json.filters) {
-                    setAvailableFilters(prev => {
-                        if (prev && prev.state_list && prev.state_list.length > 0) {
-                            return prev;
-                        }
-
-                        const stage_list = Array.isArray(json.filters.stage_list) ? [...json.filters.stage_list].sort() : [];
-                        const state_list = Array.isArray(json.filters.state_list) ? [...json.filters.state_list].sort() : [];
-                        const status_list = Array.isArray(json.filters.status_list) ? [...json.filters.status_list].sort() : [];
-                        const reviewer_list = Array.isArray(json.filters.reviewer_list) ? [...json.filters.reviewer_list].sort() : [];
-                        const type_of_sale_list = Array.isArray(json.filters.type_of_sale_list) ? [...json.filters.type_of_sale_list].sort() : [];
-
-                        return {
-                            stage_list,
-                            state_list,
-                            status_list,
-                            reviewer_list,
-                            type_of_sale_list
-                        };
-                    });
-                } else if (json.states) {
-                    // Fallback for older states format
-                    setAvailableFilters(prev => {
-                        if (prev && prev.state_list && prev.state_list.length > 0) return prev;
-                        const state_list = Array.isArray(json.states) ? [...new Set(json.states.map(s => s.toUpperCase()))].sort() : [];
-                        return {
-                            stage_list: [],
-                            state_list,
-                            status_list: [],
-                            reviewer_list: [],
-                            type_of_sale_list: []
-                        };
-                    });
                 }
 
                 setLoading(false);

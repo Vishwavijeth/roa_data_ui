@@ -18,9 +18,10 @@ export const BE_API = 'https://roa-data-backend.vercel.app/brokerage_engine';
 export const SKYSLOPE_API = 'https://roa-data-backend.vercel.app/skyslope_api';
 export const SS_API = 'https://roa-data-backend.vercel.app/skyslope_api';
 export const TXN_SPECIALIST_API = 'https://roa-data-backend.vercel.app/transaction_specialist_listing';
-export const REVIEWER_API = 'https://roa-data-backend.vercel.app/reviewer_listing';
+export const REVIEWER_API = 'https://roa-data-backend.vercel.app/reviewer-listing';
+export const REVIEWER_FILTERS_API = 'https://roa-data-backend.vercel.app/reviewers/filters';
 export const TXN_SPECIALIST_SUMMARY_API = 'https://roa-data-backend.vercel.app/transaction_specialist_dashboard';
-export const REVIEWER_SUMMARY_API = 'https://roa-data-backend.vercel.app/reviewer_dashboard';
+export const REVIEWER_SUMMARY_API = 'https://roa-data-backend.vercel.app/reviewer-dashboard';
 export const CHECKLIST_TYPE_MAPPING_API = 'https://roa-data-backend.vercel.app/checklist-type-validation';
 
 export const ROWS_PER_PAGE = 50;
