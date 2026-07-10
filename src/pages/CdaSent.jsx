@@ -6,7 +6,7 @@ import { Input } from '../components/ui/Input';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
 import { formatDateUS } from '../utils/helpers';
 
-const CDA_SENT_API = 'https://roa-data-backend.vercel.app/cda-sent/listing';
+const CDA_SENT_API = 'https://roa-data-backend.vercel.app/cda-sent';
 const ROWS_PER_PAGE = 50;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -25,45 +25,23 @@ const fmtDate = (val) => {
     return formatDateUS(val);
 };
 
-// Checks whether a record has ANY field-level mismatch
-const hasMismatch = (row) => {
-    return (
-        row.gross_commission_mismatch === 'mismatch' ||
-        row.sale_price_mismatch === true ||
-        row.closed_date_mismatch === true ||
-        row.contract_date_mismatch === true ||
-        row.transaction_status_mismatch === true ||
-        (typeof row.listing_price_mismatch === 'boolean' && row.listing_price_mismatch === true) ||
-        row.buyer_name_comparison === 'mismatch' ||
-        row.seller_name_comparison === 'mismatch'
-    );
-};
-
-// Badge for boolean mismatch fields
-const MismatchBadge = ({ mismatch }) => {
-    if (mismatch === true) {
-        return <Badge variant="destructive" className="px-1.5 py-0.5 rounded font-semibold text-[9px] capitalize">Mismatch</Badge>;
+// Match badge for string "match" / "mismatch" / null fields
+const MatchBadge = ({ value }) => {
+    if (value === 'match') {
+        return <Badge variant="success" className="px-1.5 py-0.5 rounded font-semibold text-[9px]">Match</Badge>;
     }
-    if (mismatch === false) {
-        return <Badge variant="success" className="px-1.5 py-0.5 rounded font-semibold text-[9px] capitalize">Match</Badge>;
+    if (value === 'mismatch') {
+        return <Badge variant="destructive" className="px-1.5 py-0.5 rounded font-semibold text-[9px]">Mismatch</Badge>;
     }
     return <span className="text-slate-400 text-[10px] font-bold">N/A</span>;
 };
-
-// Badge for comparison string fields
-const CompBadge = ({ value }) => {
-    if (value === 'match') return <Badge variant="success" className="px-1.5 py-0.5 rounded font-semibold text-[9px] capitalize">Match</Badge>;
-    if (value === 'mismatch') return <Badge variant="destructive" className="px-1.5 py-0.5 rounded font-semibold text-[9px] capitalize">Mismatch</Badge>;
-    return <span className="text-slate-400 text-[10px] font-bold">N/A</span>;
-};
-
-
 
 function CdaSent() {
-    const [filter, setFilter] = useState('all'); // 'all' | 'mismatch' | 'no_skyslope'
+    const [mismatchOnly, setMismatchOnly] = useState(false);
     const [data, setData] = useState([]);
-    const [summary, setSummary] = useState({ total_cda_sent: 0, unmatched_count: 0, no_skyslope_record: 0, match_percentage: 0 });
+    const [summary, setSummary] = useState({ total_count: 0, mismatch_count: 0 });
     const [totalPages, setTotalPages] = useState(0);
+    const [totalCount, setTotalCount] = useState(0);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [page, setPage] = useState(1);
@@ -73,10 +51,11 @@ function CdaSent() {
     const handleDownload = async () => {
         setDownloading(true);
         try {
-            const url = filter === 'all'
-                ? 'https://roa-data-backend.vercel.app/cda-sent/download'
-                : `https://roa-data-backend.vercel.app/cda-sent/download?filter=${filter}`;
+            const params = new URLSearchParams();
+            if (mismatchOnly) params.append('mismatch', 'true');
+            if (searchQuery.trim()) params.append('search', searchQuery.trim());
 
+            const url = `https://roa-data-backend.vercel.app/cda-sent/download?${params.toString()}`;
             const response = await fetch(url);
             if (!response.ok) throw new Error(`Download API error: ${response.status}`);
 
@@ -103,7 +82,7 @@ function CdaSent() {
         }
     };
 
-    // Fetch whenever filter or page changes
+    // Fetch whenever filter/page/search changes
     useEffect(() => {
         let active = true;
         setLoading(true);
@@ -112,7 +91,7 @@ function CdaSent() {
         const params = new URLSearchParams();
         params.append('page', page);
         params.append('page_size', ROWS_PER_PAGE);
-        if (filter !== 'all') params.append('filter', filter);
+        if (mismatchOnly) params.append('mismatch', 'true');
         if (searchQuery.trim()) params.append('search', searchQuery.trim());
 
         fetch(`${CDA_SENT_API}?${params.toString()}`)
@@ -123,8 +102,9 @@ function CdaSent() {
             .then(json => {
                 if (!active) return;
                 setData(Array.isArray(json.data) ? json.data : []);
-                setSummary(json.summary ?? { total_cda_sent: 0, unmatched_count: 0, no_skyslope_record: 0, match_percentage: 0 });
+                setSummary(json.summary ?? { total_count: 0, mismatch_count: 0 });
                 setTotalPages(json.total_pages ?? 0);
+                setTotalCount(json.summary?.total_count ?? 0);
                 setLoading(false);
             })
             .catch(err => {
@@ -134,7 +114,11 @@ function CdaSent() {
             });
 
         return () => { active = false; };
-    }, [filter, page, searchQuery]);
+    }, [mismatchOnly, page, searchQuery]);
+
+    const mismatchRate = summary.total_count > 0
+        ? ((summary.mismatch_count / summary.total_count) * 100).toFixed(1)
+        : '0.0';
 
     return (
         <div className="p-8 max-w-7xl mx-auto w-full space-y-6">
@@ -158,39 +142,30 @@ function CdaSent() {
             </div>
 
             {/* Metrics cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <Card className="hover:border-slate-300 transition-all select-none">
                     <CardContent className="pt-6">
-                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Total CDA Sent</span>
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Total Transactions</span>
                         <div className="text-2xl font-bold text-slate-800 mt-2">
-                            {(summary.total_cda_sent ?? 0).toLocaleString()}
+                            {(summary.total_count ?? 0).toLocaleString()}
                         </div>
                     </CardContent>
                 </Card>
 
                 <Card className="hover:border-red-200 hover:bg-red-50/5 transition-all select-none">
                     <CardContent className="pt-6">
-                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Unmatched Transactions</span>
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Mismatches</span>
                         <div className="text-2xl font-bold text-red-600 mt-2">
-                            {(summary.unmatched_count ?? 0).toLocaleString()}
+                            {(summary.mismatch_count ?? 0).toLocaleString()}
                         </div>
                     </CardContent>
                 </Card>
 
                 <Card className="hover:border-emerald-200 hover:bg-emerald-50/5 transition-all select-none">
                     <CardContent className="pt-6">
-                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Match Rate</span>
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Mismatch Rate</span>
                         <div className="text-2xl font-bold text-emerald-600 mt-2">
-                            {summary.match_percentage != null ? `${Number(summary.match_percentage).toFixed(1)}%` : '—'}
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card className="hover:border-amber-200 hover:bg-amber-50/5 transition-all select-none">
-                    <CardContent className="pt-6">
-                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">No SkySlope File ID</span>
-                        <div className="text-2xl font-bold text-amber-600 mt-2">
-                            {(summary.no_skyslope_record ?? 0).toLocaleString()}
+                            {mismatchRate}%
                         </div>
                     </CardContent>
                 </Card>
@@ -202,16 +177,16 @@ function CdaSent() {
                     <div className="flex flex-wrap items-center gap-3">
                         <h2 className="text-md font-bold text-slate-800">Transactions</h2>
 
-                        {/* Mismatches Filter Toggle */}
+                        {/* Mismatch Filter Toggle */}
                         <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white p-0.5 overflow-hidden">
                             <button
                                 id="cda-filter-mismatch"
-                                className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${filter === 'mismatch'
-                                        ? 'bg-red-50 text-red-700'
-                                        : 'hover:bg-slate-50 text-slate-600'
-                                    }`}
+                                className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${mismatchOnly
+                                    ? 'bg-red-50 text-red-700'
+                                    : 'hover:bg-slate-50 text-slate-600'
+                                }`}
                                 onClick={() => {
-                                    setFilter(f => f === 'mismatch' ? 'all' : 'mismatch');
+                                    setMismatchOnly(v => !v);
                                     setSearchQuery('');
                                     setPage(1);
                                 }}
@@ -219,36 +194,15 @@ function CdaSent() {
                                 Mismatches Only
                             </button>
                             <span className="px-2 text-xs font-bold text-slate-500 border-l border-slate-200">
-                                {summary.unmatched_count ?? 0}
+                                {summary.mismatch_count ?? 0}
                             </span>
                         </div>
 
-                        {/* No SkySlope Filter Toggle */}
-                        <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white p-0.5 overflow-hidden">
-                            <button
-                                id="cda-filter-no-skyslope"
-                                className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${filter === 'no_skyslope'
-                                        ? 'bg-amber-50 text-amber-700'
-                                        : 'hover:bg-slate-50 text-slate-600'
-                                    }`}
-                                onClick={() => {
-                                    setFilter(f => f === 'no_skyslope' ? 'all' : 'no_skyslope');
-                                    setSearchQuery('');
-                                    setPage(1);
-                                }}
-                            >
-                                No SkySlope File ID
-                            </button>
-                            <span className="px-2 text-xs font-bold text-slate-500 border-l border-slate-200">
-                                {summary.no_skyslope_record ?? 0}
-                            </span>
-                        </div>
-
-                        {(filter !== 'all' || searchQuery) && (
+                        {(mismatchOnly || searchQuery) && (
                             <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => { setFilter('all'); setSearchQuery(''); setPage(1); }}
+                                onClick={() => { setMismatchOnly(false); setSearchQuery(''); setPage(1); }}
                                 className="h-7 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
                             >
                                 ✕ Clear Filters
@@ -256,7 +210,7 @@ function CdaSent() {
                         )}
                     </div>
                     <span className="text-xs font-semibold text-slate-500">
-                        Showing page {page} of {totalPages || 1} ({(summary.total_cda_sent ?? 0).toLocaleString()} records)
+                        Showing page {page} of {totalPages || 1} ({(summary.total_count ?? 0).toLocaleString()} records)
                     </span>
                 </div>
 
@@ -269,7 +223,7 @@ function CdaSent() {
                         <Input
                             id="cda-search"
                             type="text"
-                            placeholder="Search by Transaction ID or Property Address…"
+                            placeholder="Search by property address…"
                             value={searchQuery}
                             onChange={e => { setPage(1); setSearchQuery(e.target.value); }}
                             className="pl-9 pr-8 w-full"
@@ -305,125 +259,102 @@ function CdaSent() {
                         <Table style={{ fontSize: '0.75rem' }}>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead className="min-w-[130px] font-bold">Transaction ID</TableHead>
-                                    <TableHead className="min-w-[220px] font-bold">Property Address</TableHead>
-                                    <TableHead className="min-w-[160px] font-bold">Tags</TableHead>
-                                    <TableHead className="font-semibold">BE Gross Commission</TableHead>
-                                    <TableHead className="font-semibold">SS Gross Commission</TableHead>
-                                    <TableHead className="font-semibold">Gross Commission</TableHead>
-                                    <TableHead className="font-semibold">BE Closed</TableHead>
-                                    <TableHead className="font-semibold">SS Closed</TableHead>
-                                    <TableHead className="font-semibold">Closed Date</TableHead>
-                                    <TableHead className="font-semibold">BE Sale Price</TableHead>
-                                    <TableHead className="font-semibold">SS Sale Price</TableHead>
-                                    <TableHead className="font-semibold">Sale Price</TableHead>
-                                    <TableHead className="font-semibold">BE Status</TableHead>
-                                    <TableHead className="font-semibold">SS Status</TableHead>
-                                    <TableHead className="font-semibold">Status</TableHead>
-                                    <TableHead className="font-semibold">BE Contract</TableHead>
-                                    <TableHead className="font-semibold">SS Contract</TableHead>
-                                    <TableHead className="font-semibold">Contract Date</TableHead>
-                                    <TableHead className="font-semibold">BE Listing Price</TableHead>
-                                    <TableHead className="font-semibold">SS Listing Price</TableHead>
-                                    <TableHead className="font-semibold">Listing Price</TableHead>
-                                    <TableHead className="font-semibold">BE Buyer</TableHead>
-                                    <TableHead className="font-semibold">SS Buyer</TableHead>
-                                    <TableHead className="font-semibold">Buyer</TableHead>
-                                    <TableHead className="font-semibold">BE Seller</TableHead>
-                                    <TableHead className="font-semibold">SS Seller</TableHead>
-                                    <TableHead className="font-semibold">Seller</TableHead>
-                                    <TableHead className="font-semibold text-right pr-6">Stale?</TableHead>
+                                    {/* Property Address */}
+                                    <TableHead className="min-w-[240px] font-bold">Property Address</TableHead>
+
+                                    {/* Gross Commission group */}
+                                    <TableHead className="font-semibold text-center" colSpan={3}>
+                                        <div className="flex flex-col items-center gap-0.5">
+                                            <span className="text-[10px] uppercase tracking-wider font-bold text-slate-500">Gross Commission</span>
+                                            <div className="flex gap-2 text-[10px] font-semibold text-slate-400">
+                                                <span>BE</span><span>·</span><span>SS</span><span>·</span><span>Match</span>
+                                            </div>
+                                        </div>
+                                    </TableHead>
+
+                                    {/* Close Date group */}
+                                    <TableHead className="font-semibold text-center" colSpan={3}>
+                                        <div className="flex flex-col items-center gap-0.5">
+                                            <span className="text-[10px] uppercase tracking-wider font-bold text-slate-500">Close Date</span>
+                                            <div className="flex gap-2 text-[10px] font-semibold text-slate-400">
+                                                <span>BE</span><span>·</span><span>SS</span><span>·</span><span>Match</span>
+                                            </div>
+                                        </div>
+                                    </TableHead>
+
+                                    {/* Status group */}
+                                    <TableHead className="font-semibold text-center" colSpan={3}>
+                                        <div className="flex flex-col items-center gap-0.5">
+                                            <span className="text-[10px] uppercase tracking-wider font-bold text-slate-500">Status</span>
+                                            <div className="flex gap-2 text-[10px] font-semibold text-slate-400">
+                                                <span>BE</span><span>·</span><span>SS</span><span>·</span><span>Match</span>
+                                            </div>
+                                        </div>
+                                    </TableHead>
+
+                                    {/* Sale Price group */}
+                                    <TableHead className="font-semibold text-center" colSpan={3}>
+                                        <div className="flex flex-col items-center gap-0.5">
+                                            <span className="text-[10px] uppercase tracking-wider font-bold text-slate-500">Sale Price</span>
+                                            <div className="flex gap-2 text-[10px] font-semibold text-slate-400">
+                                                <span>BE</span><span>·</span><span>SS</span><span>·</span><span>Match</span>
+                                            </div>
+                                        </div>
+                                    </TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {data.map((row, i) => {
-                                    const rowHasMismatch = hasMismatch(row);
+                                    const hasAnyMismatch =
+                                        row.gross_commission_match === 'mismatch' ||
+                                        row.close_date_match === 'mismatch' ||
+                                        row.status_match === 'mismatch' ||
+                                        row.sale_price_match === 'mismatch';
+
                                     return (
                                         <TableRow
                                             key={row.transaction_id || i}
                                             className={
-                                                rowHasMismatch
+                                                hasAnyMismatch
                                                     ? 'bg-red-50/30 hover:bg-red-50/50 transition-colors'
                                                     : 'hover:bg-slate-50/40'
                                             }
                                         >
-                                            {/* Transaction ID */}
-                                            <TableCell className="font-mono text-[10px] text-slate-500 shrink-0" title={row.transaction_id}>
-                                                {row.transaction_id ? `${row.transaction_id.slice(0, 18)}…` : '—'}
-                                            </TableCell>
-
-                                            {/* Property Address */}
-                                            <TableCell className="font-medium text-slate-800 text-xs truncate max-w-xs">{row.property_address || '—'}</TableCell>
-
-                                            {/* Tags */}
-                                            <TableCell className="max-w-[200px] shrink-0">
-                                                {row.tags ? (
-                                                    <div className="flex flex-wrap gap-1">
-                                                        {row.tags.split(',').map(t => t.trim()).map((tag, ti) => (
-                                                            <Badge key={ti} variant="secondary" className="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider bg-slate-100 hover:bg-slate-200/80 text-slate-600 border border-slate-200/30">
-                                                                {tag}
-                                                            </Badge>
-                                                        ))}
-                                                    </div>
-                                                ) : (
-                                                    <span className="text-slate-400 font-bold">—</span>
+                                            {/* Property Address + Source Table label */}
+                                            <TableCell className="max-w-xs">
+                                                <div className="font-medium text-slate-800 text-xs truncate">{row.property_address || '—'}</div>
+                                                {row.be_source_table && (
+                                                    <span className="inline-block mt-0.5 text-[9px] font-semibold uppercase tracking-wider text-slate-400 bg-slate-100 border border-slate-200/60 rounded px-1.5 py-0.5">
+                                                        {row.be_source_table}
+                                                    </span>
                                                 )}
                                             </TableCell>
 
                                             {/* Gross Commission */}
                                             <TableCell className="text-xs font-semibold text-slate-600">{fmtCurrency(row.be_gross_commission)}</TableCell>
-                                            <TableCell className="text-xs font-semibold text-slate-600">{fmtCurrency(row.ss_gross_commission)}</TableCell>
-                                            <TableCell><CompBadge value={row.gross_commission_mismatch} /></TableCell>
+                                            <TableCell className="text-xs font-semibold text-slate-600">{fmtCurrency(row.skyslope_gross_commission)}</TableCell>
+                                            <TableCell><MatchBadge value={row.gross_commission_match} /></TableCell>
 
-                                            {/* Closed Date */}
-                                            <TableCell className="text-xs text-slate-500 font-medium">{fmtDate(row.be_closed_date)}</TableCell>
-                                            <TableCell className="text-xs text-slate-500 font-medium">{fmtDate(row.ss_closed_date)}</TableCell>
-                                            <TableCell><MismatchBadge mismatch={row.closed_date_mismatch} /></TableCell>
+                                            {/* Close Date */}
+                                            <TableCell className="text-xs text-slate-500 font-medium">{fmtDate(row.be_close_date)}</TableCell>
+                                            <TableCell className="text-xs text-slate-500 font-medium">{fmtDate(row.skyslope_close_date_value)}</TableCell>
+                                            <TableCell><MatchBadge value={row.close_date_match} /></TableCell>
+
+                                            {/* Status */}
+                                            <TableCell className="text-xs text-slate-600 font-medium">{fmt(row.be_status)}</TableCell>
+                                            <TableCell className="text-xs text-slate-600 font-medium">{fmt(row.skyslope_status_value)}</TableCell>
+                                            <TableCell><MatchBadge value={row.status_match} /></TableCell>
 
                                             {/* Sale Price */}
                                             <TableCell className="text-xs font-semibold text-slate-600">{fmtCurrency(row.be_sale_price)}</TableCell>
-                                            <TableCell className="text-xs font-semibold text-slate-600">{fmtCurrency(row.ss_sale_price)}</TableCell>
-                                            <TableCell><MismatchBadge mismatch={row.sale_price_mismatch} /></TableCell>
-
-                                            {/* Transaction Status */}
-                                            <TableCell className="text-xs text-slate-600 font-medium">{fmt(row.be_transaction_status)}</TableCell>
-                                            <TableCell className="text-xs text-slate-600 font-medium">{fmt(row.ss_transaction_status)}</TableCell>
-                                            <TableCell><MismatchBadge mismatch={row.transaction_status_mismatch} /></TableCell>
-
-                                            {/* Contract Date */}
-                                            <TableCell className="text-xs text-slate-500 font-medium">{fmtDate(row.be_contract_date)}</TableCell>
-                                            <TableCell className="text-xs text-slate-500 font-medium">{fmtDate(row.ss_contract_date)}</TableCell>
-                                            <TableCell><MismatchBadge mismatch={row.contract_date_mismatch} /></TableCell>
-
-                                            {/* Listing Price */}
-                                            <TableCell className="text-xs font-semibold text-slate-600">{fmtCurrency(row.be_listing_price)}</TableCell>
-                                            <TableCell className="text-xs font-semibold text-slate-600">{fmtCurrency(row.ss_listing_price)}</TableCell>
-                                            <TableCell><CompBadge value={row.listing_price_mismatch} /></TableCell>
-
-                                            {/* Buyer */}
-                                            <TableCell className="text-xs text-slate-600 max-w-[160px] truncate">{fmt(row.be_buyer_name)}</TableCell>
-                                            <TableCell className="text-xs text-slate-600 max-w-[160px] truncate">{fmt(row.ss_buyer_name)}</TableCell>
-                                            <TableCell><CompBadge value={row.buyer_name_comparison} /></TableCell>
-
-                                            {/* Seller */}
-                                            <TableCell className="text-xs text-slate-600 max-w-[160px] truncate">{fmt(row.be_seller_name)}</TableCell>
-                                            <TableCell className="text-xs text-slate-600 max-w-[160px] truncate">{fmt(row.ss_seller_name)}</TableCell>
-                                            <TableCell><CompBadge value={row.seller_name_comparison} /></TableCell>
-
-                                            {/* Stale */}
-                                            <TableCell className="text-right pr-6 shrink-0 select-none">
-                                                {row.is_stale ? (
-                                                    <Badge variant="destructive" className="px-1.5 py-0.5 rounded font-semibold text-[9px] capitalize">Stale</Badge>
-                                                ) : (
-                                                    <Badge variant="success" className="px-1.5 py-0.5 rounded font-semibold text-[9px] capitalize">Fresh</Badge>
-                                                )}
-                                            </TableCell>
+                                            <TableCell className="text-xs font-semibold text-slate-600">{fmtCurrency(row.skyslope_sale_price)}</TableCell>
+                                            <TableCell><MatchBadge value={row.sale_price_match} /></TableCell>
                                         </TableRow>
                                     );
                                 })}
                                 {data.length === 0 && !loading && (
                                     <TableRow>
-                                        <TableCell colSpan={28} className="text-center text-slate-400 py-10 font-medium">
+                                        <TableCell colSpan={13} className="text-center text-slate-400 py-10 font-medium">
                                             No records found
                                         </TableCell>
                                     </TableRow>
