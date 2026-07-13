@@ -290,7 +290,7 @@ function ReconciliationNew({ syncingData, syncProgress, syncResult, handleSyncDa
             }
 
             const blob = await response.blob();
-            
+
             // Get content disposition header if available to extract filename
             const contentDisposition = response.headers.get('content-disposition');
             let filename = 'reconciliation_report.xlsx';
@@ -356,12 +356,20 @@ function ReconciliationNew({ syncingData, syncProgress, syncResult, handleSyncDa
         if (!saleguid && !txnId) return;
 
         setDrawerDetailLoading(true);
-        const isOtherIncome = row.source_table === 'other income' || row.source_table === 'otherincome_transactions';
-        const url = isOtherIncome
-            ? `${API_BASE}/otherincome_transactions/detail?transactionid=${encodeURIComponent(txnId)}`
-            : (saleguid
-                ? `${API_BASE}/skyslope/detail?saleguid=${encodeURIComponent(saleguid)}`
-                : `${API_BASE}/brokerage_engine/detail?transactionid=${encodeURIComponent(txnId)}`);
+        const sourceTables = Array.isArray(row.source_table) ? row.source_table : (row.source_table ? [row.source_table] : []);
+        const hasSaleIncome = sourceTables.some(t => t === 'sale income');
+        const hasOtherIncome = sourceTables.some(t => t === 'other income' || t === 'otherincome_transactions');
+        // When both sale income AND other income are present, or when a saleguid exists → use skyslope detail.
+        // Only fall back to otherincome endpoint when the record is exclusively other income (no sale income).
+        const isMixed = hasSaleIncome && hasOtherIncome;
+        const isOnlyOtherIncome = hasOtherIncome && !hasSaleIncome;
+        const url = isMixed
+            ? `${API_BASE}/skyslope/detail?saleguid=${encodeURIComponent(saleguid)}`
+            : isOnlyOtherIncome
+                ? `${API_BASE}/otherincome_transactions/detail?transactionid=${encodeURIComponent(txnId)}`
+                : (saleguid
+                    ? `${API_BASE}/skyslope/detail?saleguid=${encodeURIComponent(saleguid)}`
+                    : `${API_BASE}/brokerage_engine/detail?transactionid=${encodeURIComponent(txnId)}`);
 
         fetch(url)
             .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
@@ -517,8 +525,8 @@ function ReconciliationNew({ syncingData, syncProgress, syncResult, handleSyncDa
                             <button
                                 onClick={() => navigateSubTab('transactions')}
                                 className={`py-2 px-4 text-xs font-bold border-b-2 transition-all leading-none ${activeSubTab === 'transactions'
-                                        ? 'border-indigo-600 text-indigo-600 font-bold'
-                                        : 'border-transparent text-slate-400 hover:text-slate-600 hover:border-slate-300'
+                                    ? 'border-indigo-600 text-indigo-600 font-bold'
+                                    : 'border-transparent text-slate-400 hover:text-slate-600 hover:border-slate-300'
                                     }`}
                             >
                                 Transactions
@@ -526,8 +534,8 @@ function ReconciliationNew({ syncingData, syncProgress, syncResult, handleSyncDa
                             <button
                                 onClick={() => navigateSubTab('analytics')}
                                 className={`py-2 px-4 text-xs font-bold border-b-2 transition-all leading-none ${activeSubTab === 'analytics'
-                                        ? 'border-indigo-600 text-indigo-600 font-bold'
-                                        : 'border-transparent text-slate-400 hover:text-slate-600 hover:border-slate-300'
+                                    ? 'border-indigo-600 text-indigo-600 font-bold'
+                                    : 'border-transparent text-slate-400 hover:text-slate-600 hover:border-slate-300'
                                     }`}
                             >
                                 Analytics
@@ -538,8 +546,8 @@ function ReconciliationNew({ syncingData, syncProgress, syncResult, handleSyncDa
                             onClick={handleSyncData}
                             disabled={syncingData}
                             className={`font-semibold text-xs shadow-md select-none gap-2 h-9 ${syncingData
-                                    ? 'bg-indigo-700/80'
-                                    : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/10'
+                                ? 'bg-indigo-700/80'
+                                : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/10'
                                 }`}
                         >
                             {syncingData ? (
@@ -1190,36 +1198,44 @@ function ReconciliationNew({ syncingData, syncProgress, syncResult, handleSyncDa
 
                                                             {/* Source & SkySlope Stage */}
                                                             <TableCell className="py-3.5 pr-4 min-w-0">
-                                                                {row.source_table || row.skyslope_stage || !row.saleguid || row.saleguid === 'null' ? (
-                                                                    <div className="flex flex-col gap-1.5 items-start">
-                                                                        {/* Source Table Badge */}
-                                                                        {row.source_table && (
-                                                                            <span className={`inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-md border whitespace-nowrap ${row.source_table === 'sale income'
-                                                                                ? 'bg-amber-50 text-amber-700 border-amber-200'
-                                                                                : 'bg-sky-50 text-sky-700 border-sky-200'
-                                                                                }`}>
-                                                                                {row.source_table === 'sale income' ? 'Sale Income' : 'Other Income'}
-                                                                            </span>
-                                                                        )}
-                                                                        {/* SkySlope Stage or No SkySlope File ID Badge */}
-                                                                        {!row.saleguid || row.saleguid === 'null' ? (
-                                                                            <span className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 border border-rose-200 whitespace-nowrap shadow-sm">
-                                                                                No SkySlope File ID
-                                                                            </span>
-                                                                        ) : (
-                                                                            row.skyslope_stage && (
+                                                                {(() => {
+                                                                    const sourceTables = Array.isArray(row.source_table)
+                                                                        ? row.source_table
+                                                                        : (row.source_table ? [row.source_table] : []);
+                                                                    const hasContent = sourceTables.length > 0 || row.skyslope_stage || !row.saleguid || row.saleguid === 'null';
+                                                                    if (!hasContent) return <span className="text-slate-300 text-xs">—</span>;
+                                                                    return (
+                                                                        <div className="flex flex-col gap-1.5 items-start">
+                                                                            {/* Source Table Badges — one per entry */}
+                                                                            {sourceTables.map((st, stIdx) => (
                                                                                 <span
-                                                                                    className="inline-block whitespace-normal break-words max-w-[200px] text-[10px] font-medium px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200 text-left"
-                                                                                    title={row.skyslope_stage}
+                                                                                    key={stIdx}
+                                                                                    className={`inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-md border whitespace-nowrap ${st === 'sale income'
+                                                                                            ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                                                                            : 'bg-sky-50 text-sky-700 border-sky-200'
+                                                                                        }`}
                                                                                 >
-                                                                                    {row.skyslope_stage}
+                                                                                    {st === 'sale income' ? 'Sale Income' : 'Other Income'}
                                                                                 </span>
-                                                                            )
-                                                                        )}
-                                                                    </div>
-                                                                ) : (
-                                                                    <span className="text-slate-300 text-xs">—</span>
-                                                                )}
+                                                                            ))}
+                                                                            {/* SkySlope Stage or No SkySlope File ID Badge */}
+                                                                            {!row.saleguid || row.saleguid === 'null' ? (
+                                                                                <span className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 border border-rose-200 whitespace-nowrap shadow-sm">
+                                                                                    No SkySlope File ID
+                                                                                </span>
+                                                                            ) : (
+                                                                                row.skyslope_stage && (
+                                                                                    <span
+                                                                                        className="inline-block whitespace-normal break-words max-w-[200px] text-[10px] font-medium px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200 text-left"
+                                                                                        title={row.skyslope_stage}
+                                                                                    >
+                                                                                        {row.skyslope_stage}
+                                                                                    </span>
+                                                                                )
+                                                                            )}
+                                                                        </div>
+                                                                    );
+                                                                })()}
                                                             </TableCell>
 
                                                             {/* Mismatched Parameters */}
@@ -1447,11 +1463,15 @@ function ReconciliationNew({ syncingData, syncProgress, syncResult, handleSyncDa
                             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between gap-4 shrink-0">
                                 <div className="flex items-center gap-2 min-w-0">
                                     <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Transaction Detail</h2>
-                                    {drawerRow.source_table && (
-                                        <Badge variant="secondary" className="capitalize text-[10px] px-2 py-0.5 rounded">
-                                            {drawerRow.source_table.replace(/_/g, ' ')}
-                                        </Badge>
-                                    )}
+                                    {(() => {
+                                        const st = drawerRow.source_table;
+                                        const tables = Array.isArray(st) ? st : (st ? [st] : []);
+                                        return tables.map((t, i) => (
+                                            <Badge key={i} variant="secondary" className="capitalize text-[10px] px-2 py-0.5 rounded">
+                                                {t.replace(/_/g, ' ')}
+                                            </Badge>
+                                        ));
+                                    })()}
                                 </div>
                                 <div className="flex items-center gap-2 shrink-0">
                                     <button
