@@ -1,0 +1,550 @@
+import React, { useState, useEffect } from 'react';
+import { Badge } from '../components/ui/Badge';
+import { Button } from '../components/ui/Button';
+import { Card, CardContent } from '../components/ui/Card';
+
+// ── Flag helpers ──────────────────────────────────────────────────────────────
+
+const FLAG_LABELS = {
+    account_hold: { label: 'Account Hold', color: 'bg-red-100 text-red-700 border-red-200' },
+    ar_balance: { label: 'AR Balance', color: 'bg-amber-100 text-amber-700 border-amber-200' },
+    close_date: { label: 'Close Date', color: 'bg-orange-100 text-orange-700 border-orange-200' },
+    seller_name: { label: 'Seller Name', color: 'bg-purple-100 text-purple-700 border-purple-200' },
+    gross_commission: { label: 'Gross Commission', color: 'bg-blue-100 text-blue-700 border-blue-200' },
+    status: { label: 'Status', color: 'bg-slate-100 text-slate-700 border-slate-300' },
+    contract_date: { label: 'Contract Date', color: 'bg-teal-100 text-teal-700 border-teal-200' },
+};
+
+function FlagChip({ flag }) {
+    const meta = FLAG_LABELS[flag] || { label: flag, color: 'bg-slate-100 text-slate-600 border-slate-200' };
+    return (
+        <span className={`inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-full border ${meta.color}`}>
+            {meta.label}
+        </span>
+    );
+}
+
+function SourceTableBadge({ source }) {
+    const map = {
+        'sale income': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+        'other income': 'bg-sky-50 text-sky-700 border-sky-200',
+    };
+    const cls = map[source?.toLowerCase()] || 'bg-slate-100 text-slate-600 border-slate-200';
+    return (
+        <span className={`inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded border ${cls} capitalize`}>
+            {source || '—'}
+        </span>
+    );
+}
+
+// ── Inline expanded detail row ─────────────────────────────────────────────────
+
+function ExpandedDetail({ agent }) {
+    const arData = agent.ar_balance || {};
+    const customers = arData.customers || {};
+    const hasArFlag = agent.broker_flags?.includes('ar_balance');
+    const transactions = agent.transactions || [];
+
+    return (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 text-sm">
+            {/* Left Column: QuickBooks AR Balance */}
+            <div className="space-y-3">
+                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    AR Balance
+                </h3>
+
+                <div className={`rounded-xl border p-4 ${hasArFlag ? 'border-amber-200 bg-amber-50/40' : 'border-slate-200 bg-white'}`}>
+                    <div className="flex items-center justify-between mb-3 border-b border-slate-100 pb-3">
+                        <span className="text-xs text-slate-600 font-medium">Total Open Balance</span>
+                        <span className={`text-base font-bold ${arData.total_open_balance > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
+                            ${(arData.total_open_balance || 0).toFixed(2)}
+                        </span>
+                    </div>
+
+                    {Object.keys(customers).length === 0 ? (
+                        <p className="text-xs text-slate-400 italic">No QuickBooks customer mappings found.</p>
+                    ) : (
+                        <div className="space-y-4">
+                            {Object.entries(customers).map(([email, cust]) => (
+                                <div key={email} className="text-xs space-y-2">
+                                    <div className="flex justify-between font-semibold text-slate-700">
+                                        <span>Customer ID: {cust.customer_id || 'N/A'}</span>
+                                        <span>Balance: ${(cust.balance || 0).toFixed(2)}</span>
+                                    </div>
+                                    {cust.error && (
+                                        <p className="text-red-500 font-medium">{cust.error}</p>
+                                    )}
+                                    {cust.open_invoices && cust.open_invoices.length > 0 ? (
+                                        <div className="mt-2 border border-slate-100 rounded-lg overflow-hidden bg-white">
+                                            <table className="w-full text-[10px] text-left border-collapse">
+                                                <thead>
+                                                    <tr className="bg-slate-50 border-b border-slate-100 font-bold text-slate-500">
+                                                        <th className="p-2">Invoice #</th>
+                                                        <th className="p-2">Date</th>
+                                                        <th className="p-2">Due Date</th>
+                                                        <th className="p-2 text-right">Amt</th>
+                                                        <th className="p-2 text-right">Bal</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-100">
+                                                    {cust.open_invoices.map((inv, i) => (
+                                                        <tr key={i} className="text-slate-600">
+                                                            <td className="p-2 font-mono">{inv.doc_number || inv.docNumber || '—'}</td>
+                                                            <td className="p-2">{inv.txn_date || inv.txnDate || '—'}</td>
+                                                            <td className="p-2">{inv.due_date || inv.dueDate || '—'}</td>
+                                                            <td className="p-2 text-right">${(inv.total_amt || inv.totalAmt || 0).toFixed(2)}</td>
+                                                            <td className="p-2 text-right font-semibold text-amber-600">${(inv.balance || 0).toFixed(2)}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    ) : (
+                                        <p className="text-[10px] text-slate-400 italic">No open invoices.</p>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Right Column: Involved Transactions */}
+            <div className="space-y-3">
+                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                    </svg>
+                    Involved Transactions ({transactions.length})
+                </h3>
+
+                {transactions.length === 0 ? (
+                    <div className="text-center py-8 border border-dashed border-slate-200 rounded-xl bg-white">
+                        <p className="text-xs text-slate-400 italic">No involved transactions found.</p>
+                    </div>
+                ) : (
+                    <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1">
+                        {transactions.map((txn, i) => (
+                            <div key={txn.transactionid || i} className="p-3.5 rounded-xl border border-slate-200 bg-white space-y-2.5 shadow-xs hover:shadow-sm transition-shadow">
+                                <div className="flex items-start justify-between gap-4">
+                                    <p className="text-xs font-semibold text-slate-700 leading-normal">
+                                        {txn.property_address || 'Unknown Address'}
+                                    </p>
+                                    <SourceTableBadge source={txn.source_table} />
+                                </div>
+                                {txn.transaction_flags && txn.transaction_flags.length > 0 && (
+                                    <div className="flex flex-wrap gap-1">
+                                        {txn.transaction_flags.map(f => (
+                                            <FlagChip key={f} flag={f} />
+                                        ))}
+                                    </div>
+                                )}
+
+                                {txn.mismatch_details && Object.keys(txn.mismatch_details).length > 0 && (
+                                    <div className="pt-2 border-t border-slate-100/80 space-y-2">
+                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Mismatch Breakdown</p>
+                                        <div className="space-y-1.5">
+                                            {Object.entries(txn.mismatch_details).map(([paramName, values]) => (
+                                                <div key={paramName} className="bg-slate-50 rounded-lg p-2 border border-slate-100 space-y-1">
+                                                    <span className="text-[10px] font-bold text-slate-600 capitalize">
+                                                        {paramName.replace(/_/g, ' ')}
+                                                    </span>
+                                                    <div className="grid grid-cols-2 gap-2 text-[10px] leading-tight">
+                                                        <div>
+                                                            <span className="text-slate-400 block text-[9px] font-medium">Brokerage Engine</span>
+                                                            <span className="font-semibold font-mono text-slate-700 break-all">
+                                                                {values.be !== null && values.be !== undefined ? String(values.be) : '—'}
+                                                            </span>
+                                                        </div>
+                                                        <div>
+                                                            <span className="text-slate-400 block text-[9px] font-medium">SkySlope</span>
+                                                            <span className="font-semibold font-mono text-slate-700 break-all">
+                                                                {values.skyslope !== null && values.skyslope !== undefined ? String(values.skyslope) : '—'}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+// ── Main Page ──────────────────────────────────────────────────────────────────
+
+function AccountHold() {
+    const [qbStatus, setQbStatus] = useState('loading');
+    const [realmId, setRealmId] = useState(null);
+    const [agents, setAgents] = useState([]);
+    const [totalCount, setTotalCount] = useState(0);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [selectedAgent, setSelectedAgent] = useState(null);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [filterFlag, setFilterFlag] = useState('all');
+
+    // QuickBooks token status
+    useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const status = urlParams.get('quickbooks');
+        const realm = urlParams.get('realm_id');
+
+        if (status) {
+            setQbStatus(status);
+            setRealmId(realm);
+            const cleanUrl = window.location.pathname + window.location.hash;
+            window.history.replaceState(null, '', cleanUrl);
+        } else {
+            fetch('https://roa-data-backend.vercel.app/auth/quickbooks/token-status')
+                .then(res => res.json())
+                .then(data => {
+                    if (data && data.connected) {
+                        setQbStatus('connected');
+                        setRealmId(data.realm_id || data.realmId);
+                    } else {
+                        setQbStatus('disconnected');
+                    }
+                })
+                .catch(() => setQbStatus('error'));
+        }
+    }, []);
+
+    // Account Hold data
+    useEffect(() => {
+        setLoading(true);
+        setError(null);
+        fetch('https://roa-data-backend.vercel.app/account-hold')
+            .then(res => {
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                return res.json();
+            })
+            .then(data => {
+                setAgents(data.data || []);
+                setTotalCount(data.count || 0);
+                setLoading(false);
+            })
+            .catch(err => {
+                setError(err.message);
+                setLoading(false);
+            });
+    }, []);
+
+    const handleConnectQuickBooks = () => {
+        window.location.href = 'https://roa-data-backend.vercel.app/auth/quickbooks/login';
+    };
+
+    // QB status badge
+    const renderStatusBadge = () => {
+        if (qbStatus === 'loading') return (
+            <Badge variant="secondary" className="px-2.5 py-1 text-xs font-semibold gap-1.5 text-slate-400 bg-slate-50 border-slate-200">
+                <svg className="animate-spin h-3 w-3 text-slate-400" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                Checking connection...
+            </Badge>
+        );
+        if (qbStatus === 'connected') return (
+            <Badge variant="success" className="px-2.5 py-1 text-xs font-semibold gap-1.5 shadow-sm">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Connected to QuickBooks {realmId ? `(Realm: ${realmId})` : ''}
+            </Badge>
+        );
+        if (qbStatus === 'error') return (
+            <Badge variant="destructive" className="px-2.5 py-1 text-xs font-semibold gap-1.5 shadow-sm">
+                <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+                QuickBooks Connection Failed
+            </Badge>
+        );
+        return (
+            <Badge variant="secondary" className="px-2.5 py-1 text-xs font-semibold gap-1.5 text-slate-500 bg-slate-100 border-slate-200">
+                <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+                QuickBooks Disconnected
+            </Badge>
+        );
+    };
+
+    // Filtering
+    const filteredAgents = agents.filter(agent => {
+        const matchesSearch =
+            !searchQuery ||
+            agent.display_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            agent.primary_emailaddress?.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesFlag =
+            filterFlag === 'all' || agent.broker_flags?.includes(filterFlag);
+        return matchesSearch && matchesFlag;
+    });
+
+    const totalArBalance = filteredAgents.reduce((acc, a) => acc + (a.ar_balance?.total_open_balance || 0), 0);
+    const agentsWithArBalance = filteredAgents.filter(a => a.ar_balance?.total_open_balance > 0).length;
+
+    return (
+        <div className="p-6 max-w-7xl mx-auto w-full space-y-6">
+
+            {/* Page Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200/80 pb-5">
+                <div>
+                    <div className="flex flex-wrap items-center gap-3">
+                        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Account Hold</h1>
+                        {renderStatusBadge()}
+                    </div>
+                    <p className="text-sm text-slate-500 mt-1">
+                        Agents with active account holds, outstanding AR balances, and flagged transactions.
+                    </p>
+                </div>
+                <Button
+                    id="account-hold-qb-btn"
+                    onClick={handleConnectQuickBooks}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold gap-2 shadow-sm transition-all"
+                >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                    </svg>
+                    Connect to QuickBooks
+                </Button>
+            </div>
+
+            {/* Summary strip */}
+            {!loading && !error && (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                    <Card className="hover:border-slate-300 transition-all select-none">
+                        <CardContent className="pt-6">
+                            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Total Agents</span>
+                            <div className="text-2xl font-bold text-slate-800 mt-2">
+                                {totalCount.toLocaleString()}
+                            </div>
+                        </CardContent>
+                    </Card>
+                    <Card className="hover:border-amber-200 hover:bg-amber-50/5 transition-all select-none">
+                        <CardContent className="pt-6">
+                            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">With AR Balance</span>
+                            <div className="text-2xl font-bold text-amber-600 mt-2">
+                                {agentsWithArBalance.toLocaleString()}
+                            </div>
+                        </CardContent>
+                    </Card>
+                    <Card className="hover:border-amber-200 hover:bg-amber-50/5 transition-all select-none">
+                        <CardContent className="pt-6">
+                            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Total AR Amount</span>
+                            <div className="text-2xl font-bold text-amber-600 mt-2">
+                                ${totalArBalance.toFixed(2)}
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
+
+            {/* Search */}
+            <div className="relative">
+                <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input
+                    id="account-hold-search"
+                    type="text"
+                    placeholder="Search agents by name or email..."
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2.5 text-sm bg-white border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all"
+                />
+            </div>
+
+            {/* Loading skeleton — table-shaped rows */}
+            {loading && (
+                <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                    <div className="h-10 bg-slate-50 border-b border-slate-200" />
+                    {[...Array(6)].map((_, i) => (
+                        <div key={i} className="flex items-center gap-4 px-5 py-3.5 border-b border-slate-100 animate-pulse">
+                            <div className="h-3 bg-slate-100 rounded w-36" />
+                            <div className="h-3 bg-slate-100 rounded w-52" />
+                            <div className="h-4 w-20 bg-slate-100 rounded-full" />
+                            <div className="h-3 bg-slate-100 rounded w-16 ml-auto" />
+                            <div className="h-3 bg-slate-100 rounded w-10" />
+                            <div className="h-7 w-20 bg-slate-100 rounded-lg" />
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {/* Error */}
+            {!loading && error && (
+                <div className="flex flex-col items-center justify-center py-16 space-y-4">
+                    <div className="h-14 w-14 rounded-full bg-red-50 flex items-center justify-center">
+                        <svg className="h-7 w-7 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                    </div>
+                    <div className="text-center">
+                        <h3 className="text-base font-semibold text-slate-700">Failed to load data</h3>
+                        <p className="text-sm text-slate-400 mt-1">{error}</p>
+                    </div>
+                    <button
+                        onClick={() => window.location.reload()}
+                        className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 transition-colors"
+                    >
+                        Retry
+                    </button>
+                </div>
+            )}
+
+            {/* Empty */}
+            {!loading && !error && filteredAgents.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-16 space-y-3">
+                    <div className="h-14 w-14 rounded-full bg-slate-100 flex items-center justify-center">
+                        <svg className="h-7 w-7 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                    </div>
+                    <p className="text-sm font-semibold text-slate-600">No agents found</p>
+                    <p className="text-xs text-slate-400">Try adjusting your search or filter.</p>
+                </div>
+            )}
+
+            {/* ── Table ── */}
+            {!loading && !error && filteredAgents.length > 0 && (
+                <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                    <table className="w-full text-sm border-collapse">
+                        <thead>
+                            <tr className="bg-slate-50 border-b border-slate-200">
+                                <th className="text-left px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider w-[22%]">
+                                    Agent
+                                </th>
+                                <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider w-[26%]">
+                                    Email
+                                </th>
+                                <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                    Flags
+                                </th>
+                                <th className="text-right px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider w-[120px]">
+                                    AR Balance
+                                </th>
+                                <th className="text-center px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider w-[90px]">
+                                    Txns
+                                </th>
+                                <th className="text-center px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider w-[110px]">
+                                    Details
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {filteredAgents.map((agent, idx) => {
+                                const arBalance = agent.ar_balance?.total_open_balance || 0;
+                                const txnCount = agent.transaction_count || agent.transactions?.length || 0;
+                                const isExpanded = selectedAgent?.primary_emailaddress === agent.primary_emailaddress;
+
+                                return (
+                                    <React.Fragment key={agent.primary_emailaddress || idx}>
+                                        <tr
+                                            className={`hover:bg-slate-50/70 transition-colors ${isExpanded ? 'bg-blue-50/10' : ''
+                                                }`}
+                                        >
+                                            {/* Agent name */}
+                                            <td className="px-5 py-3.5">
+                                                <span className="font-semibold text-slate-800 text-sm">
+                                                    {agent.display_name}
+                                                </span>
+                                            </td>
+
+                                            {/* Email */}
+                                            <td className="px-4 py-3.5">
+                                                <span className="text-xs text-slate-500 font-mono">
+                                                    {agent.primary_emailaddress}
+                                                </span>
+                                            </td>
+
+                                            {/* Broker flags */}
+                                            <td className="px-4 py-3.5">
+                                                <div className="flex flex-wrap gap-1">
+                                                    {agent.broker_flags?.map(f => <FlagChip key={f} flag={f} />)}
+                                                </div>
+                                            </td>
+
+                                            {/* AR Balance */}
+                                            <td className="px-4 py-3.5 text-right">
+                                                <span className={`text-sm font-bold ${arBalance > 0 ? 'text-amber-600' : 'text-slate-400'}`}>
+                                                    ${arBalance.toFixed(2)}
+                                                </span>
+                                            </td>
+
+                                            {/* Transaction count */}
+                                            <td className="px-4 py-3.5 text-center">
+                                                <span className="inline-flex items-center justify-center h-6 min-w-[1.5rem] px-2 rounded-full bg-slate-100 text-slate-700 text-xs font-bold">
+                                                    {txnCount}
+                                                </span>
+                                            </td>
+
+                                            {/* Details button */}
+                                            <td className="px-5 py-3.5 text-center">
+                                                <button
+                                                    id={`account-hold-details-${agent.primary_emailaddress?.replace(/[@.]/g, '-')}`}
+                                                    onClick={() => setSelectedAgent(isExpanded ? null : agent)}
+                                                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${isExpanded
+                                                            ? 'text-white bg-blue-600 border-blue-600 shadow-sm'
+                                                            : 'text-blue-600 bg-blue-50 hover:bg-blue-600 hover:text-white border border-blue-200 hover:border-blue-600'
+                                                        }`}
+                                                >
+                                                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                    </svg>
+                                                    Details
+                                                    <span className={`transition-transform duration-200 ml-0.5 shrink-0 ${isExpanded ? 'rotate-180' : ''}`}>
+                                                        <svg width="8" height="8" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                                                        </svg>
+                                                    </span>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        {isExpanded && (
+                                            <tr key={`exp-${agent.primary_emailaddress || idx}`}>
+                                                <td colSpan={6} className="p-0 border-t-0">
+                                                    <div style={{ animation: 'slideDown 0.22s ease-out forwards', overflow: 'hidden' }}>
+                                                        <div className="px-6 py-5 bg-gradient-to-b from-slate-50/80 to-white border-t border-blue-100/60">
+                                                            <ExpandedDetail agent={agent} />
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </React.Fragment>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+
+                    {/* Table footer */}
+                    <div className="px-5 py-3 border-t border-slate-100 bg-slate-50/60 flex items-center justify-between">
+                        <p className="text-xs text-slate-400">
+                            Showing <span className="font-semibold text-slate-600">{filteredAgents.length}</span> of{' '}
+                            <span className="font-semibold text-slate-600">{totalCount}</span> agents
+                        </p>
+                    </div>
+                </div>
+            )}
+
+
+            <style>{`
+                @keyframes slide-in-right {
+                    from { transform: translateX(100%); opacity: 0; }
+                    to   { transform: translateX(0);    opacity: 1; }
+                }
+                .animate-slide-in-right {
+                    animation: slide-in-right 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+                }
+            `}</style>
+        </div>
+    );
+}
+
+export default AccountHold;

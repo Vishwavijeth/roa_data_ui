@@ -25,7 +25,7 @@ function Sidebar({ activePage, setActivePage, onLogout }) {
             label: 'CDA LISTING',
             items: [
                 { id: 'cda_sent', label: 'CDA Sent', icon: <IconCdaSent /> },
-                { id: 'pre_cda', label: 'Pre CDA', icon: <IconPreCda /> },
+                { id: 'pre_cda', label: 'Account Hold', icon: <IconPreCda /> },
             ],
         },
         {
