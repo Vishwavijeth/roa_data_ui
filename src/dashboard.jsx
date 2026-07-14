@@ -11,7 +11,7 @@ import TransactionSpecialistDashboardView from './pages/TransactionSpecialistDas
 import ReviewerDashboardView from './pages/ReviewerDashboardView';
 import CdaSent from './pages/CdaSent';
 import MonthClosing from './pages/MonthClosing';
-import PreCDA from './pages/PreCDA';
+import AccountHold from './pages/AccountHold';
 import ChecklistTypeMappingView from './pages/ChecklistTypeMappingView';
 
 // ── Dashboard Shell (layout + sidebar + lifted sync state) ───────────────────
@@ -257,7 +257,7 @@ function Dashboard({ setIsAuthenticated }) {
             case 'cda_sent':
                 return <CdaSent />;
             case 'pre_cda':
-                return <PreCDA />;
+                return <AccountHold />;
             case 'month_closing':
                 return <MonthClosing />;
             case 'txn_specialist':
