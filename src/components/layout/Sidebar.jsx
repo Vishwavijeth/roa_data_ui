@@ -80,7 +80,10 @@ function Sidebar({ activePage, setActivePage, onLogout }) {
                                                 ? 'bg-blue-600 text-white shadow-md shadow-blue-600/10'
                                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
                                         }`}
-                                        onClick={() => setActivePage(item.id)}
+                                        onClick={() => {
+                                            setActivePage(item.id);
+                                            window.location.hash = item.id;
+                                        }}
                                     >
                                         <span className={`transition-colors shrink-0 ${
                                             isActive ? 'text-white' : 'text-slate-500 group-hover:text-slate-300'
