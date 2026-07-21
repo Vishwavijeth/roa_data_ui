@@ -40,7 +40,7 @@ function SourceTableBadge({ source }) {
 
 // ── Detail View Component ──────────────────────────────────────────────────────
 
-function AccountHoldDetail({ email, qbStatus, realmId, handleConnectQuickBooks }) {
+function AccountHoldDetail({ customerId, qbStatus, realmId, handleConnectQuickBooks }) {
     const [detailData, setDetailData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -51,7 +51,7 @@ function AccountHoldDetail({ email, qbStatus, realmId, handleConnectQuickBooks }
         setError(null);
         setDetailData(null);
 
-        fetch(`https://roa-data-backend.vercel.app/account-hold/detail/${encodeURIComponent(email)}`)
+        fetch(`https://roa-data-backend.vercel.app/account-hold/detail/${customerId}`)
             .then(res => {
                 if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
                 return res.json();
@@ -72,7 +72,7 @@ function AccountHoldDetail({ email, qbStatus, realmId, handleConnectQuickBooks }
         return () => {
             isMounted = false;
         };
-    }, [email]);
+    }, [customerId]);
 
     const renderStatusBadge = () => {
         if (qbStatus === 'loading') return (
@@ -161,9 +161,9 @@ function AccountHoldDetail({ email, qbStatus, realmId, handleConnectQuickBooks }
     }
 
     const arData = detailData.ar_balance || {};
-    const customers = arData.customers || {};
     const hasArFlag = detailData.broker_flags?.includes('ar_balance');
     const transactions = detailData.transactions || [];
+    const openInvoices = arData.open_invoices || [];
 
     return (
         <div className="p-6 max-w-7xl mx-auto w-full space-y-6 animate-fade-in">
@@ -218,52 +218,37 @@ function AccountHoldDetail({ email, qbStatus, realmId, handleConnectQuickBooks }
                     <div className={`rounded-2xl border p-5 bg-white shadow-xs ${hasArFlag ? 'border-amber-250 bg-amber-50/10' : 'border-slate-200'}`}>
                         <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-4">
                             <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Total Open Balance</span>
-                            <span className={`text-xl font-extrabold ${arData.total_open_balance > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
-                                ${(arData.total_open_balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            <span className={`text-xl font-extrabold ${(arData.balance || 0) > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
+                                ${(arData.balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </span>
                         </div>
 
-                        {Object.keys(customers).length === 0 ? (
-                            <p className="text-xs text-slate-400 italic py-4 text-center">No QuickBooks customer mappings found.</p>
+                        {openInvoices.length === 0 ? (
+                            <p className="text-xs text-slate-400 italic py-4 text-center">No open invoices found.</p>
                         ) : (
-                            <div className="space-y-5">
-                                {Object.entries(customers).map(([email, cust]) => (
-                                    <div key={email} className="space-y-3">
-                                        <div className="flex justify-between items-center text-xs font-semibold text-slate-650 bg-slate-50 p-2.5 rounded-lg border border-slate-100">
-                                            <span>Customer ID: <strong className="text-slate-800 font-mono">{cust.customer_id || 'N/A'}</strong></span>
-                                            <span>Balance: <strong className={cust.balance > 0 ? 'text-amber-600' : 'text-emerald-600'}>${(cust.balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></span>
-                                        </div>
-                                        {cust.error && (
-                                            <p className="text-xs text-red-500 font-semibold p-2 bg-red-50 rounded-lg border border-red-100">{cust.error}</p>
-                                        )}
-                                        {cust.open_invoices && cust.open_invoices.length > 0 ? (
-                                            <div className="border border-slate-205 rounded-xl overflow-hidden shadow-xs bg-white">
-                                                <table className="w-full text-xs text-left border-collapse">
-                                                    <thead>
-                                                        <tr className="bg-slate-50 border-b border-slate-200 font-bold text-slate-500">
-                                                            <th className="p-2.5">Invoice #</th>
-                                                            <th className="p-2.5">Date</th>
-                                                            <th className="p-2.5 text-right">Amt</th>
-                                                            <th className="p-2.5 text-right">Bal</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody className="divide-y divide-slate-100">
-                                                        {cust.open_invoices.map((inv, i) => (
-                                                            <tr key={i} className="text-slate-600 hover:bg-slate-50/40">
-                                                                <td className="p-2.5 font-mono text-slate-700 font-medium">{inv.doc_number || inv.docNumber || '—'}</td>
-                                                                <td className="p-2.5">{inv.txn_date || inv.txnDate || '—'}</td>
-                                                                <td className="p-2.5 text-right">${(inv.total_amt || inv.totalAmt || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-                                                                <td className="p-2.5 text-right font-semibold text-amber-600">${(inv.balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-                                                            </tr>
-                                                        ))}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        ) : (
-                                            <p className="text-xs text-slate-400 italic py-2 text-center border border-dashed border-slate-150 rounded-lg bg-slate-50/30">No open invoices.</p>
-                                        )}
-                                    </div>
-                                ))}
+                            <div className="border border-slate-200 rounded-xl overflow-hidden shadow-xs bg-white">
+                                <table className="w-full text-xs text-left border-collapse">
+                                    <thead>
+                                        <tr className="bg-slate-50 border-b border-slate-200 font-bold text-slate-500">
+                                            <th className="p-2.5">Invoice #</th>
+                                            <th className="p-2.5">Txn Date</th>
+                                            <th className="p-2.5">Due Date</th>
+                                            <th className="p-2.5 text-right">Amt</th>
+                                            <th className="p-2.5 text-right">Bal</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {openInvoices.map((inv, i) => (
+                                            <tr key={inv.invoice_id || i} className="text-slate-600 hover:bg-slate-50/40">
+                                                <td className="p-2.5 font-mono text-slate-700 font-medium">{inv.doc_number || '—'}</td>
+                                                <td className="p-2.5">{inv.txn_date || '—'}</td>
+                                                <td className="p-2.5">{inv.due_date || '—'}</td>
+                                                <td className="p-2.5 text-right">${(inv.total_amt || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                                                <td className="p-2.5 text-right font-semibold text-amber-600">${(inv.balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
                             </div>
                         )}
                     </div>
@@ -363,8 +348,24 @@ function AccountHoldList({ qbStatus, realmId, handleConnectQuickBooks }) {
     const [size] = useState(50);
     const [searchQuery, setSearchQuery] = useState('');
     const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+    const [filterAccountHold, setFilterAccountHold] = useState(false);
+    const [filterArBalance, setFilterArBalance] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [summaryData, setSummaryData] = useState(null);
+    const [summaryLoading, setSummaryLoading] = useState(true);
+
+    // Fetch static summary metrics (unaffected by filters)
+    useEffect(() => {
+        fetch('https://roa-data-backend.vercel.app/account-hold/summary')
+            .then(res => {
+                if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
+                return res.json();
+            })
+            .then(data => setSummaryData(data))
+            .catch(() => setSummaryData(null))
+            .finally(() => setSummaryLoading(false));
+    }, []);
 
     // Debounce search query to avoid calling API on every keystroke
     useEffect(() => {
@@ -387,6 +388,8 @@ function AccountHoldList({ qbStatus, realmId, handleConnectQuickBooks }) {
         if (debouncedSearchQuery.trim()) {
             params.append('search', debouncedSearchQuery.trim());
         }
+        if (filterAccountHold) params.append('account_hold', 'true');
+        if (filterArBalance) params.append('ar_balance', 'true');
 
         fetch(`https://roa-data-backend.vercel.app/account-hold?${params.toString()}`)
             .then(res => {
@@ -411,7 +414,7 @@ function AccountHoldList({ qbStatus, realmId, handleConnectQuickBooks }) {
         return () => {
             isMounted = false;
         };
-    }, [page, size, debouncedSearchQuery]);
+    }, [page, size, debouncedSearchQuery, filterAccountHold, filterArBalance]);
 
     const renderStatusBadge = () => {
         if (qbStatus === 'loading') return (
@@ -468,19 +471,105 @@ function AccountHoldList({ qbStatus, realmId, handleConnectQuickBooks }) {
                 </Button>
             </div>
 
-            {/* Summary strip */}
-            {!loading && !error && (
-                <div className="max-w-xs">
-                    <Card className="hover:border-slate-300 transition-all select-none shadow-2xs">
-                        <CardContent className="pt-6">
-                            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Total Agents</span>
-                            <div className="text-2xl font-bold text-slate-800 mt-2">
-                                {totalCount.toLocaleString()}
+            {/* Summary Metrics Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {/* Total Agents */}
+                <div className="rounded-2xl border border-slate-200 bg-white shadow-xs px-5 py-4 flex items-center gap-4 hover:border-slate-300 transition-all select-none">
+                    <div className="h-10 w-10 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
+                        <svg className="h-5 w-5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Agents</span>
+                        {summaryLoading ? (
+                            <div className="h-7 w-20 bg-slate-100 rounded animate-pulse mt-1" />
+                        ) : (
+                            <div className="text-2xl font-bold text-slate-800 mt-0.5">
+                                {(summaryData?.total_agents ?? 0).toLocaleString()}
                             </div>
-                        </CardContent>
-                    </Card>
+                        )}
+                    </div>
                 </div>
-            )}
+
+                {/* AR Balance */}
+                <div className="rounded-2xl border border-amber-100 bg-amber-50/40 shadow-xs px-5 py-4 flex items-center gap-4 hover:border-amber-200 transition-all select-none">
+                    <div className="h-10 w-10 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
+                        <svg className="h-5 w-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <span className="text-[10px] font-bold text-amber-500 uppercase tracking-wider block">Agents with AR Balance</span>
+                        {summaryLoading ? (
+                            <div className="h-7 w-16 bg-amber-100 rounded animate-pulse mt-1" />
+                        ) : (
+                            <div className="text-2xl font-bold text-amber-700 mt-0.5">
+                                {(summaryData?.agents_with_ar_balance ?? 0).toLocaleString()}
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Account Hold */}
+                <div className="rounded-2xl border border-red-100 bg-red-50/40 shadow-xs px-5 py-4 flex items-center gap-4 hover:border-red-200 transition-all select-none">
+                    <div className="h-10 w-10 rounded-xl bg-red-100 flex items-center justify-center shrink-0">
+                        <svg className="h-5 w-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                        </svg>
+                    </div>
+                    <div>
+                        <span className="text-[10px] font-bold text-red-400 uppercase tracking-wider block">Agents with Account Hold</span>
+                        {summaryLoading ? (
+                            <div className="h-7 w-10 bg-red-100 rounded animate-pulse mt-1" />
+                        ) : (
+                            <div className="text-2xl font-bold text-red-600 mt-0.5">
+                                {(summaryData?.agents_with_account_hold ?? 0).toLocaleString()}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            {/* Flag Filters */}
+            <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider mr-1">Filter by flag:</span>
+                <button
+                    id="filter-account-hold"
+                    onClick={() => { setFilterAccountHold(v => !v); setPage(1); }}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all select-none ${
+                        filterAccountHold
+                            ? 'bg-red-600 text-white border-red-600 shadow-sm'
+                            : 'bg-white text-red-600 border-red-200 hover:bg-red-50'
+                    }`}
+                >
+                    <span className={`h-1.5 w-1.5 rounded-full ${filterAccountHold ? 'bg-white' : 'bg-red-400'}`} />
+                    Account Hold
+                </button>
+                <button
+                    id="filter-ar-balance"
+                    onClick={() => { setFilterArBalance(v => !v); setPage(1); }}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all select-none ${
+                        filterArBalance
+                            ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
+                            : 'bg-white text-amber-600 border-amber-200 hover:bg-amber-50'
+                    }`}
+                >
+                    <span className={`h-1.5 w-1.5 rounded-full ${filterArBalance ? 'bg-white' : 'bg-amber-400'}`} />
+                    AR Balance
+                </button>
+                {(filterAccountHold || filterArBalance) && (
+                    <button
+                        onClick={() => { setFilterAccountHold(false); setFilterArBalance(false); setPage(1); }}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-semibold text-slate-400 hover:text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 transition-all"
+                    >
+                        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                        Clear
+                    </button>
+                )}
+            </div>
 
             {/* Search and Clear Filter */}
             <div className="flex items-center gap-3">
@@ -592,7 +681,7 @@ function AccountHoldList({ qbStatus, realmId, handleConnectQuickBooks }) {
                             {agents.map((agent, idx) => {
                                 const txnCount = agent.transaction_count || 0;
                                 return (
-                                    <tr key={agent.primary_emailaddress || idx} className="hover:bg-slate-50/70 transition-colors">
+                                    <tr key={agent.customer_id ?? idx} className="hover:bg-slate-50/70 transition-colors">
                                         <td className="px-5 py-3.5 font-semibold text-slate-800">
                                             {agent.display_name}
                                         </td>
@@ -624,9 +713,9 @@ function AccountHoldList({ qbStatus, realmId, handleConnectQuickBooks }) {
                                         </td>
                                         <td className="px-5 py-3.5 text-center">
                                             <button
-                                                id={`account-hold-details-${agent.primary_emailaddress?.replace(/[@.]/g, '-')}`}
+                                                id={`account-hold-details-${agent.customer_id}`}
                                                 onClick={() => {
-                                                    window.location.hash = `pre_cda/detail/${encodeURIComponent(agent.primary_emailaddress)}`;
+                                                    window.location.hash = `pre_cda/detail/${agent.customer_id}`;
                                                 }}
                                                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all text-blue-600 bg-blue-50 hover:bg-blue-600 hover:text-white border-blue-200 hover:border-blue-600 shadow-2xs"
                                             >
@@ -715,11 +804,11 @@ function AccountHold() {
     const parseHashRoute = () => {
         const hash = window.location.hash.replace('#', '');
         const parts = hash.split('/');
-        // Format matches: pre_cda/detail/<email>
+        // Format matches: pre_cda/detail/<customer_id>
         if (parts[0] === 'pre_cda' && parts[1] === 'detail' && parts[2]) {
-            return { view: 'detail', email: decodeURIComponent(parts[2]) };
+            return { view: 'detail', customerId: parts[2] };
         }
-        return { view: 'list', email: null };
+        return { view: 'list', customerId: null };
     };
 
     const [route, setRoute] = useState(parseHashRoute());
@@ -743,7 +832,7 @@ function AccountHold() {
             </div>
             {route.view === 'detail' && (
                 <AccountHoldDetail
-                    email={route.email}
+                    customerId={route.customerId}
                     qbStatus={qbStatus}
                     realmId={realmId}
                     handleConnectQuickBooks={handleConnectQuickBooks}
