@@ -45,6 +45,7 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
     const [closeDateTo, setCloseDateTo] = useState('');
     const [contractDateFrom, setContractDateFrom] = useState('');
     const [contractDateTo, setContractDateTo] = useState('');
+    const [notInBe, setNotInBe] = useState(false);
 
     const [totalCount, setTotalCount] = useState(0);
     const [hasMore, setHasMore] = useState(true);
@@ -151,7 +152,7 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
     // Reset page to 1 when filters change
     useEffect(() => {
         setPage(1);
-    }, [closeDateFrom, closeDateTo, contractDateFrom, contractDateTo, statusFilter, searchQuery]);
+    }, [closeDateFrom, closeDateTo, contractDateFrom, contractDateTo, statusFilter, searchQuery, notInBe]);
 
     // Fetch paginated and filtered data from API
     useEffect(() => {
@@ -168,8 +169,9 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
         if (contractDateTo) params.append('to_contract_date', contractDateTo);
         if (statusFilter) params.append('status', statusFilter);
         if (searchQuery.trim()) params.append('search', searchQuery.trim());
+        if (notInBe) params.append('not_in_be', 'True');
 
-        const url = `${SS_API}?${params.toString()}`;
+        const url = `https://roa-data-backend.vercel.app/skyslope-listing?${params.toString()}`;
 
         fetch(url)
             .then(res => {
@@ -215,14 +217,26 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
         return () => {
             active = false;
         };
-    }, [page, closeDateFrom, closeDateTo, contractDateFrom, contractDateTo, statusFilter, searchQuery]);
+    }, [page, closeDateFrom, closeDateTo, contractDateFrom, contractDateTo, statusFilter, searchQuery, notInBe]);
 
     const totalPages = Math.ceil(totalCount / 50);
 
     const handleDownload = async () => {
         setDownloading(true);
         try {
-            const response = await fetch('https://roa-data-backend.vercel.app/skyslope/download');
+            const params = new URLSearchParams();
+            if (closeDateFrom) params.append('from_close_date', closeDateFrom);
+            if (closeDateTo) params.append('to_close_date', closeDateTo);
+            if (contractDateFrom) params.append('from_contract_date', contractDateFrom);
+            if (contractDateTo) params.append('to_contract_date', contractDateTo);
+            if (statusFilter) params.append('status', statusFilter);
+            if (searchQuery.trim()) params.append('search', searchQuery.trim());
+            if (notInBe) params.append('not_in_be', 'True');
+
+            const queryString = params.toString();
+            const downloadUrl = `https://roa-data-backend.vercel.app/skyslope/download${queryString ? `?${queryString}` : ''}`;
+
+            const response = await fetch(downloadUrl);
             if (!response.ok) throw new Error(`Download API error: ${response.status}`);
             const blob = await response.blob();
             const contentDisposition = response.headers.get('Content-Disposition');
@@ -231,13 +245,13 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
                 const match = contentDisposition.match(/filename[^;=\n]*=(['"]?)([^'"\n]*)\1/);
                 if (match && match[2]) filename = match[2].trim();
             }
-            const downloadUrl = window.URL.createObjectURL(blob);
+            const objectUrl = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
-            a.href = downloadUrl;
+            a.href = objectUrl;
             a.download = filename;
             document.body.appendChild(a);
             a.click();
-            setTimeout(() => { a.remove(); window.URL.revokeObjectURL(downloadUrl); }, 200);
+            setTimeout(() => { a.remove(); window.URL.revokeObjectURL(objectUrl); }, 200);
         } catch (err) {
             console.error('SkySlope download failed:', err);
             alert(`Download failed: ${err.message}. Please try again.`);
@@ -571,22 +585,37 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
                         </div>
                     </div>
 
-                    {/* Reset Button */}
-                    {(searchInput || searchQuery || statusFilter || closeDateFrom || closeDateTo || contractDateFrom || contractDateTo) && (
-                        <div className="flex justify-end pt-1">
+                    {/* Not in BE toggle + Reset row */}
+                    <div className="flex items-center justify-between pt-1">
+                        {/* Not in BE toggle */}
+                        <button
+                            id="ss-not-in-be-toggle"
+                            onClick={() => { setNotInBe(v => !v); setPage(1); }}
+                            className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold border transition-all shadow-xs select-none ${
+                                notInBe
+                                    ? 'bg-rose-600 text-white border-rose-600 hover:bg-rose-700'
+                                    : 'bg-white text-slate-600 border-slate-200 hover:border-rose-300 hover:text-rose-600 hover:bg-rose-50'
+                            }`}
+                        >
+                            <span className={`w-2 h-2 rounded-full shrink-0 ${notInBe ? 'bg-white' : 'bg-slate-300'}`} />
+                            Not in BE
+                        </button>
+
+                        {/* Reset Button */}
+                        {(searchInput || searchQuery || statusFilter || closeDateFrom || closeDateTo || contractDateFrom || contractDateTo || notInBe) && (
                             <Button
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => {
                                     setSearchInput(''); setSearchQuery(''); setStatusFilter(''); setCloseDateFrom(''); setCloseDateTo('');
-                                    setContractDateFrom(''); setContractDateTo(''); setPage(1);
+                                    setContractDateFrom(''); setContractDateTo(''); setNotInBe(false); setPage(1);
                                 }}
                                 className="h-8 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 font-bold"
                             >
                                 Clear All Filters
                             </Button>
-                        </div>
-                    )}
+                        )}
+                    </div>
                 </div>
 
                 {/* Grid Table */}
