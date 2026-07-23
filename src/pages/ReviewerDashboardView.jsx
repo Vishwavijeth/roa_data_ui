@@ -170,11 +170,60 @@ function ReviewerDashboardView() {
         return { reviewers: data.length, outstanding, closed, total };
     }, [data, summary]);
 
-    const handleDownload = () => {
-        const ws = utils.json_to_sheet(data);
-        const wb = utils.book_new();
-        utils.book_append_sheet(wb, ws, 'Reviewer Summary');
-        writeFile(wb, 'Reviewer_Summary.xlsx');
+    // Download report state & dropdown
+    const [downloadingType, setDownloadingType] = useState(null);
+    const [downloadDropdownOpen, setDownloadDropdownOpen] = useState(false);
+
+    const getFilterParams = () => {
+        const params = new URLSearchParams();
+        if (dateFrom) params.append('from_date', dateFrom);
+        if (dateTo) params.append('to_date', dateTo);
+        stateFilter.forEach(s => params.append('state', s));
+        ssStatusFilter.forEach(s => params.append('status', s));
+        reviewerFilter.forEach(r => params.append('reviewer', r));
+        stageFilter.forEach(st => params.append('stage_name', st));
+        typeOfSaleFilter.forEach(t => params.append('type_of_sale', t));
+        return params;
+    };
+
+    const handleDownloadReport = async (type) => {
+        setDownloadingType(type);
+        setDownloadDropdownOpen(false);
+        try {
+            const params = getFilterParams();
+            const query = params.toString();
+            const endpoint = type === 'unassigned'
+                ? 'https://roa-data-backend.vercel.app/reviewer-dashboard/unassigned/download'
+                : 'https://roa-data-backend.vercel.app/reviewer-dashboard/download';
+
+            const url = `${endpoint}${query ? `?${query}` : ''}`;
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`Download API error: ${response.status} ${response.statusText}`);
+
+            const blob = await response.blob();
+            const contentDisposition = response.headers.get('content-disposition');
+            let filename = type === 'unassigned' ? 'Reviewer_Dashboard_Unassigned.xlsx' : 'Reviewer_Dashboard_Full.xlsx';
+            if (contentDisposition) {
+                const match = contentDisposition.match(/filename\*?=(?:UTF-8'')?["']?([^"';\r\n]+)["']?/i);
+                if (match && match[1]) filename = decodeURIComponent(match[1].trim());
+            }
+
+            const objectUrl = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = objectUrl;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => {
+                a.remove();
+                window.URL.revokeObjectURL(objectUrl);
+            }, 200);
+        } catch (err) {
+            console.error('Download failed:', err);
+            alert(`Download failed: ${err.message}. Please try again.`);
+        } finally {
+            setDownloadingType(null);
+        }
     };
 
     const hasActiveFilters = dateFrom || dateTo || searchQuery ||
@@ -230,13 +279,62 @@ function ReviewerDashboardView() {
                     <h1 className="text-2xl font-bold tracking-tight text-slate-900">Reviewer Dashboard</h1>
                     <p className="text-sm text-slate-500 mt-1">Summary of reviewers — outstanding vs closed transactions.</p>
                 </div>
-                <Button
-                    onClick={handleDownload}
-                    disabled={!data.length}
-                    className="font-semibold text-xs gap-2 h-9 shadow-md shadow-blue-600/10"
-                >
-                    <IconDownload /> Download Report
-                </Button>
+                <div className="relative inline-block text-left">
+                    <Button
+                        onClick={() => setDownloadDropdownOpen(prev => !prev)}
+                        disabled={downloadingType !== null}
+                        className="font-semibold text-xs gap-2 h-9 shadow-md shadow-blue-600/10 inline-flex items-center"
+                    >
+                        {downloadingType ? (
+                            <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                            </svg>
+                        ) : (
+                            <IconDownload />
+                        )}
+                        <span>{downloadingType ? 'Downloading...' : 'Download Report'}</span>
+                        <svg className={`h-3.5 w-3.5 transition-transform duration-200 ${downloadDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </Button>
+
+                    {downloadDropdownOpen && (
+                        <>
+                            <div
+                                className="fixed inset-0 z-20"
+                                onClick={() => setDownloadDropdownOpen(false)}
+                            />
+                            <div className="absolute right-0 mt-2 w-56 rounded-xl bg-white shadow-xl border border-slate-100 z-30 py-1.5 animate-in fade-in zoom-in-95 duration-100">
+                                <button
+                                    onClick={() => handleDownloadReport('full')}
+                                    className="w-full text-left px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-blue-600 flex items-center justify-between transition-colors"
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <svg className="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                        </svg>
+                                        <span>Full Report</span>
+                                    </div>
+                                    <span className="text-[10px] text-slate-400 font-mono font-normal">Excel</span>
+                                </button>
+                                <div className="my-1 border-t border-slate-100" />
+                                <button
+                                    onClick={() => handleDownloadReport('unassigned')}
+                                    className="w-full text-left px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-amber-600 flex items-center justify-between transition-colors"
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <svg className="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                        </svg>
+                                        <span>Unassigned Report</span>
+                                    </div>
+                                    <span className="text-[10px] text-slate-400 font-mono font-normal">Excel</span>
+                                </button>
+                            </div>
+                        </>
+                    )}
+                </div>
             </div>
 
             {/* Metrics cards */}
