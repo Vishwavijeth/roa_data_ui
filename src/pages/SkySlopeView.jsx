@@ -63,6 +63,13 @@ const renderTwoLines = (val) => {
     );
 };
 
+// Helper to format Year Built values (renders '-' if 0, null, or invalid)
+const formatYearBuilt = (val) => {
+    if (val == null || val === '' || val === 0 || val === '0') return '—';
+    const num = Number(val);
+    return (!isNaN(num) && num > 0) ? num : '—';
+};
+
 function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, setSyncSSResult }) {
     const [data, setData] = useState([]);
     const [syncInfo, setSyncInfo] = useState(null);
@@ -76,6 +83,8 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
     const [stageFilter, setStageFilter] = useState([]);
     const [closeDateFrom, setCloseDateFrom] = useState('');
     const [closeDateTo, setCloseDateTo] = useState('');
+    const [yearBuiltFrom, setYearBuiltFrom] = useState('');
+    const [yearBuiltTo, setYearBuiltTo] = useState('');
     const [notInBe, setNotInBe] = useState(false);
 
     const [totalCount, setTotalCount] = useState(0);
@@ -211,7 +220,7 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
     // Reset page to 1 when filters change
     useEffect(() => {
         setPage(1);
-    }, [closeDateFrom, closeDateTo, statusFilter, stageFilter, searchQuery, notInBe]);
+    }, [closeDateFrom, closeDateTo, statusFilter, stageFilter, yearBuiltFrom, yearBuiltTo, searchQuery, notInBe]);
 
     // Fetch paginated and filtered data from API
     useEffect(() => {
@@ -224,6 +233,8 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
         params.append('limit', 50);
         if (closeDateFrom) params.append('from_close_date', closeDateFrom);
         if (closeDateTo) params.append('to_close_date', closeDateTo);
+        if (yearBuiltFrom) params.append('year_built_from', yearBuiltFrom);
+        if (yearBuiltTo) params.append('year_built_to', yearBuiltTo);
         if (Array.isArray(statusFilter)) {
             statusFilter.forEach(s => params.append('status', s));
         }
@@ -303,7 +314,7 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
         return () => {
             active = false;
         };
-    }, [page, closeDateFrom, closeDateTo, statusFilter, stageFilter, searchQuery, notInBe]);
+    }, [page, closeDateFrom, closeDateTo, statusFilter, stageFilter, yearBuiltFrom, yearBuiltTo, searchQuery, notInBe]);
 
     const totalPages = serverTotalPages ?? Math.ceil(totalCount / 50);
 
@@ -313,6 +324,8 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
             const params = new URLSearchParams();
             if (closeDateFrom) params.append('from_close_date', closeDateFrom);
             if (closeDateTo) params.append('to_close_date', closeDateTo);
+            if (yearBuiltFrom) params.append('year_built_from', yearBuiltFrom);
+            if (yearBuiltTo) params.append('year_built_to', yearBuiltTo);
             if (Array.isArray(statusFilter)) {
                 statusFilter.forEach(s => params.append('status', s));
             }
@@ -650,8 +663,8 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
                         )}
                     </div>
 
-                    {/* Date and dropdown filters */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
+                    {/* Date, int and dropdown filters */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 pt-1">
                         <div className="space-y-1">
                             <label htmlFor="ss-close-from" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Close From</label>
                             <DateFilterInput id="ss-close-from" value={closeDateFrom} onChange={val => { setCloseDateFrom(val); setPage(1); }} className="h-8.5 text-xs text-slate-700" />
@@ -682,6 +695,28 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
                                 allLabel="All Stages"
                             />
                         </div>
+                        <div className="space-y-1">
+                            <label htmlFor="ss-year-built-from" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Year Built From</label>
+                            <Input
+                                id="ss-year-built-from"
+                                type="number"
+                                placeholder="e.g. 1990"
+                                value={yearBuiltFrom}
+                                onChange={e => { setYearBuiltFrom(e.target.value); setPage(1); }}
+                                className="h-8.5 text-xs text-slate-700"
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <label htmlFor="ss-year-built-to" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Year Built To</label>
+                            <Input
+                                id="ss-year-built-to"
+                                type="number"
+                                placeholder="e.g. 2024"
+                                value={yearBuiltTo}
+                                onChange={e => { setYearBuiltTo(e.target.value); setPage(1); }}
+                                className="h-8.5 text-xs text-slate-700"
+                            />
+                        </div>
                     </div>
 
                     {/* Not in BE toggle + Reset row */}
@@ -700,13 +735,13 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
                         </button>
 
                         {/* Reset Button */}
-                        {(searchInput || searchQuery || (statusFilter && statusFilter.length > 0) || (stageFilter && stageFilter.length > 0) || closeDateFrom || closeDateTo || notInBe) && (
+                        {(searchInput || searchQuery || (statusFilter && statusFilter.length > 0) || (stageFilter && stageFilter.length > 0) || closeDateFrom || closeDateTo || yearBuiltFrom || yearBuiltTo || notInBe) && (
                             <Button
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => {
                                     setSearchInput(''); setSearchQuery(''); setStatusFilter([]); setStageFilter([]); setCloseDateFrom(''); setCloseDateTo('');
-                                    setNotInBe(false); setPage(1);
+                                    setYearBuiltFrom(''); setYearBuiltTo(''); setNotInBe(false); setPage(1);
                                 }}
                                 className="h-8 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 font-bold"
                             >
@@ -739,6 +774,7 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
                                     <TableHead className="w-1/4">Property Address</TableHead>
                                     <TableHead className="w-1/10">Close Date</TableHead>
                                     <TableHead className="w-1/10">Status</TableHead>
+                                    <TableHead className="w-1/12">Year Built</TableHead>
                                     <TableHead className="w-1/8">Stage Name</TableHead>
                                     <TableHead className="w-1/8">Buyer Name</TableHead>
                                     <TableHead className="w-1/8">Buyer Agent</TableHead>
@@ -769,6 +805,7 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
                                                 <span className="text-slate-400">—</span>
                                             )}
                                         </TableCell>
+                                        <TableCell className="text-xs text-slate-600 font-medium">{formatYearBuilt(row.yearbuilt ?? row.year_built ?? row.yearBuilt)}</TableCell>
                                         <TableCell className="text-xs text-slate-600 font-medium">{renderTwoLines(row.stage_name)}</TableCell>
                                         <TableCell className="text-xs text-slate-600">{renderCellData(row.buyer_name)}</TableCell>
                                         <TableCell className="text-xs text-slate-600">{renderCellData(row.buyer_agent_name)}</TableCell>
@@ -778,7 +815,7 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
                                 ))}
                                 {data.length === 0 && (
                                     <TableRow>
-                                        <TableCell colSpan={8} className="text-center text-slate-400 py-10 font-medium">
+                                        <TableCell colSpan={9} className="text-center text-slate-400 py-10 font-medium">
                                             No data available
                                         </TableCell>
                                     </TableRow>
