@@ -393,7 +393,7 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
                                     return (
                                         <Badge variant="destructive" className="gap-1.5 px-3 py-1 font-semibold text-xs rounded-full bg-rose-50 text-rose-700 border border-rose-200">
                                             <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
-                                            No related Backend data
+                                            No related BE data
                                         </Badge>
                                     );
                                 }
@@ -691,8 +691,8 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
                             id="ss-not-in-be-toggle"
                             onClick={() => { setNotInBe(v => !v); setPage(1); }}
                             className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold border transition-all shadow-xs select-none ${notInBe
-                                    ? 'bg-rose-600 text-white border-rose-600 hover:bg-rose-700'
-                                    : 'bg-white text-slate-600 border-slate-200 hover:border-rose-300 hover:text-rose-600 hover:bg-rose-50'
+                                ? 'bg-rose-600 text-white border-rose-600 hover:bg-rose-700'
+                                : 'bg-white text-slate-600 border-slate-200 hover:border-rose-300 hover:text-rose-600 hover:bg-rose-50'
                                 }`}
                         >
                             <span className={`w-2 h-2 rounded-full shrink-0 ${notInBe ? 'bg-white' : 'bg-slate-300'}`} />
