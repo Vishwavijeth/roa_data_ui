@@ -5,6 +5,7 @@ import { IconDownload, IconArrowLeft } from '../components/shared/Icons';
 import SectionedDetailView from '../components/shared/SectionedDetailView';
 import { formatDateUS } from '../utils/helpers';
 import DateFilterInput from '../components/shared/DateFilterInput';
+import MultiSelect from '../components/shared/MultiSelect';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
@@ -31,6 +32,37 @@ const renderCellData = (val) => {
     return <span className="whitespace-normal block leading-tight">{str}</span>;
 };
 
+// Helper to render property addresses in two clean lines (street on line 1, city/state/zip on line 2)
+const renderPropertyAddress = (val) => {
+    if (val == null || val === '') return '—';
+    const str = String(val).trim();
+    if (!str) return '—';
+    const firstCommaIdx = str.indexOf(',');
+    if (firstCommaIdx !== -1) {
+        const street = str.substring(0, firstCommaIdx).trim();
+        const cityStateZip = str.substring(firstCommaIdx + 1).trim();
+        return (
+            <div className="flex flex-col leading-snug">
+                <span className="font-semibold text-slate-800 text-xs truncate" title={str}>{street}</span>
+                {cityStateZip && <span className="text-[11px] text-slate-500 font-normal truncate" title={str}>{cityStateZip}</span>}
+            </div>
+        );
+    }
+    return <span className="font-medium text-slate-800 text-xs block leading-tight">{str}</span>;
+};
+
+// Helper to render text in at most two clean lines
+const renderTwoLines = (val) => {
+    if (val == null || val === '') return '—';
+    const str = String(val).trim();
+    if (!str) return '—';
+    return (
+        <span className="line-clamp-2 leading-tight block whitespace-normal" title={str}>
+            {str}
+        </span>
+    );
+};
+
 function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, setSyncSSResult }) {
     const [data, setData] = useState([]);
     const [syncInfo, setSyncInfo] = useState(null);
@@ -40,16 +72,17 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
     const [page, setPage] = useState(1);
     const [searchInput, setSearchInput] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
-    const [statusFilter, setStatusFilter] = useState('');
+    const [statusFilter, setStatusFilter] = useState([]);
+    const [stageFilter, setStageFilter] = useState([]);
     const [closeDateFrom, setCloseDateFrom] = useState('');
     const [closeDateTo, setCloseDateTo] = useState('');
-    const [contractDateFrom, setContractDateFrom] = useState('');
-    const [contractDateTo, setContractDateTo] = useState('');
     const [notInBe, setNotInBe] = useState(false);
 
     const [totalCount, setTotalCount] = useState(0);
+    const [serverTotalPages, setServerTotalPages] = useState(null);
     const [hasMore, setHasMore] = useState(true);
     const [availableStatuses, setAvailableStatuses] = useState([]);
+    const [availableStages, setAvailableStages] = useState([]);
 
     const [selectedRecord, setSelectedRecord] = useState(null);
     const [detailTab, setDetailTab] = useState('skyslope');
@@ -134,6 +167,32 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
 
 
 
+    // Fetch filters (status_list, stage_list) on mount
+    useEffect(() => {
+        let active = true;
+        fetch('https://roa-data-backend.vercel.app/skyslope-listing-filters')
+            .then(res => {
+                if (!res.ok) throw new Error(`Filters API error: ${res.status}`);
+                return res.json();
+            })
+            .then(json => {
+                if (!active) return;
+                const filters = json.filters || json;
+                if (filters && Array.isArray(filters.status_list)) {
+                    setAvailableStatuses([...filters.status_list].sort());
+                }
+                if (filters && Array.isArray(filters.stage_list)) {
+                    setAvailableStages([...filters.stage_list].sort());
+                }
+            })
+            .catch(err => {
+                console.error('Failed to fetch SkySlope filters:', err);
+            });
+        return () => {
+            active = false;
+        };
+    }, []);
+
     // Fetch sync info on mount
     useEffect(() => {
         fetch('https://roa-data-backend.vercel.app/skyslope/sync_info')
@@ -152,7 +211,7 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
     // Reset page to 1 when filters change
     useEffect(() => {
         setPage(1);
-    }, [closeDateFrom, closeDateTo, contractDateFrom, contractDateTo, statusFilter, searchQuery, notInBe]);
+    }, [closeDateFrom, closeDateTo, statusFilter, stageFilter, searchQuery, notInBe]);
 
     // Fetch paginated and filtered data from API
     useEffect(() => {
@@ -165,9 +224,15 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
         params.append('limit', 50);
         if (closeDateFrom) params.append('from_close_date', closeDateFrom);
         if (closeDateTo) params.append('to_close_date', closeDateTo);
-        if (contractDateFrom) params.append('from_contract_date', contractDateFrom);
-        if (contractDateTo) params.append('to_contract_date', contractDateTo);
-        if (statusFilter) params.append('status', statusFilter);
+        if (Array.isArray(statusFilter)) {
+            statusFilter.forEach(s => params.append('status', s));
+        }
+        if (Array.isArray(stageFilter)) {
+            stageFilter.forEach(s => {
+                params.append('stage', s);
+                params.append('stage_name', s);
+            });
+        }
         if (searchQuery.trim()) params.append('search', searchQuery.trim());
         if (notInBe) params.append('not_in_be', 'True');
 
@@ -181,25 +246,46 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
             .then(json => {
                 if (!active) return;
 
-                const fetchedData = json && Array.isArray(json.data) ? json.data : [];
+                let fetchedData = [];
+                if (json && json.data) {
+                    if (Array.isArray(json.data.items)) {
+                        fetchedData = json.data.items;
+                    } else if (Array.isArray(json.data)) {
+                        fetchedData = json.data;
+                    }
+                } else if (json && Array.isArray(json.items)) {
+                    fetchedData = json.items;
+                } else if (Array.isArray(json)) {
+                    fetchedData = json;
+                }
                 setData(fetchedData);
 
-                const total = json.total_count != null ? json.total_count : (json.total != null ? json.total : null);
+                const total = json?.data?.total_count ?? json?.total_count ?? json?.total ?? null;
                 if (total !== null) {
                     setTotalCount(total);
-                    setHasMore((page - 1) * 50 + fetchedData.length < total);
                 } else {
-                    setHasMore(fetchedData.length === 50);
                     setTotalCount(prev => (page === 1 ? fetchedData.length : prev + fetchedData.length));
                 }
 
+                if (json?.total_pages != null) {
+                    setServerTotalPages(json.total_pages);
+                } else {
+                    setServerTotalPages(null);
+                }
+
+                if (json?.has_next != null) {
+                    setHasMore(json.has_next);
+                } else if (total !== null) {
+                    setHasMore((page - 1) * 50 + fetchedData.length < total);
+                } else {
+                    setHasMore(fetchedData.length === 50);
+                }
+
                 if (json.filters && Array.isArray(json.filters.status_list)) {
-                    setAvailableStatuses(prev => {
-                        if (prev.length === 0) {
-                            return [...json.filters.status_list].sort();
-                        }
-                        return prev;
-                    });
+                    setAvailableStatuses(prev => prev.length === 0 ? [...json.filters.status_list].sort() : prev);
+                }
+                if (json.filters && Array.isArray(json.filters.stage_list)) {
+                    setAvailableStages(prev => prev.length === 0 ? [...json.filters.stage_list].sort() : prev);
                 }
 
                 if (json.sync_info) {
@@ -217,9 +303,9 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
         return () => {
             active = false;
         };
-    }, [page, closeDateFrom, closeDateTo, contractDateFrom, contractDateTo, statusFilter, searchQuery, notInBe]);
+    }, [page, closeDateFrom, closeDateTo, statusFilter, stageFilter, searchQuery, notInBe]);
 
-    const totalPages = Math.ceil(totalCount / 50);
+    const totalPages = serverTotalPages ?? Math.ceil(totalCount / 50);
 
     const handleDownload = async () => {
         setDownloading(true);
@@ -227,9 +313,15 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
             const params = new URLSearchParams();
             if (closeDateFrom) params.append('from_close_date', closeDateFrom);
             if (closeDateTo) params.append('to_close_date', closeDateTo);
-            if (contractDateFrom) params.append('from_contract_date', contractDateFrom);
-            if (contractDateTo) params.append('to_contract_date', contractDateTo);
-            if (statusFilter) params.append('status', statusFilter);
+            if (Array.isArray(statusFilter)) {
+                statusFilter.forEach(s => params.append('status', s));
+            }
+            if (Array.isArray(stageFilter)) {
+                stageFilter.forEach(s => {
+                    params.append('stage', s);
+                    params.append('stage_name', s);
+                });
+            }
             if (searchQuery.trim()) params.append('search', searchQuery.trim());
             if (notInBe) params.append('not_in_be', 'True');
 
@@ -559,7 +651,7 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
                     </div>
 
                     {/* Date and dropdown filters */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-[1fr_1fr_1fr_1fr_1.2fr] gap-3 pt-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
                         <div className="space-y-1">
                             <label htmlFor="ss-close-from" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Close From</label>
                             <DateFilterInput id="ss-close-from" value={closeDateFrom} onChange={val => { setCloseDateFrom(val); setPage(1); }} className="h-8.5 text-xs text-slate-700" />
@@ -569,19 +661,26 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
                             <DateFilterInput id="ss-close-to" value={closeDateTo} onChange={val => { setCloseDateTo(val); setPage(1); }} className="h-8.5 text-xs text-slate-700" />
                         </div>
                         <div className="space-y-1">
-                            <label htmlFor="ss-contract-from" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Contract From</label>
-                            <DateFilterInput id="ss-contract-from" value={contractDateFrom} onChange={val => { setContractDateFrom(val); setPage(1); }} className="h-8.5 text-xs text-slate-700" />
-                        </div>
-                        <div className="space-y-1">
-                            <label htmlFor="ss-contract-to" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Contract To</label>
-                            <DateFilterInput id="ss-contract-to" value={contractDateTo} onChange={val => { setContractDateTo(val); setPage(1); }} className="h-8.5 text-xs text-slate-700" />
-                        </div>
-                        <div className="space-y-1">
                             <label htmlFor="ss-status-filter" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Status</label>
-                            <Select id="ss-status-filter" value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }} className="h-8.5 text-xs">
-                                <option value="">All Statuses</option>
-                                {availableStatuses.map(s => <option key={s} value={s}>{s}</option>)}
-                            </Select>
+                            <MultiSelect
+                                id="ss-status-filter"
+                                options={availableStatuses}
+                                selected={statusFilter}
+                                onChange={val => { setStatusFilter(val); setPage(1); }}
+                                placeholder="All Statuses"
+                                allLabel="All Statuses"
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <label htmlFor="ss-stage-filter" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Stage</label>
+                            <MultiSelect
+                                id="ss-stage-filter"
+                                options={availableStages}
+                                selected={stageFilter}
+                                onChange={val => { setStageFilter(val); setPage(1); }}
+                                placeholder="All Stages"
+                                allLabel="All Stages"
+                            />
                         </div>
                     </div>
 
@@ -591,24 +690,23 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
                         <button
                             id="ss-not-in-be-toggle"
                             onClick={() => { setNotInBe(v => !v); setPage(1); }}
-                            className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold border transition-all shadow-xs select-none ${
-                                notInBe
+                            className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold border transition-all shadow-xs select-none ${notInBe
                                     ? 'bg-rose-600 text-white border-rose-600 hover:bg-rose-700'
                                     : 'bg-white text-slate-600 border-slate-200 hover:border-rose-300 hover:text-rose-600 hover:bg-rose-50'
-                            }`}
+                                }`}
                         >
                             <span className={`w-2 h-2 rounded-full shrink-0 ${notInBe ? 'bg-white' : 'bg-slate-300'}`} />
                             Not in BE
                         </button>
 
                         {/* Reset Button */}
-                        {(searchInput || searchQuery || statusFilter || closeDateFrom || closeDateTo || contractDateFrom || contractDateTo || notInBe) && (
+                        {(searchInput || searchQuery || (statusFilter && statusFilter.length > 0) || (stageFilter && stageFilter.length > 0) || closeDateFrom || closeDateTo || notInBe) && (
                             <Button
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => {
-                                    setSearchInput(''); setSearchQuery(''); setStatusFilter(''); setCloseDateFrom(''); setCloseDateTo('');
-                                    setContractDateFrom(''); setContractDateTo(''); setNotInBe(false); setPage(1);
+                                    setSearchInput(''); setSearchQuery(''); setStatusFilter([]); setStageFilter([]); setCloseDateFrom(''); setCloseDateTo('');
+                                    setNotInBe(false); setPage(1);
                                 }}
                                 className="h-8 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 font-bold"
                             >
@@ -638,15 +736,14 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead className="w-1/8">Sale GUID</TableHead>
                                     <TableHead className="w-1/4">Property Address</TableHead>
                                     <TableHead className="w-1/10">Close Date</TableHead>
                                     <TableHead className="w-1/10">Status</TableHead>
-                                    <TableHead className="w-1/8">Transaction ID</TableHead>
+                                    <TableHead className="w-1/8">Stage Name</TableHead>
                                     <TableHead className="w-1/8">Buyer Name</TableHead>
                                     <TableHead className="w-1/8">Buyer Agent</TableHead>
-                                    <TableHead className="w-1/10">Contract Date</TableHead>
-                                    <TableHead className="w-1/10 text-right pr-6">Reviewer</TableHead>
+                                    <TableHead className="w-1/10">Reviewer</TableHead>
+                                    <TableHead className="w-1/8 text-right pr-6">Transaction ID</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -656,9 +753,8 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
                                         onClick={() => { setSelectedRecord(row); setDetailTab('skyslope'); }}
                                         className="cursor-pointer hover:bg-slate-50/50 transition-colors"
                                     >
-                                        <TableCell className="font-mono text-xs text-slate-600 shrink-0">{row.saleguid || '-'}</TableCell>
                                         <TableCell className="font-medium text-slate-800 text-xs py-2.5">
-                                            {renderCellData(row.propertyaddress)}
+                                            {renderPropertyAddress(row.propertyaddress)}
                                         </TableCell>
                                         <TableCell className="text-xs text-slate-500 font-medium">{formatDateUS(row.close_date)}</TableCell>
                                         <TableCell className="shrink-0 select-none">
@@ -673,16 +769,16 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
                                                 <span className="text-slate-400">—</span>
                                             )}
                                         </TableCell>
-                                        <TableCell className="font-mono text-xs text-slate-600 shrink-0">{row.transaction_id || 'No related BE data'}</TableCell>
+                                        <TableCell className="text-xs text-slate-600 font-medium">{renderTwoLines(row.stage_name)}</TableCell>
                                         <TableCell className="text-xs text-slate-600">{renderCellData(row.buyer_name)}</TableCell>
                                         <TableCell className="text-xs text-slate-600">{renderCellData(row.buyer_agent_name)}</TableCell>
-                                        <TableCell className="text-xs text-slate-500 font-medium">{formatDateUS(row.contract_date)}</TableCell>
-                                        <TableCell className="text-right pr-6 text-xs text-slate-600">{renderCellData(row.reviewer)}</TableCell>
+                                        <TableCell className="text-xs text-slate-600">{renderTwoLines(row.reviewer)}</TableCell>
+                                        <TableCell className="font-mono text-xs text-slate-600 shrink-0 text-right pr-6">{row.transaction_id || 'No related BE data'}</TableCell>
                                     </TableRow>
                                 ))}
                                 {data.length === 0 && (
                                     <TableRow>
-                                        <TableCell colSpan={9} className="text-center text-slate-400 py-10 font-medium">
+                                        <TableCell colSpan={8} className="text-center text-slate-400 py-10 font-medium">
                                             No data available
                                         </TableCell>
                                     </TableRow>
