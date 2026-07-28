@@ -24,6 +24,13 @@ export const TXN_SPECIALIST_SUMMARY_API = 'https://roa-data-backend.vercel.app/t
 export const REVIEWER_SUMMARY_API = 'https://roa-data-backend.vercel.app/reviewer-dashboard';
 export const CHECKLIST_TYPE_MAPPING_API = 'https://roa-data-backend.vercel.app/checklist-type-validation';
 export const CHECKLIST_TYPE_MAPPING_FILTERS_API = 'https://roa-data-backend.vercel.app/checklist-type-validation/filters';
+export const COMMISSION_ADVANCES_SUMMARY_API = 'https://roa-data-backend.vercel.app/commission-advances/summary';
+export const COMMISSION_ADVANCES_LISTING_API = 'https://roa-data-backend.vercel.app/commission-advances/listing';
+export const COMMISSION_ADVANCES_DETAIL_API = 'https://roa-data-backend.vercel.app/commission-advances/detail';
+export const COMMISSION_ADVANCES_DROPDOWN_API = 'https://roa-data-backend.vercel.app/commission-advances/log-dropdown';
+export const COMMISSION_ADVANCES_SUGGESTIONS_API = 'https://roa-data-backend.vercel.app/commission-advances/agent-suggestions';
+export const COMMISSION_ADVANCES_ADDRESS_SUGGESTIONS_API = 'https://roa-data-backend.vercel.app/commission-advances/address-suggestions';
+export const COMMISSION_ADVANCES_LOG_API = 'http://127.0.0.1:8000/commission-advances/log';
 
 export const ROWS_PER_PAGE = 50;
 

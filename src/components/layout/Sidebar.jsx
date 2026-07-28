@@ -2,7 +2,7 @@ import React from 'react';
 import {
     IconDashboard, IconBrokerage, IconSkySlope, IconChevron,
     IconLogout, IconSpecialist, IconReviewer, IconSpecialistDash, IconReviewerDash, IconCdaSent,
-    IconMonthClosing, IconPreCda, IconChecklist
+    IconMonthClosing, IconPreCda, IconChecklist, IconCommission
 } from '../shared/Icons';
 
 function Sidebar({ activePage, setActivePage, onLogout }) {
@@ -26,6 +26,7 @@ function Sidebar({ activePage, setActivePage, onLogout }) {
             items: [
                 { id: 'cda_sent', label: 'CDA Sent', icon: <IconCdaSent /> },
                 { id: 'pre_cda', label: 'Account Hold', icon: <IconPreCda /> },
+                { id: 'commission_advances', label: 'Commission Advances', icon: <IconCommission /> },
             ],
         },
         {
