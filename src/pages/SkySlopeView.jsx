@@ -210,12 +210,32 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
                 return res.json();
             })
             .then(json => {
-                if (json && json.sync_info) setSyncInfo(json.sync_info);
+                if (json && json.sync_info) {
+                    setSyncInfo(json.sync_info);
+                } else if (json && json.sync_date) {
+                    setSyncInfo(json);
+                }
             })
             .catch(err => {
                 console.error('Failed to fetch sync info:', err);
             });
     }, []);
+
+    // Refetch sync info when sync finishes
+    useEffect(() => {
+        if (syncSSResult && syncSSResult.ok) {
+            fetch('https://roa-data-backend.vercel.app/skyslope/sync_info')
+                .then(res => res.json())
+                .then(json => {
+                    if (json && json.sync_info) {
+                        setSyncInfo(json.sync_info);
+                    } else if (json && json.sync_date) {
+                        setSyncInfo(json);
+                    }
+                })
+                .catch(err => console.error('Failed to refresh sync info:', err));
+        }
+    }, [syncSSResult]);
 
     // Reset page to 1 when filters change
     useEffect(() => {
@@ -301,6 +321,8 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
 
                 if (json.sync_info) {
                     setSyncInfo(json.sync_info);
+                } else if (json.sync_date) {
+                    setSyncInfo({ sync_date: json.sync_date, sync_timestamp: json.sync_timestamp });
                 }
                 setLoading(false);
             })
