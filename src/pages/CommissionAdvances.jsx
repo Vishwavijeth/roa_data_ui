@@ -6,11 +6,13 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { formatDateUS } from '../utils/helpers';
 import { IconArrowLeft } from '../components/shared/Icons';
+import MultiSelect from '../components/shared/MultiSelect';
 import {
     COMMISSION_ADVANCES_SUMMARY_API,
     COMMISSION_ADVANCES_LISTING_API,
     COMMISSION_ADVANCES_DETAIL_API,
     COMMISSION_ADVANCES_DROPDOWN_API,
+    COMMISSION_ADVANCES_STATUS_DROPDOWN_API,
     COMMISSION_ADVANCES_SUGGESTIONS_API,
     COMMISSION_ADVANCES_ADDRESS_SUGGESTIONS_API,
     COMMISSION_ADVANCES_LOG_API,
@@ -257,6 +259,28 @@ function CommissionAdvances() {
             });
     }, []);
 
+    // ── Status Filter Options State ────────────────────────────────────────────
+    const [statusOptions, setStatusOptions] = useState([]);
+    const [statusFilter, setStatusFilter] = useState([]);
+
+    useEffect(() => {
+        let active = true;
+        fetch(COMMISSION_ADVANCES_STATUS_DROPDOWN_API)
+            .then(res => {
+                if (!res.ok) throw new Error(`Status dropdown error: ${res.status}`);
+                return res.json();
+            })
+            .then(json => {
+                if (!active) return;
+                if (json.success && json.filters && Array.isArray(json.filters.status)) {
+                    setStatusOptions([...json.filters.status].sort());
+                }
+            })
+            .catch(err => console.error('Failed to load status dropdown options:', err));
+
+        return () => { active = false; };
+    }, []);
+
     // ── Listing Data State ─────────────────────────────────────────────────────
     const [items, setItems] = useState([]);
     const [totalCount, setTotalCount] = useState(0);
@@ -291,6 +315,7 @@ function CommissionAdvances() {
         if (debouncedSearchQuery.trim()) {
             params.append('search', debouncedSearchQuery.trim());
         }
+        statusFilter.forEach(s => params.append('status', s));
 
         const url = `${COMMISSION_ADVANCES_LISTING_API}?${params.toString()}`;
 
@@ -319,19 +344,37 @@ function CommissionAdvances() {
         return () => {
             active = false;
         };
-    }, [page, debouncedSearchQuery, activeAgentName, activeView]);
+    }, [page, debouncedSearchQuery, statusFilter, activeAgentName, activeView]);
 
     // Apply a robust client-side filter fallback in case the backend does not implement search parameters
     const filteredItems = React.useMemo(() => {
-        if (!debouncedSearchQuery.trim()) return items;
-        // Verify if items are already filtered by the API. If not, filter client-side.
-        const query = debouncedSearchQuery.toLowerCase();
-        const hasUnfiltered = items.some(item => !item.agent_name.toLowerCase().includes(query));
-        if (hasUnfiltered) {
-            return items.filter(item => item.agent_name.toLowerCase().includes(query));
+        let list = items;
+        if (debouncedSearchQuery.trim()) {
+            const query = debouncedSearchQuery.toLowerCase();
+            const hasUnfiltered = list.some(item => !item.agent_name.toLowerCase().includes(query));
+            if (hasUnfiltered) {
+                list = list.filter(item => item.agent_name.toLowerCase().includes(query));
+            }
         }
-        return items;
-    }, [items, debouncedSearchQuery]);
+        if (statusFilter.length > 0) {
+            const hasUnfilteredStatus = list.some(item => {
+                if (!item.status_breakdown) return true;
+                const activeStatuses = Object.keys(item.status_breakdown).filter(k => item.status_breakdown[k] > 0);
+                return !activeStatuses.some(st => statusFilter.some(sf => sf.toLowerCase() === st.toLowerCase().replace(/_/g, ' ')));
+            });
+            if (hasUnfilteredStatus) {
+                list = list.filter(item => {
+                    if (!item.status_breakdown) return false;
+                    const entries = Object.entries(item.status_breakdown).filter(([_, count]) => count > 0);
+                    return entries.some(([k, _]) => {
+                        const normK = k.toLowerCase().replace(/_/g, ' ');
+                        return statusFilter.some(sf => sf.toLowerCase().replace(/_/g, ' ') === normK);
+                    });
+                });
+            }
+        }
+        return list;
+    }, [items, debouncedSearchQuery, statusFilter]);
 
     const totalPages = Math.ceil(totalCount / ROWS_PER_PAGE) || 1;
 
@@ -425,6 +468,53 @@ function CommissionAdvances() {
             <Badge variant="secondary" className="px-2.5 py-0.5 text-xs font-semibold text-slate-500">
                 {status || 'Unknown'}
             </Badge>
+        );
+    };
+
+    const renderStatusBreakdown = (breakdown) => {
+        if (!breakdown || typeof breakdown !== 'object') {
+            return <span className="text-slate-400 text-xs font-medium select-none">—</span>;
+        }
+
+        const entries = Object.entries(breakdown).filter(([_, count]) => typeof count === 'number' ? count > 0 : Boolean(count));
+
+        if (entries.length === 0) {
+            return <span className="text-slate-400 text-xs font-medium select-none">—</span>;
+        }
+
+        return (
+            <div className="flex flex-wrap gap-2">
+                {entries.map(([statusKey, count]) => {
+                    const keyLower = statusKey.toLowerCase().replace(/_/g, ' ');
+                    let badgeClass = 'bg-slate-50 text-slate-700 border-slate-200';
+                    let dotClass = 'bg-slate-500';
+
+                    if (keyLower.includes('paid')) {
+                        badgeClass = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+                        dotClass = 'bg-emerald-500';
+                    } else if (keyLower.includes('pending')) {
+                        badgeClass = 'bg-amber-50 text-amber-700 border-amber-200';
+                        dotClass = 'bg-amber-500';
+                    } else if (keyLower.includes('garnishment') || keyLower.includes('garnish')) {
+                        badgeClass = 'bg-red-50 text-red-700 border-red-200';
+                        dotClass = 'bg-red-500';
+                    }
+
+                    const formattedLabel = statusKey.includes('_') && !statusKey.includes(' ')
+                        ? statusKey.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+                        : statusKey;
+
+                    return (
+                        <span
+                            key={statusKey}
+                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold border shadow-sm ${badgeClass}`}
+                        >
+                            <span className={`w-1.5 h-1.5 rounded-full ${dotClass}`} />
+                            {formattedLabel}: {count}
+                        </span>
+                    );
+                })}
+            </div>
         );
     };
 
@@ -926,41 +1016,89 @@ function CommissionAdvances() {
                 </Card>
             </div>
 
-            {/* Filter and Table container */}
-            <div className="space-y-4">
-                {/* Search Bar */}
-                <div className="flex justify-between items-center gap-4 bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm">
-                    <div className="relative w-80">
-                        <Input
-                            placeholder="Search by agent name..."
-                            value={searchInput}
-                            onChange={(e) => setSearchInput(e.target.value)}
-                            className="pl-9 bg-slate-50/50 hover:bg-slate-50 border-slate-200 focus-visible:bg-white"
-                        />
-                        <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-slate-400">
-                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                            </svg>
-                        </div>
-                        {searchInput && (
-                            <button
-                                onClick={() => setSearchInput('')}
-                                className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-slate-600"
-                            >
-                                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                            </button>
+            {/* Table Card with Header & Filters Grid */}
+            <Card className="shadow-sm border-slate-200/80 overflow-hidden bg-white">
+                {/* Table Header Bar */}
+                <div className="p-5 border-b border-slate-100 bg-slate-50/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                        <h2 className="text-md font-bold text-slate-800">Agent Accounts</h2>
+                        {totalCount > 0 && (
+                            <Badge variant="secondary" className="px-2 py-0.5 font-bold text-[10px] rounded">
+                                {totalCount.toLocaleString()} agents
+                            </Badge>
                         )}
                     </div>
-                    <div className="text-xs font-semibold text-slate-400">
-                        {!listingLoading && `Showing ${filteredItems.length} of ${totalCount} agents`}
-                    </div>
+                    {totalPages > 0 && (
+                        <span className="text-xs font-semibold text-slate-500">
+                            Showing page {page} of {totalPages}
+                        </span>
+                    )}
                 </div>
 
-                {/* Table */}
-                <Card className="border-slate-200/80 shadow-sm overflow-hidden bg-white">
-                    <Table>
+                {/* Filters Row */}
+                <div className="p-5 border-b border-slate-100 bg-white flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3 flex-1">
+                        {/* Search Input */}
+                        <div className="space-y-1 flex-1 max-w-md">
+                            <label htmlFor="commission-search" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Search Agent</label>
+                            <div className="relative w-full">
+                                <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                </svg>
+                                <Input
+                                    id="commission-search"
+                                    type="text"
+                                    placeholder="Search by agent name…"
+                                    value={searchInput}
+                                    onChange={e => setSearchInput(e.target.value)}
+                                    className="pl-9 pr-8 w-full"
+                                />
+                                {searchInput && (
+                                    <button
+                                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold"
+                                        onClick={() => { setSearchInput(''); setDebouncedSearchQuery(''); setPage(1); }}
+                                    >
+                                        ✕
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Status Filter */}
+                        <div className="space-y-1 min-w-[200px]">
+                            <label htmlFor="commission-status-filter" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Status</label>
+                            <MultiSelect
+                                id="commission-status-filter"
+                                options={statusOptions}
+                                selected={statusFilter}
+                                onChange={val => { setStatusFilter(val); setPage(1); }}
+                                placeholder="All Statuses"
+                                allLabel="All Statuses"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Clear Filters Row */}
+                    {(searchInput || debouncedSearchQuery || (statusFilter && statusFilter.length > 0)) && (
+                        <div className="pt-1 sm:pt-0 shrink-0">
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                    setSearchInput('');
+                                    setDebouncedSearchQuery('');
+                                    setStatusFilter([]);
+                                    setPage(1);
+                                }}
+                                className="h-9 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 font-bold"
+                            >
+                                Clear All Filters
+                            </Button>
+                        </div>
+                    )}
+                </div>
+
+                <Table>
                         <TableHeader>
                             <TableRow>
                                 <TableHead className="w-1/3">Agent Name</TableHead>
@@ -1012,32 +1150,7 @@ function CommissionAdvances() {
                                             {formatCurrency(item.total_outstanding)}
                                         </TableCell>
                                         <TableCell>
-                                            <div className="flex flex-wrap gap-2">
-                                                {item.status_breakdown?.pending > 0 && (
-                                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200 shadow-sm">
-                                                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                                                        Pending: {item.status_breakdown.pending}
-                                                    </span>
-                                                )}
-                                                {item.status_breakdown?.paid > 0 && (
-                                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-sm">
-                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                                                        Paid: {item.status_breakdown.paid}
-                                                    </span>
-                                                )}
-                                                {item.status_breakdown?.wage_garnishment > 0 && (
-                                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-red-50 text-red-700 border border-red-200 shadow-sm">
-                                                        <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
-                                                        Garnished: {item.status_breakdown.wage_garnishment}
-                                                    </span>
-                                                )}
-                                                {(!item.status_breakdown ||
-                                                    (item.status_breakdown.pending === 0 &&
-                                                        item.status_breakdown.paid === 0 &&
-                                                        item.status_breakdown.wage_garnishment === 0)) && (
-                                                        <span className="text-slate-400 text-xs font-medium select-none">—</span>
-                                                    )}
-                                            </div>
+                                            {renderStatusBreakdown(item.status_breakdown)}
                                         </TableCell>
                                         <TableCell className="text-right">
                                             <Button
@@ -1085,8 +1198,8 @@ function CommissionAdvances() {
                     </div>
                 )}
             </div>
-        </div>
-    );
+        );
 }
 
 export default CommissionAdvances;
+
