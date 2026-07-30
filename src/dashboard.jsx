@@ -20,9 +20,9 @@ function Dashboard({ setIsAuthenticated }) {
     // Restore the active page from the URL hash on refresh
     const validPages = ['dashboard', 'reconciliation_new', 'brokerage', 'skyslope', 'cda_sent', 'pre_cda', 'month_closing', 'txn_specialist', 'reviewer', 'txn_specialist_dash', 'reviewer_dash', 'checklist_type_mapping', 'commission_advances'];
 
-    // Normalise sub-tab hashes to their top-level page id
-    // e.g. 'reconciliation_new/analytics' → 'reconciliation_new'
-    const normaliseHash = (raw) => raw.split('/')[0];
+    // Normalise sub-tab hashes and query parameters to their top-level page id
+    // e.g. 'reconciliation_new/analytics' → 'reconciliation_new', 'commission_advances?agent_name=X' → 'commission_advances'
+    const normaliseHash = (raw) => raw.split('/')[0].split('?')[0];
 
     const hashPage = normaliseHash(window.location.hash.replace('#', '').split('?')[0]);
     const [activePage, setActivePage] = useState(validPages.includes(hashPage) ? hashPage : 'dashboard');
