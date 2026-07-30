@@ -6,7 +6,6 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { formatDateUS } from '../utils/helpers';
 import { IconArrowLeft } from '../components/shared/Icons';
-import MultiSelect from '../components/shared/MultiSelect';
 import {
     COMMISSION_ADVANCES_SUMMARY_API,
     COMMISSION_ADVANCES_LISTING_API,
@@ -16,6 +15,7 @@ import {
     COMMISSION_ADVANCES_SUGGESTIONS_API,
     COMMISSION_ADVANCES_ADDRESS_SUGGESTIONS_API,
     COMMISSION_ADVANCES_LOG_API,
+    COMMISSION_ADVANCES_EDIT_API,
     ROWS_PER_PAGE
 } from '../constants';
 
@@ -261,7 +261,7 @@ function CommissionAdvances() {
 
     // ── Status Filter Options State ────────────────────────────────────────────
     const [statusOptions, setStatusOptions] = useState([]);
-    const [statusFilter, setStatusFilter] = useState([]);
+    const [statusFilter, setStatusFilter] = useState('');
 
     useEffect(() => {
         let active = true;
@@ -315,7 +315,9 @@ function CommissionAdvances() {
         if (debouncedSearchQuery.trim()) {
             params.append('search', debouncedSearchQuery.trim());
         }
-        statusFilter.forEach(s => params.append('status', s));
+        if (statusFilter) {
+            params.append('status', statusFilter);
+        }
 
         const url = `${COMMISSION_ADVANCES_LISTING_API}?${params.toString()}`;
 
@@ -356,20 +358,18 @@ function CommissionAdvances() {
                 list = list.filter(item => item.agent_name.toLowerCase().includes(query));
             }
         }
-        if (statusFilter.length > 0) {
+        if (statusFilter) {
+            const sfNorm = statusFilter.toLowerCase().replace(/_/g, ' ');
             const hasUnfilteredStatus = list.some(item => {
                 if (!item.status_breakdown) return true;
                 const activeStatuses = Object.keys(item.status_breakdown).filter(k => item.status_breakdown[k] > 0);
-                return !activeStatuses.some(st => statusFilter.some(sf => sf.toLowerCase() === st.toLowerCase().replace(/_/g, ' ')));
+                return !activeStatuses.some(st => st.toLowerCase().replace(/_/g, ' ') === sfNorm);
             });
             if (hasUnfilteredStatus) {
                 list = list.filter(item => {
                     if (!item.status_breakdown) return false;
                     const entries = Object.entries(item.status_breakdown).filter(([_, count]) => count > 0);
-                    return entries.some(([k, _]) => {
-                        const normK = k.toLowerCase().replace(/_/g, ' ');
-                        return statusFilter.some(sf => sf.toLowerCase().replace(/_/g, ' ') === normK);
-                    });
+                    return entries.some(([k, _]) => k.toLowerCase().replace(/_/g, ' ') === sfNorm);
                 });
             }
         }
@@ -422,6 +422,109 @@ function CommissionAdvances() {
         };
     }, [activeAgentName]);
 
+    // ── Edit Modal State ───────────────────────────────────────────────────────
+    const [editItem, setEditItem] = useState(null);
+    const [editForm, setEditForm] = useState({});
+    const [editSubmitting, setEditSubmitting] = useState(false);
+    const [editSuccess, setEditSuccess] = useState(false);
+    const [editError, setEditError] = useState(null);
+    const [editStatusOptions, setEditStatusOptions] = useState([]);
+
+    // Fetch status options whenever the modal opens
+    useEffect(() => {
+        if (!editItem) return;
+        let active = true;
+        fetch(COMMISSION_ADVANCES_STATUS_DROPDOWN_API)
+            .then(res => res.json())
+            .then(json => {
+                if (!active) return;
+                if (json.success && json.filters && Array.isArray(json.filters.status)) {
+                    setEditStatusOptions([...json.filters.status].sort());
+                }
+            })
+            .catch(err => console.error('Failed to load edit status options:', err));
+        return () => { active = false; };
+    }, [editItem]);
+
+    const openEditModal = (item) => {
+        setEditItem(item);
+        setEditForm({
+            status: item.status || '',
+            amount: '',
+            paid_date: item.paid_date ? item.paid_date.slice(0, 10) : '',
+            notes: item.notes || '',
+        });
+        setEditSuccess(false);
+        setEditError(null);
+    };
+
+    const closeEditModal = () => {
+        setEditItem(null);
+        setEditForm({});
+        setEditError(null);
+        setEditSuccess(false);
+    };
+
+    const handleEditFormChange = (e) => {
+        const { name, value } = e.target;
+        setEditForm(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleEditSubmit = async (e) => {
+        e.preventDefault();
+        if (!editItem) return;
+        setEditSubmitting(true);
+        setEditError(null);
+        setEditSuccess(false);
+        try {
+            const statusLower = editForm.status.trim().toLowerCase();
+            const isWageGarnishment = statusLower.includes('garnishment') || statusLower.includes('garnish');
+            const isCancelledOrLeft = statusLower === 'cancelled' || statusLower === 'left roa';
+            const isPaid = statusLower === 'paid';
+
+            // Always start with just the status
+            const payload = { status: editForm.status.trim() };
+
+            if (isWageGarnishment) {
+                // Wage Garnishment: notes only (if entered)
+                if (editForm.notes.trim()) payload.notes = editForm.notes.trim();
+            } else if (isCancelledOrLeft) {
+                // Cancelled / Left ROA: date + notes, only if entered
+                if (editForm.paid_date) payload.paid_date = editForm.paid_date;
+                if (editForm.notes.trim()) payload.notes = editForm.notes.trim();
+            } else {
+                // All other statuses (Pending, Paid, Pending Partial, etc.)
+                if (!isPaid && editForm.amount !== '') {
+                    payload.amount = parseFloat(editForm.amount) || 0;
+                }
+                if (editForm.paid_date) payload.paid_date = editForm.paid_date;
+                if (editForm.notes.trim()) payload.notes = editForm.notes.trim();
+            }
+
+            const res = await fetch(`${COMMISSION_ADVANCES_EDIT_API}/${editItem.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(json.message || json.detail || `Server error: ${res.status}`);
+            setEditSuccess(true);
+            // Reflect changes in the table immediately
+            const optimistic = { ...{}, status: editForm.status };
+            if ('notes' in payload) optimistic.notes = editForm.notes;
+            if ('paid_date' in payload) optimistic.paid_date = editForm.paid_date || null;
+            if ('amount' in payload) optimistic.original_amount = parseFloat(editForm.amount);
+            setDetailItems(prev => prev.map(it =>
+                it.id === editItem.id ? { ...it, ...optimistic } : it
+            ));
+            setTimeout(() => closeEditModal(), 1200);
+        } catch (err) {
+            setEditError(err.message);
+        } finally {
+            setEditSubmitting(false);
+        }
+    };
+
     // ── Formatters & Helpers ───────────────────────────────────────────────────
     const formatCurrency = (val) => {
         if (val === undefined || val === null || isNaN(val)) return '—';
@@ -443,17 +546,10 @@ function CommissionAdvances() {
 
     const renderDetailStatusBadge = (status) => {
         const s = String(status || '').toLowerCase().replace(/_/g, ' ');
-        if (s.includes('paid')) {
+        if (s === 'paid') {
             return (
                 <Badge variant="success" className="px-2.5 py-0.5 text-xs font-semibold shadow-sm">
                     Paid
-                </Badge>
-            );
-        }
-        if (s.includes('pending')) {
-            return (
-                <Badge variant="warning" className="px-2.5 py-0.5 text-xs font-semibold shadow-sm">
-                    Pending
                 </Badge>
             );
         }
@@ -461,6 +557,21 @@ function CommissionAdvances() {
             return (
                 <Badge variant="destructive" className="px-2.5 py-0.5 text-xs font-semibold shadow-sm">
                     Wage Garnishment
+                </Badge>
+            );
+        }
+        if (s.includes('pending partial') || s === 'pending partial') {
+            return (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold border shadow-sm bg-orange-50 text-orange-700 border-orange-200">
+                    <span className="w-1.5 h-1.5 rounded-full bg-orange-500 flex-shrink-0" />
+                    {status}
+                </span>
+            );
+        }
+        if (s.includes('pending')) {
+            return (
+                <Badge variant="warning" className="px-2.5 py-0.5 text-xs font-semibold shadow-sm">
+                    Pending
                 </Badge>
             );
         }
@@ -483,7 +594,7 @@ function CommissionAdvances() {
         }
 
         return (
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-col gap-1.5">
                 {entries.map(([statusKey, count]) => {
                     const keyLower = statusKey.toLowerCase().replace(/_/g, ' ');
                     let badgeClass = 'bg-slate-50 text-slate-700 border-slate-200';
@@ -507,13 +618,91 @@ function CommissionAdvances() {
                     return (
                         <span
                             key={statusKey}
-                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold border shadow-sm ${badgeClass}`}
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold border shadow-sm w-fit ${badgeClass}`}
                         >
-                            <span className={`w-1.5 h-1.5 rounded-full ${dotClass}`} />
+                            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${dotClass}`} />
                             {formattedLabel}: {count}
                         </span>
                     );
                 })}
+            </div>
+        );
+    };
+
+    const renderAgentStatusBadge = (status) => {
+        if (!status) return null;
+        const s = String(status).toLowerCase();
+        if (s === 'active') {
+            return (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    Active
+                </span>
+            );
+        }
+        if (s === 'inactive') {
+            return (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-500 border border-slate-200">
+                    <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                    Inactive
+                </span>
+            );
+        }
+        if (s === 'terminated' || s === 'term') {
+            return (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-50 text-red-700 border border-red-200">
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                    Terminated
+                </span>
+            );
+        }
+        return (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-500 border border-slate-200">
+                <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                {status}
+            </span>
+        );
+    };
+
+    const ACCUMULATION_MAX = 20000;
+
+    const renderAccumulationBar = (totalOutstanding) => {
+        const amount = totalOutstanding || 0;
+        const isOver = amount > ACCUMULATION_MAX;
+        const pct = Math.min((amount / ACCUMULATION_MAX) * 100, 100);
+        const barColor = isOver
+            ? 'bg-red-500'
+            : pct >= 80
+            ? 'bg-amber-500'
+            : 'bg-indigo-500';
+
+        return (
+            <div className="space-y-1.5 min-w-[140px]">
+                <div className="flex items-center justify-between gap-2">
+                    <span className={`text-xs font-bold ${
+                        isOver ? 'text-red-600' : 'text-slate-800'
+                    }`}>
+                        {formatCurrency(amount)}
+                    </span>
+                    {isOver && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-50 text-red-700 border border-red-300 whitespace-nowrap">
+                            <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                            </svg>
+                            Over Limit
+                        </span>
+                    )}
+                </div>
+                <div className="relative w-full h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                    <div
+                        className={`h-full rounded-full transition-all duration-500 ${barColor}`}
+                        style={{ width: `${pct}%` }}
+                    />
+                </div>
+                <div className="flex justify-between text-[9px] text-slate-400 font-medium">
+                    <span>$0</span>
+                    <span>$20k max</span>
+                </div>
             </div>
         );
     };
@@ -838,22 +1027,21 @@ function CommissionAdvances() {
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white p-6 rounded-xl border border-slate-200/80 shadow-sm">
                     <div className="flex items-center gap-4">
                         <div>
-                            <div className="flex items-center gap-3">
-                                <h2 className="text-xl font-bold text-slate-900">{activeAgentName}</h2>
-                                {agentState && (
-                                    <Badge variant="outline" className="px-2.5 py-0.5 text-xs font-semibold text-blue-600 bg-blue-50 border-blue-200 shadow-sm">
-                                        State: {agentState}
-                                    </Badge>
-                                )}
-                            </div>
+                            <h2 className="text-xl font-bold text-slate-900">{activeAgentName}</h2>
                             <p className="text-xs text-slate-400 mt-1 font-medium">Commission Advance Detail History</p>
                         </div>
                     </div>
-                    <div className="flex gap-6 items-center">
+                    <div className="flex gap-8 items-center">
                         <div className="text-right">
-                            <p className="text-xs text-slate-400 font-semibold tracking-wide uppercase">Total Advances</p>
+                            <p className="text-xs text-slate-400 font-semibold tracking-wide uppercase">Total Records</p>
                             <p className="text-xl font-bold text-slate-900 mt-0.5">
                                 {detailLoading ? '...' : detailItems.length}
+                            </p>
+                        </div>
+                        <div className="text-right">
+                            <p className="text-xs text-slate-400 font-semibold tracking-wide uppercase">Total Outstanding</p>
+                            <p className="text-xl font-bold text-slate-900 mt-0.5">
+                                {detailLoading ? '...' : formatCurrency(detailItems.reduce((s, i) => s + (i.outstanding_amount || 0), 0))}
                             </p>
                         </div>
                     </div>
@@ -864,12 +1052,14 @@ function CommissionAdvances() {
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead className="w-1/3">Property Address</TableHead>
+                                <TableHead className="w-1/4">Property Address</TableHead>
                                 <TableHead>Company</TableHead>
-                                <TableHead>Amount</TableHead>
+                                <TableHead>Original Amount</TableHead>
+                                <TableHead>Outstanding</TableHead>
                                 <TableHead>Paid Date</TableHead>
                                 <TableHead>Status</TableHead>
-                                <TableHead className="w-1/4">Notes</TableHead>
+                                <TableHead className="w-1/5">Notes</TableHead>
+                                <TableHead className="w-20 text-right">Action</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -878,44 +1068,69 @@ function CommissionAdvances() {
                                     <TableRow key={idx} className="animate-pulse">
                                         <TableCell><div className="h-4 bg-slate-100 rounded w-4/5" /></TableCell>
                                         <TableCell><div className="h-4 bg-slate-100 rounded w-16" /></TableCell>
-                                        <TableCell><div className="h-4 bg-slate-100 rounded w-12" /></TableCell>
+                                        <TableCell><div className="h-4 bg-slate-100 rounded w-14" /></TableCell>
+                                        <TableCell><div className="h-4 bg-slate-100 rounded w-14" /></TableCell>
                                         <TableCell><div className="h-4 bg-slate-100 rounded w-20" /></TableCell>
-                                        <TableCell><div className="h-6 bg-slate-100 rounded-full w-16" /></TableCell>
+                                        <TableCell><div className="h-6 bg-slate-100 rounded-full w-20" /></TableCell>
                                         <TableCell><div className="h-4 bg-slate-100 rounded w-3/4" /></TableCell>
+                                        <TableCell><div className="h-8 bg-slate-100 rounded w-12 ml-auto" /></TableCell>
                                     </TableRow>
                                 ))
                             ) : detailError ? (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="text-center py-10 text-red-500 bg-red-50/50">
+                                    <TableCell colSpan={8} className="text-center py-10 text-red-500 bg-red-50/50">
                                         Error loading details: {detailError}
                                     </TableCell>
                                 </TableRow>
                             ) : detailItems.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="text-center py-12 text-slate-400">
+                                    <TableCell colSpan={8} className="text-center py-12 text-slate-400">
                                         No transaction items found for this agent.
                                     </TableCell>
                                 </TableRow>
                             ) : (
                                 detailItems.map((item, idx) => (
-                                    <TableRow key={idx}>
-                                        <TableCell className="font-medium text-slate-800">
+                                    <TableRow key={item.id ?? idx}>
+                                        <TableCell className="font-medium text-slate-800 text-sm">
                                             {item.address || '—'}
                                         </TableCell>
-                                        <TableCell className="text-slate-600 font-medium">
+                                        <TableCell className="text-slate-600 font-medium text-sm">
                                             {item.company || '—'}
                                         </TableCell>
-                                        <TableCell className="font-semibold text-slate-900">
-                                            {formatCurrency(item.amount)}
+                                        <TableCell className="font-semibold text-slate-900 text-sm">
+                                            {formatCurrency(item.original_amount)}
                                         </TableCell>
-                                        <TableCell className="text-slate-500 font-medium">
+                                        <TableCell className="text-sm">
+                                            <span className={`font-bold ${
+                                                (item.outstanding_amount || 0) > 0
+                                                    ? 'text-red-600'
+                                                    : 'text-emerald-600'
+                                            }`}>
+                                                {formatCurrency(item.outstanding_amount)}
+                                            </span>
+                                        </TableCell>
+                                        <TableCell className="text-slate-500 font-medium text-sm">
                                             {formatDateUS(item.paid_date)}
                                         </TableCell>
                                         <TableCell>
                                             {renderDetailStatusBadge(item.status)}
                                         </TableCell>
-                                        <TableCell className="text-slate-500 italic text-xs max-w-[200px] truncate" title={item.notes || ''}>
+                                        <TableCell
+                                            className="text-slate-500 italic text-xs max-w-[180px] truncate"
+                                            title={item.notes || ''}
+                                        >
                                             {item.notes || '—'}
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            <button
+                                                onClick={() => openEditModal(item)}
+                                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold border border-slate-200 bg-white text-slate-600 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 transition-all shadow-sm"
+                                            >
+                                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                </svg>
+                                                Edit
+                                            </button>
                                         </TableCell>
                                     </TableRow>
                                 ))
@@ -923,6 +1138,174 @@ function CommissionAdvances() {
                         </TableBody>
                     </Table>
                 </Card>
+
+                {/* ── Edit Modal ─────────────────────────────────────────── */}
+                {editItem && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backdropFilter: 'blur(4px)', backgroundColor: 'rgba(15,23,42,0.45)' }}>
+                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl border border-slate-200/80 overflow-hidden">
+                            {/* Modal Header */}
+                            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+                                <div>
+                                    <h3 className="text-base font-bold text-slate-900">Edit Advance Record</h3>
+                                    <p className="text-xs text-slate-400 mt-0.5">{editItem.address || 'Record #' + editItem.id}</p>
+                                </div>
+                                <button
+                                    onClick={closeEditModal}
+                                    className="h-8 w-8 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors"
+                                >
+                                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            </div>
+
+                            {/* Modal Body */}
+                            <form onSubmit={handleEditSubmit} className="p-6 space-y-4">
+
+                                {/* Status */}
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Status</label>
+                                    <select
+                                        name="status"
+                                        value={editForm.status}
+                                        onChange={handleEditFormChange}
+                                        className="flex w-full rounded-md border border-input bg-white px-3 h-9 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring text-slate-800"
+                                    >
+                                        <option value="">— Select status —</option>
+                                        {editStatusOptions.length > 0
+                                            ? editStatusOptions.map(s => (
+                                                <option key={s} value={s}>{s}</option>
+                                            ))
+                                            : [
+                                                <option key="Pending" value="Pending">Pending</option>,
+                                                <option key="Paid" value="Paid">Paid</option>,
+                                                <option key="Wage Garnishment" value="Wage Garnishment">Wage Garnishment</option>,
+                                            ]
+                                        }
+                                    </select>
+                                </div>
+
+                                {/* Amount & Date — visibility depends on status */}
+                                {(() => {
+                                    const st = (editForm.status || '').toLowerCase();
+                                    const isGarnishment = st.includes('garnishment') || st.includes('garnish');
+                                    const isCancelledOrLeft = st === 'cancelled' || st === 'left roa';
+                                    const isPaid = st === 'paid';
+
+                                    // Wage Garnishment: no amount, no date
+                                    if (isGarnishment) return null;
+
+                                    // Cancelled / Left ROA: date only (no amount)
+                                    if (isCancelledOrLeft) {
+                                        return (
+                                            <div className="space-y-1">
+                                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Date</label>
+                                                <Input
+                                                    name="paid_date"
+                                                    type="date"
+                                                    value={editForm.paid_date}
+                                                    onChange={handleEditFormChange}
+                                                    className="w-full h-9 text-sm bg-white"
+                                                />
+                                            </div>
+                                        );
+                                    }
+
+                                    // All others: amount (except Paid) + date
+                                    const showAmount = !isPaid;
+                                    return (
+                                        <div className={`grid gap-3 ${showAmount ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                                            {showAmount && (
+                                                <div className="space-y-1">
+                                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Amount ($)</label>
+                                                    <Input
+                                                        name="amount"
+                                                        type="number"
+                                                        step="0.01"
+                                                        min="0"
+                                                        value={editForm.amount}
+                                                        onChange={handleEditFormChange}
+                                                        placeholder="e.g. 8775"
+                                                        className="w-full h-9 text-sm"
+                                                    />
+                                                </div>
+                                            )}
+                                            <div className="space-y-1">
+                                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Date</label>
+                                                <Input
+                                                    name="paid_date"
+                                                    type="date"
+                                                    value={editForm.paid_date}
+                                                    onChange={handleEditFormChange}
+                                                    className="w-full h-9 text-sm bg-white"
+                                                />
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
+
+                                {/* Notes */}
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Notes</label>
+                                    <textarea
+                                        name="notes"
+                                        value={editForm.notes}
+                                        onChange={handleEditFormChange}
+                                        rows={3}
+                                        placeholder="Optional notes..."
+                                        className="flex w-full rounded-md border border-input bg-white px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring text-slate-800 resize-none"
+                                    />
+                                </div>
+
+                                {/* Success */}
+                                {editSuccess && (
+                                    <div className="flex items-center gap-3 px-4 py-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm font-semibold">
+                                        <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        Record updated successfully.
+                                    </div>
+                                )}
+
+                                {/* Error */}
+                                {editError && (
+                                    <div className="flex items-start gap-3 px-4 py-2.5 rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm font-semibold">
+                                        <svg className="h-4 w-4 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                                        </svg>
+                                        {editError}
+                                    </div>
+                                )}
+
+                                {/* Actions */}
+                                <div className="pt-1 flex items-center justify-end gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={closeEditModal}
+                                        className="inline-flex items-center justify-center whitespace-nowrap rounded-md font-semibold transition-colors h-9 px-4 text-sm border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <Button
+                                        type="submit"
+                                        disabled={editSubmitting}
+                                        className="bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-sm h-9 min-w-[110px]"
+                                    >
+                                        {editSubmitting ? (
+                                            <span className="flex items-center gap-2">
+                                                <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                                </svg>
+                                                Saving...
+                                            </span>
+                                        ) : 'Save Changes'}
+                                    </Button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
             </div>
         );
     }
@@ -1067,19 +1450,22 @@ function CommissionAdvances() {
                         {/* Status Filter */}
                         <div className="space-y-1 min-w-[200px]">
                             <label htmlFor="commission-status-filter" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Status</label>
-                            <MultiSelect
+                            <select
                                 id="commission-status-filter"
-                                options={statusOptions}
-                                selected={statusFilter}
-                                onChange={val => { setStatusFilter(val); setPage(1); }}
-                                placeholder="All Statuses"
-                                allLabel="All Statuses"
-                            />
+                                value={statusFilter}
+                                onChange={e => { setStatusFilter(e.target.value); setPage(1); }}
+                                className="flex w-full rounded-md border border-input bg-white px-3 h-9 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring text-slate-800 font-normal"
+                            >
+                                <option value="" className="font-normal">All Statuses</option>
+                                {statusOptions.map(st => (
+                                    <option key={st} value={st} className="font-normal">{st}</option>
+                                ))}
+                            </select>
                         </div>
                     </div>
 
                     {/* Clear Filters Row */}
-                    {(searchInput || debouncedSearchQuery || (statusFilter && statusFilter.length > 0)) && (
+                    {(searchInput || debouncedSearchQuery || statusFilter) && (
                         <div className="pt-1 sm:pt-0 shrink-0">
                             <Button
                                 variant="ghost"
@@ -1087,7 +1473,7 @@ function CommissionAdvances() {
                                 onClick={() => {
                                     setSearchInput('');
                                     setDebouncedSearchQuery('');
-                                    setStatusFilter([]);
+                                    setStatusFilter('');
                                     setPage(1);
                                 }}
                                 className="h-9 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 font-bold"
@@ -1101,8 +1487,9 @@ function CommissionAdvances() {
                 <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead className="w-1/3">Agent Name</TableHead>
+                                <TableHead className="w-1/4">Agent Name</TableHead>
                                 <TableHead>Total Outstanding</TableHead>
+                                <TableHead>Total Accumulation</TableHead>
                                 <TableHead>Status Breakdown</TableHead>
                                 <TableHead className="w-24 text-right">Actions</TableHead>
                             </TableRow>
@@ -1112,13 +1499,20 @@ function CommissionAdvances() {
                                 Array.from({ length: 6 }).map((_, idx) => (
                                     <TableRow key={idx} className="animate-pulse">
                                         <TableCell>
-                                            <div className="h-4 bg-slate-100 rounded w-32" />
+                                            <div className="h-4 bg-slate-100 rounded w-32 mb-1" />
+                                            <div className="h-3 bg-slate-100 rounded w-14" />
                                         </TableCell>
                                         <TableCell><div className="h-4 bg-slate-100 rounded w-16" /></TableCell>
                                         <TableCell>
-                                            <div className="flex gap-2">
+                                            <div className="space-y-1.5">
+                                                <div className="h-3.5 bg-slate-100 rounded w-24" />
+                                                <div className="h-1.5 bg-slate-100 rounded-full w-36" />
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="flex flex-col gap-1.5">
                                                 <div className="h-5 bg-slate-100 rounded-full w-20" />
-                                                <div className="h-5 bg-slate-100 rounded-full w-20" />
+                                                <div className="h-5 bg-slate-100 rounded-full w-24" />
                                             </div>
                                         </TableCell>
                                         <TableCell className="text-right">
@@ -1128,13 +1522,13 @@ function CommissionAdvances() {
                                 ))
                             ) : listingError ? (
                                 <TableRow>
-                                    <TableCell colSpan={4} className="text-center py-10 text-red-500 bg-red-50/50">
+                                    <TableCell colSpan={5} className="text-center py-10 text-red-500 bg-red-50/50">
                                         Error loading commission advances listing: {listingError}
                                     </TableCell>
                                 </TableRow>
                             ) : filteredItems.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={4} className="text-center py-12 text-slate-400">
+                                    <TableCell colSpan={5} className="text-center py-12 text-slate-400">
                                         No agents found.
                                     </TableCell>
                                 </TableRow>
@@ -1142,12 +1536,18 @@ function CommissionAdvances() {
                                 filteredItems.map((item, idx) => (
                                     <TableRow key={item.agent_name + idx}>
                                         <TableCell>
-                                            <span className="font-semibold text-slate-800 text-sm">
-                                                {item.agent_name}
-                                            </span>
+                                            <div className="space-y-1.5">
+                                                <span className="font-semibold text-slate-800 text-sm block">
+                                                    {item.agent_name}
+                                                </span>
+                                                {renderAgentStatusBadge(item.agent_status)}
+                                            </div>
                                         </TableCell>
                                         <TableCell className="font-semibold text-slate-900">
                                             {formatCurrency(item.total_outstanding)}
+                                        </TableCell>
+                                        <TableCell>
+                                            {renderAccumulationBar(item.total_outstanding)}
                                         </TableCell>
                                         <TableCell>
                                             {renderStatusBreakdown(item.status_breakdown)}

@@ -13,24 +13,24 @@ export function setUnauthorizedHandler(handler) {
 
 // ── Token helpers ──────────────────────────────────────────────────────────────
 export function getAccessToken() {
-    return sessionStorage.getItem('access_token');
+    return localStorage.getItem('access_token');
 }
 
 export function getRefreshToken() {
-    return sessionStorage.getItem('refresh_token');
+    return localStorage.getItem('refresh_token');
 }
 
 function storeTokens({ access_token, refresh_token }) {
-    sessionStorage.setItem('access_token', access_token);
+    localStorage.setItem('access_token', access_token);
     if (refresh_token) {
-        sessionStorage.setItem('refresh_token', refresh_token);
+        localStorage.setItem('refresh_token', refresh_token);
     }
 }
 
 function clearSession() {
-    sessionStorage.removeItem('roa_auth');
-    sessionStorage.removeItem('access_token');
-    sessionStorage.removeItem('refresh_token');
+    localStorage.removeItem('roa_auth');
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
 }
 
 // ── Refresh access token ───────────────────────────────────────────────────────

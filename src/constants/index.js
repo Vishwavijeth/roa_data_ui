@@ -32,6 +32,7 @@ export const COMMISSION_ADVANCES_STATUS_DROPDOWN_API = 'https://roa-data-backend
 export const COMMISSION_ADVANCES_SUGGESTIONS_API = 'https://roa-data-backend.vercel.app/commission-advances/agent-suggestions';
 export const COMMISSION_ADVANCES_ADDRESS_SUGGESTIONS_API = 'https://roa-data-backend.vercel.app/commission-advances/address-suggestions';
 export const COMMISSION_ADVANCES_LOG_API = 'http://127.0.0.1:8000/commission-advances/log';
+export const COMMISSION_ADVANCES_EDIT_API = 'https://roa-data-backend.vercel.app/commission-advances/transaction';
 
 export const ROWS_PER_PAGE = 50;
 
