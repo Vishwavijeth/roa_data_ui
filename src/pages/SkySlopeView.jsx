@@ -32,23 +32,43 @@ const renderCellData = (val) => {
     return <span className="whitespace-normal block leading-tight">{str}</span>;
 };
 
-// Helper to render property addresses in two clean lines (street on line 1, city/state/zip on line 2)
-const renderPropertyAddress = (val) => {
+// Helper to render property addresses in two clean lines with optional Lead Based Checklist flag
+const renderPropertyAddress = (val, checklistLeadCheck) => {
     if (val == null || val === '') return '—';
     const str = String(val).trim();
     if (!str) return '—';
     const firstCommaIdx = str.indexOf(',');
+    let addressNode;
     if (firstCommaIdx !== -1) {
         const street = str.substring(0, firstCommaIdx).trim();
         const cityStateZip = str.substring(firstCommaIdx + 1).trim();
-        return (
+        addressNode = (
             <div className="flex flex-col leading-snug">
                 <span className="font-semibold text-slate-800 text-xs truncate" title={str}>{street}</span>
                 {cityStateZip && <span className="text-[11px] text-slate-500 font-normal truncate" title={str}>{cityStateZip}</span>}
             </div>
         );
+    } else {
+        addressNode = <span className="font-medium text-slate-800 text-xs block leading-tight">{str}</span>;
     }
-    return <span className="font-medium text-slate-800 text-xs block leading-tight">{str}</span>;
+
+    return (
+        <div className="space-y-1">
+            {addressNode}
+            {checklistLeadCheck === true && (
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200/80 shadow-2xs w-fit">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                    Lead Based Checklist Present
+                </span>
+            )}
+            {checklistLeadCheck === false && (
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200/80 shadow-2xs w-fit">
+                    <span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />
+                    No Lead Based Checklist
+                </span>
+            )}
+        </div>
+    );
 };
 
 // Helper to render text in at most two clean lines
@@ -86,6 +106,7 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
     const [yearBuiltFrom, setYearBuiltFrom] = useState('');
     const [yearBuiltTo, setYearBuiltTo] = useState('');
     const [notInBe, setNotInBe] = useState(false);
+    const [leadChecklistFilter, setLeadChecklistFilter] = useState('');
 
     const [totalCount, setTotalCount] = useState(0);
     const [serverTotalPages, setServerTotalPages] = useState(null);
@@ -240,7 +261,7 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
     // Reset page to 1 when filters change
     useEffect(() => {
         setPage(1);
-    }, [closeDateFrom, closeDateTo, statusFilter, stageFilter, yearBuiltFrom, yearBuiltTo, searchQuery, notInBe]);
+    }, [closeDateFrom, closeDateTo, statusFilter, stageFilter, yearBuiltFrom, yearBuiltTo, searchQuery, notInBe, leadChecklistFilter]);
 
     // Fetch paginated and filtered data from API
     useEffect(() => {
@@ -266,6 +287,7 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
         }
         if (searchQuery.trim()) params.append('search', searchQuery.trim());
         if (notInBe) params.append('not_in_be', 'True');
+        if (leadChecklistFilter) params.append('checklist_lead_based', leadChecklistFilter);
 
         const url = `https://roa-data-backend.vercel.app/skyslope-listing?${params.toString()}`;
 
@@ -336,7 +358,7 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
         return () => {
             active = false;
         };
-    }, [page, closeDateFrom, closeDateTo, statusFilter, stageFilter, yearBuiltFrom, yearBuiltTo, searchQuery, notInBe]);
+    }, [page, closeDateFrom, closeDateTo, statusFilter, stageFilter, yearBuiltFrom, yearBuiltTo, searchQuery, notInBe, leadChecklistFilter]);
 
     const totalPages = serverTotalPages ?? Math.ceil(totalCount / 50);
 
@@ -359,6 +381,7 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
             }
             if (searchQuery.trim()) params.append('search', searchQuery.trim());
             if (notInBe) params.append('not_in_be', 'True');
+            if (leadChecklistFilter) params.append('checklist_lead_based', leadChecklistFilter);
 
             const queryString = params.toString();
             const downloadUrl = `https://roa-data-backend.vercel.app/skyslope/download${queryString ? `?${queryString}` : ''}`;
@@ -685,18 +708,18 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
                         )}
                     </div>
 
-                    {/* Date, int and dropdown filters */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 pt-1">
-                        <div className="space-y-1">
-                            <label htmlFor="ss-close-from" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Close From</label>
-                            <DateFilterInput id="ss-close-from" value={closeDateFrom} onChange={val => { setCloseDateFrom(val); setPage(1); }} className="h-8.5 text-xs text-slate-700" />
+                    {/* Filter controls — flex-wrap so labels never get squeezed */}
+                    <div className="flex flex-wrap items-end gap-3 pt-1">
+                        <div className="flex flex-col gap-1 min-w-[130px]">
+                            <label htmlFor="ss-close-from" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">Close From</label>
+                            <DateFilterInput id="ss-close-from" value={closeDateFrom} onChange={val => { setCloseDateFrom(val); setPage(1); }} className="h-9 text-xs text-slate-700" />
                         </div>
-                        <div className="space-y-1">
-                            <label htmlFor="ss-close-to" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Close To</label>
-                            <DateFilterInput id="ss-close-to" value={closeDateTo} onChange={val => { setCloseDateTo(val); setPage(1); }} className="h-8.5 text-xs text-slate-700" />
+                        <div className="flex flex-col gap-1 min-w-[130px]">
+                            <label htmlFor="ss-close-to" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">Close To</label>
+                            <DateFilterInput id="ss-close-to" value={closeDateTo} onChange={val => { setCloseDateTo(val); setPage(1); }} className="h-9 text-xs text-slate-700" />
                         </div>
-                        <div className="space-y-1">
-                            <label htmlFor="ss-status-filter" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Status</label>
+                        <div className="flex flex-col gap-1 min-w-[150px]">
+                            <label htmlFor="ss-status-filter" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">Status</label>
                             <MultiSelect
                                 id="ss-status-filter"
                                 options={availableStatuses}
@@ -706,8 +729,8 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
                                 allLabel="All Statuses"
                             />
                         </div>
-                        <div className="space-y-1">
-                            <label htmlFor="ss-stage-filter" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Stage</label>
+                        <div className="flex flex-col gap-1 min-w-[150px]">
+                            <label htmlFor="ss-stage-filter" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">Stage</label>
                             <MultiSelect
                                 id="ss-stage-filter"
                                 options={availableStages}
@@ -717,33 +740,45 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
                                 allLabel="All Stages"
                             />
                         </div>
-                        <div className="space-y-1">
-                            <label htmlFor="ss-year-built-from" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Year Built From</label>
+                        <div className="flex flex-col gap-1 min-w-[150px]">
+                            <label htmlFor="ss-lead-checklist-filter" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">Lead Based Checklist</label>
+                            <select
+                                id="ss-lead-checklist-filter"
+                                value={leadChecklistFilter}
+                                onChange={e => { setLeadChecklistFilter(e.target.value); setPage(1); }}
+                                className="flex w-full rounded-md border border-input bg-white px-3 h-9 text-xs shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring text-slate-700 font-normal"
+                            >
+                                <option value="">All</option>
+                                <option value="true">True</option>
+                                <option value="false">False</option>
+                            </select>
+                        </div>
+                        <div className="flex flex-col gap-1 min-w-[120px]">
+                            <label htmlFor="ss-year-built-from" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">Year Built From</label>
                             <Input
                                 id="ss-year-built-from"
                                 type="number"
                                 placeholder="e.g. 1990"
                                 value={yearBuiltFrom}
                                 onChange={e => { setYearBuiltFrom(e.target.value); setPage(1); }}
-                                className="h-8.5 text-xs text-slate-700"
+                                className="h-9 text-xs text-slate-700"
                             />
                         </div>
-                        <div className="space-y-1">
-                            <label htmlFor="ss-year-built-to" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Year Built To</label>
+                        <div className="flex flex-col gap-1 min-w-[120px]">
+                            <label htmlFor="ss-year-built-to" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">Year Built To</label>
                             <Input
                                 id="ss-year-built-to"
                                 type="number"
                                 placeholder="e.g. 2024"
                                 value={yearBuiltTo}
                                 onChange={e => { setYearBuiltTo(e.target.value); setPage(1); }}
-                                className="h-8.5 text-xs text-slate-700"
+                                className="h-9 text-xs text-slate-700"
                             />
                         </div>
                     </div>
 
                     {/* Not in BE toggle + Reset row */}
                     <div className="flex items-center justify-between pt-1">
-                        {/* Not in BE toggle */}
                         <button
                             id="ss-not-in-be-toggle"
                             onClick={() => { setNotInBe(v => !v); setPage(1); }}
@@ -756,14 +791,13 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
                             Not in BE
                         </button>
 
-                        {/* Reset Button */}
-                        {(searchInput || searchQuery || (statusFilter && statusFilter.length > 0) || (stageFilter && stageFilter.length > 0) || closeDateFrom || closeDateTo || yearBuiltFrom || yearBuiltTo || notInBe) && (
+                        {(searchInput || searchQuery || (statusFilter && statusFilter.length > 0) || (stageFilter && stageFilter.length > 0) || closeDateFrom || closeDateTo || yearBuiltFrom || yearBuiltTo || notInBe || leadChecklistFilter) && (
                             <Button
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => {
                                     setSearchInput(''); setSearchQuery(''); setStatusFilter([]); setStageFilter([]); setCloseDateFrom(''); setCloseDateTo('');
-                                    setYearBuiltFrom(''); setYearBuiltTo(''); setNotInBe(false); setPage(1);
+                                    setYearBuiltFrom(''); setYearBuiltTo(''); setNotInBe(false); setLeadChecklistFilter(''); setPage(1);
                                 }}
                                 className="h-8 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 font-bold"
                             >
@@ -812,7 +846,7 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
                                         className="cursor-pointer hover:bg-slate-50/50 transition-colors"
                                     >
                                         <TableCell className="font-medium text-slate-800 text-xs py-2.5">
-                                            {renderPropertyAddress(row.propertyaddress)}
+                                            {renderPropertyAddress(row.propertyaddress, row.checklist_lead_check)}
                                         </TableCell>
                                         <TableCell className="text-xs text-slate-500 font-medium">{formatDateUS(row.close_date)}</TableCell>
                                         <TableCell className="shrink-0 select-none">
