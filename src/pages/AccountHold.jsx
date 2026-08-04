@@ -230,7 +230,7 @@ function AccountHoldDetail({ customerId }) {
                             {detailData.display_name}
                         </h1>
                         <p className="text-sm text-slate-500 font-mono mt-1">
-                            {detailData.primary_emailaddress}
+                            {detailData.roa_email}
                         </p>
                     </div>
                 </div>
@@ -247,7 +247,7 @@ function AccountHoldDetail({ customerId }) {
 
             {/* Grid Layout */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start animate-slide-up">
-                
+
                 {/* Left Card: QuickBooks AR Balance */}
                 <div className="space-y-3">
                     <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
@@ -256,7 +256,7 @@ function AccountHoldDetail({ customerId }) {
                         </svg>
                         QuickBooks AR Balance
                     </h3>
-                    
+
                     <div className={`rounded-2xl border p-5 bg-white shadow-xs ${hasArFlag ? 'border-amber-200 bg-amber-50/10' : 'border-slate-200'}`}>
                         <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-4">
                             <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Total Open Balance</span>
@@ -428,11 +428,10 @@ function AccountHoldDetail({ customerId }) {
                                     {((detailModalData.brokerage_engine_records?.length) || detailModalData.brokerage_engine) && (
                                         <button
                                             onClick={() => setPopupSegment('brokerage_engine')}
-                                            className={`flex-1 py-3 text-xs font-bold border-b-2 text-center transition-all ${
-                                                popupSegment === 'brokerage_engine'
+                                            className={`flex-1 py-3 text-xs font-bold border-b-2 text-center transition-all ${popupSegment === 'brokerage_engine'
                                                     ? 'border-indigo-600 text-indigo-700 bg-indigo-50/10'
                                                     : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50/50'
-                                            }`}
+                                                }`}
                                         >
                                             Brokerage Engine Record
                                         </button>
@@ -442,25 +441,23 @@ function AccountHoldDetail({ customerId }) {
                                             ? detailModalData.otherincome_transactions.length > 0
                                             : true
                                     ) && (
-                                        <button
-                                            onClick={() => setPopupSegment('other_income')}
-                                            className={`flex-1 py-3 text-xs font-bold border-b-2 text-center transition-all ${
-                                                popupSegment === 'other_income'
-                                                    ? 'border-emerald-600 text-emerald-700 bg-emerald-50/10'
-                                                    : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50/50'
-                                            }`}
-                                        >
-                                            Other Income Record
-                                        </button>
-                                    )}
+                                            <button
+                                                onClick={() => setPopupSegment('other_income')}
+                                                className={`flex-1 py-3 text-xs font-bold border-b-2 text-center transition-all ${popupSegment === 'other_income'
+                                                        ? 'border-emerald-600 text-emerald-700 bg-emerald-50/10'
+                                                        : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50/50'
+                                                    }`}
+                                            >
+                                                Other Income Record
+                                            </button>
+                                        )}
                                     {detailModalData.skyslope && detailModalData.skyslope.match !== false && (
                                         <button
                                             onClick={() => setPopupSegment('skyslope')}
-                                            className={`flex-1 py-3 text-xs font-bold border-b-2 text-center transition-all ${
-                                                popupSegment === 'skyslope'
+                                            className={`flex-1 py-3 text-xs font-bold border-b-2 text-center transition-all ${popupSegment === 'skyslope'
                                                     ? 'border-sky-600 text-sky-700 bg-sky-50/10'
                                                     : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50/50'
-                                            }`}
+                                                }`}
                                         >
                                             Related SkySlope Record
                                         </button>
@@ -737,11 +734,10 @@ function AccountHoldList({ qbStatus, realmId, handleConnectQuickBooks }) {
                 <button
                     id="filter-account-hold"
                     onClick={() => { setFilterAccountHold(v => !v); setPage(1); }}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all select-none ${
-                        filterAccountHold
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all select-none ${filterAccountHold
                             ? 'bg-red-600 text-white border-red-600 shadow-sm'
                             : 'bg-white text-red-600 border-red-200 hover:bg-red-50'
-                    }`}
+                        }`}
                 >
                     <span className={`h-1.5 w-1.5 rounded-full ${filterAccountHold ? 'bg-white' : 'bg-red-400'}`} />
                     Account Hold
@@ -749,11 +745,10 @@ function AccountHoldList({ qbStatus, realmId, handleConnectQuickBooks }) {
                 <button
                     id="filter-ar-balance"
                     onClick={() => { setFilterArBalance(v => !v); setPage(1); }}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all select-none ${
-                        filterArBalance
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all select-none ${filterArBalance
                             ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
                             : 'bg-white text-amber-600 border-amber-200 hover:bg-amber-50'
-                    }`}
+                        }`}
                 >
                     <span className={`h-1.5 w-1.5 rounded-full ${filterArBalance ? 'bg-white' : 'bg-amber-400'}`} />
                     AR Balance
@@ -886,7 +881,7 @@ function AccountHoldList({ qbStatus, realmId, handleConnectQuickBooks }) {
                                             {agent.display_name}
                                         </td>
                                         <td className="px-4 py-3.5 text-xs text-slate-500 font-mono">
-                                            {agent.primary_emailaddress}
+                                            {agent.roa_email}
                                         </td>
                                         <td className="px-4 py-3.5">
                                             <div className="flex flex-wrap gap-1">
