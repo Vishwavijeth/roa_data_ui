@@ -80,25 +80,17 @@ function CommissionAdvances() {
         setLogError(null);
         setLogSuccess(false);
         try {
-            // Extract state from the address string
-            // Address format: "Street, City, ST, ZIP" → split by ", " → 3rd element is state
-            const addressParts = logForm.address.trim().split(', ');
-            const stateFromAddress = addressParts.length >= 3
-                ? addressParts[addressParts.length - 2].trim().toUpperCase()
-                : (logForm.state || '').trim().toUpperCase();
-
             const res = await fetch(COMMISSION_ADVANCES_LOG_API, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    agent_name: logForm.agent_name.trim(),
-                    address: logForm.address.trim(),
-                    company: logForm.company.trim(),
-                    state: stateFromAddress,
-                    amount: parseFloat(logForm.amount) || 0,
-                    paid_date: logForm.date || null,
-                    notes: logForm.notes.trim() || null,
-                    status: 'Pending',
+                    agent_name:    logForm.agent_name.trim(),
+                    amount:        parseFloat(logForm.amount) || 0,
+                    address:       logForm.address.trim(),
+                    company:       logForm.company.trim(),
+                    approved_date: logForm.date || null,
+                    notes:         logForm.notes.trim() || null,
+                    saleguid:      selectedAddressInfo?.saleguid || null,
                 }),
             });
             const json = await res.json().catch(() => ({}));
@@ -108,6 +100,8 @@ function CommissionAdvances() {
             setLogSuccess(true);
             setTimeout(() => setLogSuccess(false), 3000);
             setLogForm({ agent_name: '', address: '', company: '', state: '', amount: '', date: '', notes: '' });
+            setSelectedAgentInfo(null);
+            setSelectedAddressInfo(null);
         } catch (err) {
             setLogError(err.message);
         } finally {
@@ -142,9 +136,11 @@ function CommissionAdvances() {
     const [showAgentSuggestions, setShowAgentSuggestions] = useState(false);
     const [fetchingAgentSuggestions, setFetchingAgentSuggestions] = useState(false);
     const agentJustSelectedRef = useRef(false);
+    const [selectedAgentInfo, setSelectedAgentInfo] = useState(null);
     const [addressSuggestions, setAddressSuggestions] = useState([]);
     const [showAddressSuggestions, setShowAddressSuggestions] = useState(false);
     const addressJustSelectedRef = useRef(false);
+    const [selectedAddressInfo, setSelectedAddressInfo] = useState(null);
     const [showCompanySuggestions, setShowCompanySuggestions] = useState(false);
 
     // Fetch Agent Suggestions
@@ -452,6 +448,7 @@ function CommissionAdvances() {
             status: item.status || '',
             amount: '',
             paid_date: item.paid_date ? item.paid_date.slice(0, 10) : '',
+            approved_date: item.approved_date ? item.approved_date.slice(0, 10) : '',
             notes: item.notes || '',
         });
         setEditSuccess(false);
@@ -482,24 +479,15 @@ function CommissionAdvances() {
             const isCancelledOrLeft = statusLower === 'cancelled' || statusLower === 'left roa';
             const isPaid = statusLower === 'paid';
 
-            // Always start with just the status
+            // Always start with status
             const payload = { status: editForm.status.trim() };
 
-            if (isWageGarnishment) {
-                // Wage Garnishment: notes only (if entered)
-                if (editForm.notes.trim()) payload.notes = editForm.notes.trim();
-            } else if (isCancelledOrLeft) {
-                // Cancelled / Left ROA: date + notes, only if entered
-                if (editForm.paid_date) payload.paid_date = editForm.paid_date;
-                if (editForm.notes.trim()) payload.notes = editForm.notes.trim();
-            } else {
-                // All other statuses (Pending, Paid, Pending Partial, etc.)
-                if (!isPaid && editForm.amount !== '') {
-                    payload.amount = parseFloat(editForm.amount) || 0;
-                }
-                if (editForm.paid_date) payload.paid_date = editForm.paid_date;
-                if (editForm.notes.trim()) payload.notes = editForm.notes.trim();
+            if (!isPaid && editForm.amount !== '' && !isWageGarnishment && !isCancelledOrLeft) {
+                payload.amount = parseFloat(editForm.amount) || 0;
             }
+            if (editForm.paid_date) payload.paid_date = editForm.paid_date;
+            if (editForm.approved_date) payload.approved_date = editForm.approved_date;
+            if (editForm.notes.trim()) payload.notes = editForm.notes.trim();
 
             const res = await fetch(`${COMMISSION_ADVANCES_EDIT_API}/${editItem.id}`, {
                 method: 'PATCH',
@@ -509,15 +497,8 @@ function CommissionAdvances() {
             const json = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(json.message || json.detail || `Server error: ${res.status}`);
             setEditSuccess(true);
-            // Reflect changes in the table immediately
-            const optimistic = { ...{}, status: editForm.status };
-            if ('notes' in payload) optimistic.notes = editForm.notes;
-            if ('paid_date' in payload) optimistic.paid_date = editForm.paid_date || null;
-            if ('amount' in payload) optimistic.original_amount = parseFloat(editForm.amount);
-            setDetailItems(prev => prev.map(it =>
-                it.id === editItem.id ? { ...it, ...optimistic } : it
-            ));
-            setTimeout(() => closeEditModal(), 1200);
+            closeEditModal();
+            window.location.reload();
         } catch (err) {
             setEditError(err.message);
         } finally {
@@ -737,7 +718,7 @@ function CommissionAdvances() {
                 <Card className="border-slate-200/80 shadow-sm bg-white overflow-hidden">
                     <CardContent className="p-6">
                         <form onSubmit={handleLogFormSubmit} className="space-y-4">
-                            {/* Row 1: Agent Name & Property Address */}
+                            {/* Row 1: Agent Name & Company */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {/* Agent Name with Autocomplete Suggestions */}
                                 <div className="space-y-1 relative">
@@ -753,6 +734,7 @@ function CommissionAdvances() {
                                             onChange={(e) => {
                                                 handleLogFormChange(e);
                                                 setShowAgentSuggestions(false);
+                                                setSelectedAgentInfo(null);
                                             }}
                                             onBlur={() => setTimeout(() => setShowAgentSuggestions(false), 150)}
                                             placeholder="Type to search agent..."
@@ -770,10 +752,11 @@ function CommissionAdvances() {
                                         )}
                                     </div>
                                     {showAgentSuggestions && !fetchingAgentSuggestions && agentSuggestions.length > 0 && (
-                                        <div className="absolute z-30 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-48 overflow-y-auto py-1">
+                                        <div className="absolute z-30 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-56 overflow-y-auto py-1">
                                             {agentSuggestions.map((item, idx) => {
-                                                const nameStr = typeof item === 'string' ? item : (item.agent_name || item.name || item.title || JSON.stringify(item));
-                                                const subStr = typeof item === 'object' ? (item.address || item.company || item.state || '') : '';
+                                                const nameStr = typeof item === 'string' ? item : (item.display_name || item.agent_name || item.name || JSON.stringify(item));
+                                                const status = typeof item === 'object' ? (item.agent_status || '') : '';
+                                                const isActive = status.toLowerCase() === 'active';
                                                 return (
                                                     <button
                                                         key={idx}
@@ -781,26 +764,67 @@ function CommissionAdvances() {
                                                         onMouseDown={(e) => {
                                                             e.preventDefault();
                                                             agentJustSelectedRef.current = true;
-                                                            if (typeof item === 'string') {
-                                                                setLogForm(prev => ({ ...prev, agent_name: item }));
-                                                            } else {
-                                                                setLogForm(prev => ({
-                                                                    ...prev,
-                                                                    agent_name: item.agent_name || item.name || nameStr,
-                                                                    ...(item.address ? { address: item.address } : {}),
-                                                                    ...(item.company ? { company: item.company } : {}),
-                                                                    ...(item.state ? { state: item.state } : {}),
-                                                                }));
+                                                            const displayName = typeof item === 'string' ? item : (item.display_name || item.agent_name || nameStr);
+                                                            setLogForm(prev => ({ ...prev, agent_name: displayName }));
+                                                            if (typeof item === 'object') {
+                                                                setSelectedAgentInfo(item);
                                                             }
                                                             setShowAgentSuggestions(false);
                                                         }}
-                                                        className="w-full text-left px-3 py-1.5 text-sm hover:bg-blue-50 text-slate-800 transition-colors flex flex-col border-b border-slate-50 last:border-0"
+                                                        className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 text-slate-800 transition-colors flex items-center justify-between gap-2 border-b border-slate-50 last:border-0"
                                                     >
-                                                        <span className="font-medium text-slate-800">{nameStr}</span>
-                                                        {subStr && <span className="text-[11px] text-slate-400">{subStr}</span>}
+                                                        <span className="font-semibold text-slate-800">{nameStr}</span>
+                                                        {status && (
+                                                            <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider shrink-0 ${
+                                                                isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                                                            }`}>
+                                                                <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                                                                {status}
+                                                            </span>
+                                                        )}
                                                     </button>
                                                 );
                                             })}
+                                        </div>
+                                    )}
+                                    {/* Selected Agent Info Card */}
+                                    {selectedAgentInfo && (
+                                        <div className="mt-2 rounded-lg border border-blue-100 bg-blue-50/60 px-3.5 py-3 space-y-2">
+                                            {/* Status row */}
+                                            <div className="flex items-center gap-2">
+                                                <span
+                                                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                                        (selectedAgentInfo.agent_status || '').toLowerCase() === 'active'
+                                                            ? 'bg-emerald-100 text-emerald-700'
+                                                            : 'bg-amber-100 text-amber-700'
+                                                    }`}
+                                                >
+                                                    <span className={`w-1.5 h-1.5 rounded-full ${
+                                                        (selectedAgentInfo.agent_status || '').toLowerCase() === 'active'
+                                                            ? 'bg-emerald-500'
+                                                            : 'bg-amber-500'
+                                                    }`} />
+                                                    {selectedAgentInfo.agent_status || 'Unknown'}
+                                                </span>
+                                            </div>
+                                            {/* General Notes */}
+                                            {selectedAgentInfo.general_notes && (
+                                                <div>
+                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">General Notes</p>
+                                                    <p className="text-xs text-slate-700 leading-snug">{selectedAgentInfo.general_notes}</p>
+                                                </div>
+                                            )}
+                                            {/* Internal Notes */}
+                                            {selectedAgentInfo.internal_notes && (
+                                                <div>
+                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Internal Notes</p>
+                                                    <p className="text-xs text-slate-700 leading-snug">{selectedAgentInfo.internal_notes}</p>
+                                                </div>
+                                            )}
+                                            {/* Fallback if both notes are null */}
+                                            {!selectedAgentInfo.general_notes && !selectedAgentInfo.internal_notes && (
+                                                <p className="text-[11px] text-slate-400 italic">No notes</p>
+                                            )}
                                         </div>
                                     )}
                                 </div>
@@ -863,6 +887,7 @@ function CommissionAdvances() {
                                     onChange={(e) => {
                                         handleLogFormChange(e);
                                         setShowAddressSuggestions(false);
+                                        setSelectedAddressInfo(null);
                                     }}
                                     onBlur={() => setTimeout(() => setShowAddressSuggestions(false), 150)}
                                     placeholder="Type to search address..."
@@ -871,10 +896,15 @@ function CommissionAdvances() {
                                     className="w-full h-9 text-sm"
                                 />
                                 {showAddressSuggestions && addressSuggestions.length > 0 && (
-                                    <div className="absolute z-30 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-48 overflow-y-auto py-1">
+                                    <div className="absolute z-30 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-56 overflow-y-auto py-1">
                                         {addressSuggestions.map((item, idx) => {
-                                            const addrStr = typeof item === 'string' ? item : (item.address || item.property_address || item.name || item.title || JSON.stringify(item));
-                                            const subStr = typeof item === 'object' ? (item.agent_name || item.company || item.state || '') : '';
+                                            const addrStr = typeof item === 'string' ? item : (item.address || item.property_address || item.name || JSON.stringify(item));
+                                            const status = typeof item === 'object' ? (item.ss_status || '') : '';
+                                            const statusColor = {
+                                                closed:    'bg-emerald-100 text-emerald-700 [&>span]:bg-emerald-500',
+                                                archived:  'bg-slate-100 text-slate-500 [&>span]:bg-slate-400',
+                                                active:    'bg-blue-100 text-blue-700 [&>span]:bg-blue-500',
+                                            }[status.toLowerCase()] || 'bg-amber-100 text-amber-700 [&>span]:bg-amber-500';
                                             return (
                                                 <button
                                                     key={idx}
@@ -882,26 +912,55 @@ function CommissionAdvances() {
                                                     onMouseDown={(e) => {
                                                         e.preventDefault();
                                                         addressJustSelectedRef.current = true;
-                                                        if (typeof item === 'string') {
-                                                            setLogForm(prev => ({ ...prev, address: item }));
-                                                        } else {
-                                                            setLogForm(prev => ({
-                                                                ...prev,
-                                                                address: item.address || item.property_address || addrStr,
-                                                                ...(item.agent_name ? { agent_name: item.agent_name } : {}),
-                                                                ...(item.company ? { company: item.company } : {}),
-                                                                ...(item.state ? { state: item.state } : {}),
-                                                            }));
+                                                        const addrValue = typeof item === 'string' ? item : (item.address || item.property_address || addrStr);
+                                                        setLogForm(prev => ({ ...prev, address: addrValue }));
+                                                        if (typeof item === 'object') {
+                                                            setSelectedAddressInfo(item);
                                                         }
                                                         setShowAddressSuggestions(false);
                                                     }}
-                                                    className="w-full text-left px-3 py-1.5 text-sm hover:bg-blue-50 text-slate-800 transition-colors flex flex-col border-b border-slate-50 last:border-0"
+                                                    className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 text-slate-800 transition-colors flex items-center justify-between gap-2 border-b border-slate-50 last:border-0"
                                                 >
-                                                    <span className="font-medium text-slate-800">{addrStr}</span>
-                                                    {subStr && <span className="text-[11px] text-slate-400">{subStr}</span>}
+                                                    <span className="font-semibold text-slate-800">{addrStr}</span>
+                                                    {status && (
+                                                        <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider shrink-0 ${statusColor}`}>
+                                                            <span className="w-1.5 h-1.5 rounded-full" />
+                                                            {status}
+                                                        </span>
+                                                    )}
                                                 </button>
                                             );
                                         })}
+                                    </div>
+                                )}
+                                {/* Selected Address Info Card */}
+                                {selectedAddressInfo && (
+                                    <div className="mt-2 rounded-lg border border-blue-100 bg-blue-50/60 px-3.5 py-3 flex items-center gap-4">
+                                        {selectedAddressInfo.ss_status && (() => {
+                                            const s = (selectedAddressInfo.ss_status || '').toLowerCase();
+                                            const cls = s === 'closed'
+                                                ? 'bg-emerald-100 text-emerald-700'
+                                                : s === 'archived'
+                                                    ? 'bg-slate-100 text-slate-500'
+                                                    : 'bg-amber-100 text-amber-700';
+                                            const dot = s === 'closed'
+                                                ? 'bg-emerald-500'
+                                                : s === 'archived'
+                                                    ? 'bg-slate-400'
+                                                    : 'bg-amber-500';
+                                            return (
+                                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider shrink-0 ${cls}`}>
+                                                    <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />
+                                                    {selectedAddressInfo.ss_status}
+                                                </span>
+                                            );
+                                        })()}
+                                        {selectedAddressInfo.close_date && (
+                                            <div>
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Close Date</p>
+                                                <p className="text-xs font-semibold text-slate-700">{formatDateUS(selectedAddressInfo.close_date)}</p>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>
@@ -927,7 +986,7 @@ function CommissionAdvances() {
                                 </div>
                                 <div className="space-y-1">
                                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block" htmlFor="log-date">
-                                        Date
+                                        Approval Date
                                     </label>
                                     <Input
                                         id="log-date"
@@ -1056,6 +1115,7 @@ function CommissionAdvances() {
                                 <TableHead>Company</TableHead>
                                 <TableHead>Original Amount</TableHead>
                                 <TableHead>Outstanding</TableHead>
+                                <TableHead>Approved Date</TableHead>
                                 <TableHead>Paid Date</TableHead>
                                 <TableHead>Status</TableHead>
                                 <TableHead className="w-1/5">Notes</TableHead>
@@ -1071,6 +1131,7 @@ function CommissionAdvances() {
                                         <TableCell><div className="h-4 bg-slate-100 rounded w-14" /></TableCell>
                                         <TableCell><div className="h-4 bg-slate-100 rounded w-14" /></TableCell>
                                         <TableCell><div className="h-4 bg-slate-100 rounded w-20" /></TableCell>
+                                        <TableCell><div className="h-4 bg-slate-100 rounded w-20" /></TableCell>
                                         <TableCell><div className="h-6 bg-slate-100 rounded-full w-20" /></TableCell>
                                         <TableCell><div className="h-4 bg-slate-100 rounded w-3/4" /></TableCell>
                                         <TableCell><div className="h-8 bg-slate-100 rounded w-12 ml-auto" /></TableCell>
@@ -1078,13 +1139,13 @@ function CommissionAdvances() {
                                 ))
                             ) : detailError ? (
                                 <TableRow>
-                                    <TableCell colSpan={8} className="text-center py-10 text-red-500 bg-red-50/50">
+                                    <TableCell colSpan={9} className="text-center py-10 text-red-500 bg-red-50/50">
                                         Error loading details: {detailError}
                                     </TableCell>
                                 </TableRow>
                             ) : detailItems.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={8} className="text-center py-12 text-slate-400">
+                                    <TableCell colSpan={9} className="text-center py-12 text-slate-400">
                                         No transaction items found for this agent.
                                     </TableCell>
                                 </TableRow>
@@ -1092,7 +1153,20 @@ function CommissionAdvances() {
                                 detailItems.map((item, idx) => (
                                     <TableRow key={item.id ?? idx}>
                                         <TableCell className="font-medium text-slate-800 text-sm">
-                                            {item.address || '—'}
+                                            {(() => {
+                                                const addr = item.address || '';
+                                                const commaIdx = addr.indexOf(',');
+                                                if (!addr) return '—';
+                                                if (commaIdx === -1) return addr;
+                                                const line1 = addr.slice(0, commaIdx).trim();
+                                                const line2 = addr.slice(commaIdx + 1).trim();
+                                                return (
+                                                    <span className="flex flex-col gap-0.5">
+                                                        <span className="font-semibold text-slate-800">{line1}</span>
+                                                        <span className="text-xs text-slate-400 font-normal">{line2}</span>
+                                                    </span>
+                                                );
+                                            })()}
                                         </TableCell>
                                         <TableCell className="text-slate-600 font-medium text-sm">
                                             {item.company || '—'}
@@ -1108,6 +1182,9 @@ function CommissionAdvances() {
                                             }`}>
                                                 {formatCurrency(item.outstanding_amount)}
                                             </span>
+                                        </TableCell>
+                                        <TableCell className="text-slate-500 font-medium text-sm">
+                                            {formatDateUS(item.approved_date)}
                                         </TableCell>
                                         <TableCell className="text-slate-500 font-medium text-sm">
                                             {formatDateUS(item.paid_date)}
@@ -1185,36 +1262,16 @@ function CommissionAdvances() {
                                     </select>
                                 </div>
 
-                                {/* Amount & Date — visibility depends on status */}
+                                {/* Amount & Dates — visibility depends on status */}
                                 {(() => {
                                     const st = (editForm.status || '').toLowerCase();
                                     const isGarnishment = st.includes('garnishment') || st.includes('garnish');
                                     const isCancelledOrLeft = st === 'cancelled' || st === 'left roa';
                                     const isPaid = st === 'paid';
+                                    const showAmount = !isGarnishment && !isCancelledOrLeft && !isPaid;
 
-                                    // Wage Garnishment: no amount, no date
-                                    if (isGarnishment) return null;
-
-                                    // Cancelled / Left ROA: date only (no amount)
-                                    if (isCancelledOrLeft) {
-                                        return (
-                                            <div className="space-y-1">
-                                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Date</label>
-                                                <Input
-                                                    name="paid_date"
-                                                    type="date"
-                                                    value={editForm.paid_date}
-                                                    onChange={handleEditFormChange}
-                                                    className="w-full h-9 text-sm bg-white"
-                                                />
-                                            </div>
-                                        );
-                                    }
-
-                                    // All others: amount (except Paid) + date
-                                    const showAmount = !isPaid;
                                     return (
-                                        <div className={`grid gap-3 ${showAmount ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                                        <div className="space-y-4">
                                             {showAmount && (
                                                 <div className="space-y-1">
                                                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Amount ($)</label>
@@ -1230,15 +1287,27 @@ function CommissionAdvances() {
                                                     />
                                                 </div>
                                             )}
-                                            <div className="space-y-1">
-                                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Date</label>
-                                                <Input
-                                                    name="paid_date"
-                                                    type="date"
-                                                    value={editForm.paid_date}
-                                                    onChange={handleEditFormChange}
-                                                    className="w-full h-9 text-sm bg-white"
-                                                />
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div className="space-y-1">
+                                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Approved Date</label>
+                                                    <Input
+                                                        name="approved_date"
+                                                        type="date"
+                                                        value={editForm.approved_date}
+                                                        onChange={handleEditFormChange}
+                                                        className="w-full h-9 text-sm bg-white"
+                                                    />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Paid Date</label>
+                                                    <Input
+                                                        name="paid_date"
+                                                        type="date"
+                                                        value={editForm.paid_date}
+                                                        onChange={handleEditFormChange}
+                                                        className="w-full h-9 text-sm bg-white"
+                                                    />
+                                                </div>
                                             </div>
                                         </div>
                                     );
@@ -1491,7 +1560,6 @@ function CommissionAdvances() {
                                 <TableHead>Total Outstanding</TableHead>
                                 <TableHead>Total Accumulation</TableHead>
                                 <TableHead>Status Breakdown</TableHead>
-                                <TableHead className="w-24 text-right">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -1515,26 +1583,27 @@ function CommissionAdvances() {
                                                 <div className="h-5 bg-slate-100 rounded-full w-24" />
                                             </div>
                                         </TableCell>
-                                        <TableCell className="text-right">
-                                            <div className="h-8 bg-slate-100 rounded w-16 ml-auto" />
-                                        </TableCell>
                                     </TableRow>
                                 ))
                             ) : listingError ? (
                                 <TableRow>
-                                    <TableCell colSpan={5} className="text-center py-10 text-red-500 bg-red-50/50">
+                                    <TableCell colSpan={4} className="text-center py-10 text-red-500 bg-red-50/50">
                                         Error loading commission advances listing: {listingError}
                                     </TableCell>
                                 </TableRow>
                             ) : filteredItems.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={5} className="text-center py-12 text-slate-400">
+                                    <TableCell colSpan={4} className="text-center py-12 text-slate-400">
                                         No agents found.
                                     </TableCell>
                                 </TableRow>
                             ) : (
                                 filteredItems.map((item, idx) => (
-                                    <TableRow key={item.agent_name + idx}>
+                                    <TableRow
+                                        key={item.agent_name + idx}
+                                        onClick={() => handleViewDetail(item.agent_name)}
+                                        className="cursor-pointer hover:bg-slate-50 transition-colors"
+                                    >
                                         <TableCell>
                                             <div className="space-y-1.5">
                                                 <span className="font-semibold text-slate-800 text-sm block">
@@ -1551,16 +1620,6 @@ function CommissionAdvances() {
                                         </TableCell>
                                         <TableCell>
                                             {renderStatusBreakdown(item.status_breakdown)}
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => handleViewDetail(item.agent_name)}
-                                                className="hover:bg-slate-50 border-slate-200 hover:text-slate-900 text-slate-700 transition-all font-semibold"
-                                            >
-                                                Detail
-                                            </Button>
                                         </TableCell>
                                     </TableRow>
                                 ))
