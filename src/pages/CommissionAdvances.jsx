@@ -327,7 +327,7 @@ function CommissionAdvances() {
                 if (!active) return;
                 if (json.success && json.data) {
                     setItems(json.data.items || []);
-                    setTotalCount(json.data.total_count ?? 0);
+                    setTotalCount(json.data.total_count ?? json.total_count ?? json.count ?? (json.data.items ? json.data.items.length : 0));
                 } else {
                     throw new Error(json.message || 'Failed to load listing data');
                 }
@@ -350,9 +350,17 @@ function CommissionAdvances() {
         let list = items;
         if (debouncedSearchQuery.trim()) {
             const query = debouncedSearchQuery.toLowerCase();
-            const hasUnfiltered = list.some(item => !item.agent_name.toLowerCase().includes(query));
-            if (hasUnfiltered) {
-                list = list.filter(item => item.agent_name.toLowerCase().includes(query));
+            const matchesClient = (item) => {
+                const nameStr = (item.agent_name || '').toLowerCase();
+                const addrStr = (item.address || item.property_address || '').toLowerCase();
+                return nameStr.includes(query) || addrStr.includes(query);
+            };
+            const hasClientMismatch = list.some(item => !matchesClient(item));
+            const hasClientMatch = list.some(matchesClient);
+            // Only narrow client-side if at least one item matches client fields (e.g. when backend returns full list),
+            // but preserve results when backend searched property address at database level.
+            if (hasClientMismatch && hasClientMatch) {
+                list = list.filter(matchesClient);
             }
         }
         if (statusFilter) {
