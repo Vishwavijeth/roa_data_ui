@@ -6,6 +6,7 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { formatDateUS } from '../utils/helpers';
 import { IconArrowLeft } from '../components/shared/Icons';
+import SectionedDetailView from '../components/shared/SectionedDetailView';
 import {
     COMMISSION_ADVANCES_SUMMARY_API,
     COMMISSION_ADVANCES_LISTING_API,
@@ -378,15 +379,47 @@ function CommissionAdvances() {
     const [detailItems, setDetailItems] = useState([]);
     const [detailLoading, setDetailLoading] = useState(false);
     const [detailError, setDetailError] = useState(null);
+    const [expandedLogs, setExpandedLogs] = useState({});
+
+    // ── SkySlope Detail Popup State (Log Advance form) ─────────────────────────
+    const [skySlopePopup, setSkySlopePopup] = useState(null); // { open, saleguid, data, loading, error, segment }
+
+    const openSkySlopePopup = (saleguid) => {
+        setSkySlopePopup({ open: true, saleguid, data: null, loading: true, error: null, segment: 'skyslope' });
+        fetch(`https://roa-data-backend.vercel.app/skyslope/detail?saleguid=${encodeURIComponent(saleguid)}`)
+            .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+            .then(json => {
+                let seg = 'skyslope';
+                if (json?.brokerage_engine_records?.length) seg = 'brokerage_engine';
+                else if (json?.skyslope) seg = 'skyslope';
+                setSkySlopePopup(prev => ({ ...prev, data: json, loading: false, segment: seg }));
+            })
+            .catch(err => setSkySlopePopup(prev => ({ ...prev, loading: false, error: err.message })));
+    };
+
+    const closeSkySlopePopup = () => setSkySlopePopup(null);
+
+    useEffect(() => {
+        if (!skySlopePopup?.open) return;
+        const h = (e) => { if (e.key === 'Escape') closeSkySlopePopup(); };
+        window.addEventListener('keydown', h);
+        return () => window.removeEventListener('keydown', h);
+    }, [skySlopePopup?.open]);
+
+    const toggleLogs = (id) => {
+        setExpandedLogs(prev => ({
+            ...prev,
+            [id]: !prev[id]
+        }));
+    };
 
     // Fetch agent detail when activeAgentName changes
-    useEffect(() => {
+    const fetchAgentDetail = React.useCallback(() => {
         if (!activeAgentName) {
             setDetailItems([]);
             return;
         }
 
-        let active = true;
         setDetailLoading(true);
         setDetailError(null);
 
@@ -398,7 +431,6 @@ function CommissionAdvances() {
                 return res.json();
             })
             .then(json => {
-                if (!active) return;
                 if (json.success && json.data) {
                     setDetailItems(json.data.items || []);
                 } else {
@@ -407,16 +439,15 @@ function CommissionAdvances() {
                 setDetailLoading(false);
             })
             .catch(err => {
-                if (!active) return;
                 console.error(err);
                 setDetailError(err.message);
                 setDetailLoading(false);
             });
-
-        return () => {
-            active = false;
-        };
     }, [activeAgentName]);
+
+    useEffect(() => {
+        fetchAgentDetail();
+    }, [fetchAgentDetail]);
 
     // ── Edit Modal State ───────────────────────────────────────────────────────
     const [editItem, setEditItem] = useState(null);
@@ -498,7 +529,7 @@ function CommissionAdvances() {
             if (!res.ok) throw new Error(json.message || json.detail || `Server error: ${res.status}`);
             setEditSuccess(true);
             closeEditModal();
-            window.location.reload();
+            fetchAgentDetail();
         } catch (err) {
             setEditError(err.message);
         } finally {
@@ -514,6 +545,28 @@ function CommissionAdvances() {
             currency: 'USD',
             maximumFractionDigits: 0
         }).format(val);
+    };
+
+    const formatHistoryDateTime = (dateStr) => {
+        if (!dateStr) return '—';
+        try {
+            const date = new Date(dateStr);
+            if (isNaN(date.getTime())) return dateStr;
+            const formattedDate = date.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
+            const formattedTime = date.toLocaleTimeString('en-US', {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: true
+            });
+            return `${formattedDate} at ${formattedTime}`;
+        } catch (e) {
+            return dateStr;
+        }
     };
 
     const getInitials = (name) => {
@@ -688,6 +741,132 @@ function CommissionAdvances() {
         );
     };
 
+    // ── SkySlope Detail Popup Component ─────────────────────────────────────────
+    const renderSkySlopePopupModal = () => {
+        if (!skySlopePopup?.open) return null;
+        return (
+            <>
+                <div className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-[2px]" onClick={closeSkySlopePopup} />
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={e => { if (e.target === e.currentTarget) closeSkySlopePopup(); }}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl flex flex-col overflow-hidden" style={{ height: '90vh', maxHeight: '90vh' }}>
+
+                        {/* Header */}
+                        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between gap-4 shrink-0">
+                            <div className="flex items-center gap-2 min-w-0">
+                                <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider">SkySlope Transaction Detail</h2>
+                                {skySlopePopup.data?.skyslope?.status && (
+                                    <Badge variant="secondary" className="capitalize text-[10px] px-2 py-0.5 rounded">
+                                        {skySlopePopup.data.skyslope.status}
+                                    </Badge>
+                                )}
+                            </div>
+                            <button onClick={closeSkySlopePopup} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all">
+                                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        {/* Segment Tabs */}
+                        {skySlopePopup.data && !skySlopePopup.loading && !skySlopePopup.error && (
+                            <div className="flex border-b border-slate-100 shrink-0">
+                                {skySlopePopup.data.skyslope && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setSkySlopePopup(prev => ({ ...prev, segment: 'skyslope' }))}
+                                        className={`flex-1 py-3 text-xs font-bold border-b-2 text-center transition-all ${
+                                            skySlopePopup.segment === 'skyslope'
+                                                ? 'border-sky-600 text-sky-700 bg-sky-50/10'
+                                                : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50/50'
+                                        }`}
+                                    >
+                                        SkySlope Record
+                                    </button>
+                                )}
+                                {skySlopePopup.data.brokerage_engine_records?.length > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setSkySlopePopup(prev => ({ ...prev, segment: 'brokerage_engine' }))}
+                                        className={`flex-1 py-3 text-xs font-bold border-b-2 text-center transition-all ${
+                                            skySlopePopup.segment === 'brokerage_engine'
+                                                ? 'border-indigo-600 text-indigo-700 bg-indigo-50/10'
+                                                : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50/50'
+                                        }`}
+                                    >
+                                        Brokerage Engine Record
+                                    </button>
+                                )}
+                                {skySlopePopup.data.otherincome_transactions?.length > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setSkySlopePopup(prev => ({ ...prev, segment: 'other_income' }))}
+                                        className={`flex-1 py-3 text-xs font-bold border-b-2 text-center transition-all ${
+                                            skySlopePopup.segment === 'other_income'
+                                                ? 'border-emerald-600 text-emerald-700 bg-emerald-50/10'
+                                                : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50/50'
+                                        }`}
+                                    >
+                                        Other Income Record
+                                    </button>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Body */}
+                        {skySlopePopup.loading ? (
+                            <div className="flex-1 flex flex-col items-center justify-center gap-3">
+                                <svg className="animate-spin h-7 w-7 text-indigo-500" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                </svg>
+                                <p className="text-xs font-semibold text-slate-400">Fetching SkySlope details…</p>
+                            </div>
+                        ) : skySlopePopup.error ? (
+                            <div className="flex-1 flex flex-col items-center justify-center gap-1">
+                                <p className="font-bold text-red-600 text-sm">Failed to load details</p>
+                                <p className="text-xs text-slate-500">{skySlopePopup.error}</p>
+                            </div>
+                        ) : skySlopePopup.data ? (
+                            <div className="flex-1 overflow-y-auto p-6 min-h-0">
+                                {skySlopePopup.segment === 'skyslope' && skySlopePopup.data.skyslope && (
+                                    <SectionedDetailView data={skySlopePopup.data.skyslope} />
+                                )}
+                                {skySlopePopup.segment === 'brokerage_engine' && (
+                                    skySlopePopup.data.brokerage_engine_records?.length > 0
+                                        ? skySlopePopup.data.brokerage_engine_records.map((rec, idx) => (
+                                            <div key={idx} className="space-y-4">
+                                                {skySlopePopup.data.brokerage_engine_records.length > 1 && (
+                                                    <h4 className="text-xs font-bold text-slate-700 bg-slate-100/60 p-2 rounded">Record #{idx + 1}</h4>
+                                                )}
+                                                <SectionedDetailView data={rec} />
+                                            </div>
+                                        ))
+                                        : <p className="text-sm text-slate-400 text-center py-12">No Brokerage Engine record found</p>
+                                )}
+                                {skySlopePopup.segment === 'other_income' && (
+                                    skySlopePopup.data.otherincome_transactions?.length > 0
+                                        ? skySlopePopup.data.otherincome_transactions.map((rec, idx) => (
+                                            <div key={idx} className="space-y-4">
+                                                {skySlopePopup.data.otherincome_transactions.length > 1 && (
+                                                    <h4 className="text-xs font-bold text-slate-700 bg-slate-100/60 p-2 rounded">Record #{idx + 1}</h4>
+                                                )}
+                                                <SectionedDetailView data={rec} />
+                                            </div>
+                                        ))
+                                        : <p className="text-sm text-slate-400 text-center py-12">No Other Income record found</p>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="flex-1 flex items-center justify-center">
+                                <p className="text-sm text-slate-400">No detail data available.</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </>
+        );
+    };
+
     // Calculate aggregated details stats
     const detailTotalAmount = detailItems.reduce((acc, curr) => acc + (curr.amount || 0), 0);
     const agentState = detailItems[0]?.state || '';
@@ -695,9 +874,10 @@ function CommissionAdvances() {
     // ── RENDER LOG ADVANCE FORM ─────────────────────────────────────────────────
     if (activeView === 'log_advance') {
         return (
-            <div className="p-8 max-w-3xl mx-auto w-full space-y-6">
-                {/* Top Header Block */}
-                <div className="space-y-2 border-b border-slate-200/80 pb-5">
+            <>
+                <div className="p-8 max-w-3xl mx-auto w-full space-y-6">
+                    {/* Top Header Block */}
+                    <div className="space-y-2 border-b border-slate-200/80 pb-5">
                     <button
                         onClick={handleBackToList}
                         className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-800 transition-colors select-none"
@@ -935,7 +1115,7 @@ function CommissionAdvances() {
                                 )}
                                 {/* Selected Address Info Card */}
                                 {selectedAddressInfo && (
-                                    <div className="mt-2 rounded-lg border border-blue-100 bg-blue-50/60 px-3.5 py-3 flex items-center gap-4">
+                                    <div className="mt-2 rounded-lg border border-blue-100 bg-blue-50/60 px-3.5 py-3 flex items-center gap-4 flex-wrap">
                                         {selectedAddressInfo.ss_status && (() => {
                                             const s = (selectedAddressInfo.ss_status || '').toLowerCase();
                                             const cls = s === 'closed'
@@ -960,6 +1140,19 @@ function CommissionAdvances() {
                                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Close Date</p>
                                                 <p className="text-xs font-semibold text-slate-700">{formatDateUS(selectedAddressInfo.close_date)}</p>
                                             </div>
+                                        )}
+                                        {selectedAddressInfo.saleguid && (
+                                            <button
+                                                type="button"
+                                                onClick={() => openSkySlopePopup(selectedAddressInfo.saleguid)}
+                                                className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 transition-all shadow-sm shrink-0"
+                                            >
+                                                <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                </svg>
+                                                Details
+                                            </button>
                                         )}
                                     </div>
                                 )}
@@ -1065,13 +1258,17 @@ function CommissionAdvances() {
                     </CardContent>
                 </Card>
             </div>
+
+            {renderSkySlopePopupModal()}
+            </>
         );
     }
 
     // ── RENDER DETAIL VIEW ─────────────────────────────────────────────────────
     if (activeAgentName) {
         return (
-            <div className="p-8 max-w-7xl mx-auto w-full space-y-6">
+            <>
+                <div className="p-8 max-w-7xl mx-auto w-full space-y-6">
                 {/* Back Link */}
                 <div>
                     <button
@@ -1119,7 +1316,7 @@ function CommissionAdvances() {
                                 <TableHead>Paid Date</TableHead>
                                 <TableHead>Status</TableHead>
                                 <TableHead className="w-1/5">Notes</TableHead>
-                                <TableHead className="w-20 text-right">Action</TableHead>
+                                <TableHead className="w-48 text-right">Action</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -1151,65 +1348,152 @@ function CommissionAdvances() {
                                 </TableRow>
                             ) : (
                                 detailItems.map((item, idx) => (
-                                    <TableRow key={item.id ?? idx}>
-                                        <TableCell className="font-medium text-slate-800 text-sm">
-                                            {(() => {
-                                                const addr = item.address || '';
-                                                const commaIdx = addr.indexOf(',');
-                                                if (!addr) return '—';
-                                                if (commaIdx === -1) return addr;
-                                                const line1 = addr.slice(0, commaIdx).trim();
-                                                const line2 = addr.slice(commaIdx + 1).trim();
-                                                return (
-                                                    <span className="flex flex-col gap-0.5">
-                                                        <span className="font-semibold text-slate-800">{line1}</span>
-                                                        <span className="text-xs text-slate-400 font-normal">{line2}</span>
-                                                    </span>
-                                                );
-                                            })()}
-                                        </TableCell>
-                                        <TableCell className="text-slate-600 font-medium text-sm">
-                                            {item.company || '—'}
-                                        </TableCell>
-                                        <TableCell className="font-semibold text-slate-900 text-sm">
-                                            {formatCurrency(item.original_amount)}
-                                        </TableCell>
-                                        <TableCell className="text-sm">
-                                            <span className={`font-bold ${
-                                                (item.outstanding_amount || 0) > 0
-                                                    ? 'text-red-600'
-                                                    : 'text-emerald-600'
-                                            }`}>
-                                                {formatCurrency(item.outstanding_amount)}
-                                            </span>
-                                        </TableCell>
-                                        <TableCell className="text-slate-500 font-medium text-sm">
-                                            {formatDateUS(item.approved_date)}
-                                        </TableCell>
-                                        <TableCell className="text-slate-500 font-medium text-sm">
-                                            {formatDateUS(item.paid_date)}
-                                        </TableCell>
-                                        <TableCell>
-                                            {renderDetailStatusBadge(item.status)}
-                                        </TableCell>
-                                        <TableCell
-                                            className="text-slate-500 italic text-xs max-w-[180px] truncate"
-                                            title={item.notes || ''}
-                                        >
-                                            {item.notes || '—'}
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                            <button
-                                                onClick={() => openEditModal(item)}
-                                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold border border-slate-200 bg-white text-slate-600 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 transition-all shadow-sm"
+                                    <React.Fragment key={item.id ?? idx}>
+                                        <TableRow className={expandedLogs[item.id] ? "border-b-0" : ""}>
+                                            <TableCell className="font-medium text-slate-800 text-sm">
+                                                {(() => {
+                                                    const addr = item.address || '';
+                                                    const commaIdx = addr.indexOf(',');
+                                                    if (!addr) return '—';
+                                                    if (commaIdx === -1) return addr;
+                                                    const line1 = addr.slice(0, commaIdx).trim();
+                                                    const line2 = addr.slice(commaIdx + 1).trim();
+                                                    return (
+                                                        <span className="flex flex-col gap-0.5">
+                                                            <span className="font-semibold text-slate-800">{line1}</span>
+                                                            <span className="text-xs text-slate-400 font-normal">{line2}</span>
+                                                        </span>
+                                                    );
+                                                })()}
+                                            </TableCell>
+                                            <TableCell className="text-slate-600 font-medium text-sm">
+                                                {item.company || '—'}
+                                            </TableCell>
+                                            <TableCell className="font-semibold text-slate-900 text-sm">
+                                                {formatCurrency(item.original_amount)}
+                                            </TableCell>
+                                            <TableCell className="text-sm">
+                                                <span className={`font-bold ${
+                                                    (item.outstanding_amount || 0) > 0
+                                                        ? 'text-red-600'
+                                                        : 'text-emerald-600'
+                                                }`}>
+                                                    {formatCurrency(item.outstanding_amount)}
+                                                </span>
+                                            </TableCell>
+                                            <TableCell className="text-slate-500 font-medium text-sm">
+                                                {formatDateUS(item.approved_date)}
+                                            </TableCell>
+                                            <TableCell className="text-slate-500 font-medium text-sm">
+                                                {formatDateUS(item.paid_date)}
+                                            </TableCell>
+                                            <TableCell>
+                                                {renderDetailStatusBadge(item.status)}
+                                            </TableCell>
+                                            <TableCell
+                                                className="text-slate-500 italic text-xs max-w-[180px] truncate"
+                                                title={item.notes || ''}
                                             >
-                                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                                </svg>
-                                                Edit
-                                            </button>
-                                        </TableCell>
-                                    </TableRow>
+                                                {item.notes || '—'}
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                                <div className="flex items-center justify-end gap-1.5">
+                                                    <button
+                                                        onClick={() => toggleLogs(item.id)}
+                                                        className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-semibold border transition-all shadow-sm ${
+                                                            expandedLogs[item.id]
+                                                                ? 'bg-blue-600 text-white border-blue-600'
+                                                                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-800'
+                                                        }`}
+                                                    >
+                                                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                        </svg>
+                                                        Logs {item.history && item.history.length > 0 ? `(${item.history.length})` : ''}
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        disabled={!item.saleguid && !item.sale_guid}
+                                                        onClick={() => {
+                                                            const guid = item.saleguid || item.sale_guid;
+                                                            if (guid) openSkySlopePopup(guid);
+                                                        }}
+                                                        title={item.saleguid || item.sale_guid ? "View SkySlope Details" : "No SkySlope Sale GUID linked"}
+                                                        className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold border transition-all shadow-sm ${
+                                                            item.saleguid || item.sale_guid
+                                                                ? 'border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 hover:border-indigo-300 cursor-pointer'
+                                                                : 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed opacity-60'
+                                                        }`}
+                                                    >
+                                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                        </svg>
+                                                        Details
+                                                    </button>
+                                                    <button
+                                                        onClick={() => openEditModal(item)}
+                                                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold border border-slate-200 bg-white text-slate-600 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 transition-all shadow-sm"
+                                                    >
+                                                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                        </svg>
+                                                        Edit
+                                                    </button>
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+
+                                        {/* Transaction History Section */}
+                                        {expandedLogs[item.id] && (
+                                            <TableRow className="bg-slate-50/70 hover:bg-slate-50/70 border-b border-slate-200">
+                                                <TableCell colSpan={9} className="py-3 px-6">
+                                                    {item.history && item.history.length > 0 ? (
+                                                        <div className="space-y-3">
+                                                            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500">
+                                                                <svg className="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                                </svg>
+                                                                History Log ({item.history.length} {item.history.length === 1 ? 'entry' : 'entries'})
+                                                            </div>
+                                                            <div className="space-y-3">
+                                                                {item.history.map((hist, hIdx) => (
+                                                                    <div key={hIdx} className="bg-white border border-slate-200/90 rounded-lg p-3 shadow-2xs space-y-2">
+                                                                        <div className="text-xs font-semibold text-slate-700 border-b border-slate-100 pb-1.5 flex items-center gap-1.5">
+                                                                            <span className="w-2 h-2 rounded-full bg-blue-500" />
+                                                                            {formatHistoryDateTime(hist.edited_at)}
+                                                                        </div>
+                                                                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 pt-1">
+                                                                            {hist.changes && hist.changes.map((change, cIdx) => (
+                                                                                <div key={cIdx} className="bg-slate-50 border border-slate-100 rounded-md p-2.5 text-xs space-y-1">
+                                                                                    <div className="font-semibold text-slate-700 text-xs">
+                                                                                        {change.field}
+                                                                                    </div>
+                                                                                    <div className="flex items-center gap-1.5 font-mono text-slate-800 text-xs flex-wrap">
+                                                                                        <span className="text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200/60">
+                                                                                            {change.old_value !== null && change.old_value !== undefined && change.old_value !== '' ? String(change.old_value) : '—'}
+                                                                                        </span>
+                                                                                        <span className="text-slate-400 font-sans font-bold">→</span>
+                                                                                        <span className="font-semibold text-slate-900 bg-white px-1.5 py-0.5 rounded border border-slate-200 shadow-2xs">
+                                                                                            {change.new_value !== null && change.new_value !== undefined && change.new_value !== '' ? String(change.new_value) : '—'}
+                                                                                        </span>
+                                                                                    </div>
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="text-xs text-slate-400 italic py-1">
+                                                            No history logs recorded for this transaction.
+                                                        </div>
+                                                    )}
+                                                </TableCell>
+                                            </TableRow>
+                                        )}
+                                    </React.Fragment>
                                 ))
                             )}
                         </TableBody>
@@ -1376,12 +1660,16 @@ function CommissionAdvances() {
                     </div>
                 )}
             </div>
+
+            {renderSkySlopePopupModal()}
+            </>
         );
     }
 
     // ── RENDER SUMMARY & LISTING VIEW ──────────────────────────────────────────
     return (
-        <div className="p-8 max-w-7xl mx-auto w-full space-y-6">
+        <>
+            <div className="p-8 max-w-7xl mx-auto w-full space-y-6">
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200/80 pb-5">
                 <div>
@@ -1657,7 +1945,9 @@ function CommissionAdvances() {
                     </div>
                 )}
             </div>
-        );
+            {renderSkySlopePopupModal()}
+        </>
+    );
 }
 
 export default CommissionAdvances;
