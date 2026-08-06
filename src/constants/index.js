@@ -52,7 +52,18 @@ export const DETAIL_SECTION_MAP = [
     {
         title: 'Financials',
         color: '#10b981',
-        keys: ['sale_price', 'listing_price', 'gross_commission', 'mls_number', 'mlsnumber', 'commission', 'price', 'list_price', 'sales_price', 'listing_amount'],
+        keys: [
+            'officegrosscommissiononsale',
+            'office_gross_commission_on_sale',
+            'total_gross_commission',
+            'listing_side_gross_commission',
+            'buying_side_gross_commission',
+            'gross_commission',
+            'sale_price', 'saleprice',
+            'listing_price', 'listingprice',
+            'mls_number', 'mlsnumber',
+            'commission', 'price', 'list_price', 'sales_price', 'listing_amount'
+        ],
     },
     {
         title: 'Parties',
