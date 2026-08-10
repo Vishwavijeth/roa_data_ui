@@ -3,6 +3,7 @@ import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
 import SectionedDetailView from '../components/shared/SectionedDetailView';
+import { API_DOMAIN } from '../constants';
 
 // ── Flag helpers ──────────────────────────────────────────────────────────────
 
@@ -76,7 +77,7 @@ function AccountHoldDetail({ customerId }) {
         setError(null);
         setDetailData(null);
 
-        fetch(`https://roa-data-backend.vercel.app/account-hold/detail/${customerId}`)
+        fetch(`${API_DOMAIN}/account-hold/detail/${customerId}`)
             .then(res => {
                 if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
                 return res.json();
@@ -110,16 +111,16 @@ function AccountHoldDetail({ customerId }) {
         const hasSkyslope = Boolean(txn.skyslope_url || txn.skyslope);
 
         let url = '';
-        const API_BASE = 'https://roa-data-backend.vercel.app';
+        // API_DOMAIN is imported from constants
 
         if (!hasSkyslope) {
-            url = `${API_BASE}/brokerage_engine/detail?transactionid=${encodeURIComponent(txnId)}`;
+            url = `${API_DOMAIN}/brokerage_engine/detail?transactionid=${encodeURIComponent(txnId)}`;
         } else if (sourceTable === 'sale income') {
-            url = `${API_BASE}/skyslope/detail?saleguid=${encodeURIComponent(txnId)}`;
+            url = `${API_DOMAIN}/skyslope/detail?saleguid=${encodeURIComponent(txnId)}`;
         } else if (sourceTable === 'other income') {
-            url = `${API_BASE}/otherincome_transactions/detail?transactionid=${encodeURIComponent(txnId)}`;
+            url = `${API_DOMAIN}/otherincome_transactions/detail?transactionid=${encodeURIComponent(txnId)}`;
         } else {
-            url = `${API_BASE}/brokerage_engine/detail?transactionid=${encodeURIComponent(txnId)}`;
+            url = `${API_DOMAIN}/brokerage_engine/detail?transactionid=${encodeURIComponent(txnId)}`;
         }
 
         fetch(url)
@@ -549,7 +550,7 @@ function AccountHoldList({ qbStatus, realmId, handleConnectQuickBooks }) {
 
     // Fetch static summary metrics (unaffected by filters)
     useEffect(() => {
-        fetch('https://roa-data-backend.vercel.app/account-hold/summary')
+        fetch(`${API_DOMAIN}/account-hold/summary`)
             .then(res => {
                 if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
                 return res.json();
@@ -586,7 +587,7 @@ function AccountHoldList({ qbStatus, realmId, handleConnectQuickBooks }) {
         if (filterAccountHold) params.append('account_hold', 'true');
         if (filterArBalance) params.append('ar_balance', 'true');
 
-        fetch(`https://roa-data-backend.vercel.app/account-hold?${params.toString()}`)
+        fetch(`${API_DOMAIN}/account-hold?${params.toString()}`)
             .then(res => {
                 if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
                 return res.json();
@@ -977,7 +978,7 @@ function AccountHold() {
             const cleanUrl = window.location.pathname + window.location.hash;
             window.history.replaceState(null, '', cleanUrl);
         } else {
-            fetch('https://roa-data-backend.vercel.app/auth/quickbooks/token-status')
+            fetch(`${API_DOMAIN}/auth/quickbooks/token-status`)
                 .then(res => res.json())
                 .then(data => {
                     if (data && data.connected) {
@@ -992,7 +993,7 @@ function AccountHold() {
     }, []);
 
     const handleConnectQuickBooks = () => {
-        window.location.href = 'https://roa-data-backend.vercel.app/auth/quickbooks/login';
+        window.location.href = `${API_DOMAIN}/auth/quickbooks/login`;
     };
 
     // Sub-routing state parsed from hash

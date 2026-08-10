@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { utils, writeFile } from 'xlsx';
-import { PARAMETERS, API_BASE, ROWS_PER_PAGE, getResult, DETAIL_SECTION_MAP } from '../constants';
+import { PARAMETERS, API_BASE, ROWS_PER_PAGE, getResult, DETAIL_SECTION_MAP, API_DOMAIN } from '../constants';
 import { formatDateUS } from '../utils/helpers';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
@@ -114,10 +114,10 @@ function ReconciliationView() {
         setDrawerDetailLoading(true);
         
         const url = saleguid
-            ? `https://roa-data-backend.vercel.app/skyslope/detail?saleguid=${encodeURIComponent(saleguid)}`
+            ? `${API_DOMAIN}/skyslope/detail?saleguid=${encodeURIComponent(saleguid)}`
             : (row.source_table === 'otherincome_transactions'
-                ? `https://roa-data-backend.vercel.app/otherincome_transactions/detail?transactionid=${encodeURIComponent(txnId)}`
-                : `https://roa-data-backend.vercel.app/brokerage_engine/detail?transactionid=${encodeURIComponent(txnId)}`);
+                ? `${API_DOMAIN}/otherincome_transactions/detail?transactionid=${encodeURIComponent(txnId)}`
+                : `${API_DOMAIN}/brokerage_engine/detail?transactionid=${encodeURIComponent(txnId)}`);
 
         fetch(url)
             .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
@@ -175,7 +175,7 @@ function ReconciliationView() {
         setReviewModal(m => ({ ...m, submitting: true, error: null }));
         try {
             const res = await fetch(
-                `https://roa-data-backend.vercel.app/reconciliation/track?transaction_id=${encodeURIComponent(txnId)}&parameter=${activeParam.endpoint}`,
+                `${API_DOMAIN}/reconciliation/track?transaction_id=${encodeURIComponent(txnId)}&parameter=${activeParam.endpoint}`,
                 {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -260,7 +260,7 @@ function ReconciliationView() {
         const paramName = activeParam.endpoint;
         const isUnifiedParam = ['gross_commission', 'close_date', 'status', 'saleprice', 'listingprice', 'contract_date', 'buyer_name', 'seller_name', 'buying_agent_name', 'reviewer_specialist', 'title_company'].includes(activeParam.id);
 
-        let url = `https://roa-data-backend.vercel.app/compare/${paramName}?page=${page}`;
+        let url = `${API_DOMAIN}/compare/${paramName}?page=${page}`;
         if (showOnlyMismatches) {
             url += '&mismatch=true';
         } else if (hasDualNoSkyslope(activeParam.id)) {

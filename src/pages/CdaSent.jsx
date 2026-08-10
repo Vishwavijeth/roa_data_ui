@@ -5,8 +5,9 @@ import { Badge } from '../components/ui/Badge';
 import { Input } from '../components/ui/Input';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
 import { formatDateUS } from '../utils/helpers';
+import { API_DOMAIN } from '../constants';
 
-const CDA_SENT_API = 'https://roa-data-backend.vercel.app/cda-sent';
+const CDA_SENT_API = `${API_DOMAIN}/cda-sent`;
 const ROWS_PER_PAGE = 50;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -55,7 +56,7 @@ function CdaSent() {
             if (mismatchOnly) params.append('mismatch', 'true');
             if (searchQuery.trim()) params.append('search', searchQuery.trim());
 
-            const url = `https://roa-data-backend.vercel.app/cda-sent/download?${params.toString()}`;
+            const url = `${API_DOMAIN}/cda-sent/download?${params.toString()}`;
             const response = await fetch(url);
             if (!response.ok) throw new Error(`Download API error: ${response.status}`);
 

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Button } from './components/ui/Button';
 import { Input } from './components/ui/Input';
+import { API_DOMAIN } from './constants';
 
 function Login({ onLogin }) {
     const [email, setEmail] = useState('');
@@ -15,7 +16,7 @@ function Login({ onLogin }) {
         setError('');
 
         try {
-            const response = await fetch('https://roa-data-backend.vercel.app/auth/login', {
+            const response = await fetch(`${API_DOMAIN}/auth/login`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

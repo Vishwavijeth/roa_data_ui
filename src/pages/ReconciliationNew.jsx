@@ -16,9 +16,7 @@ import {
     TableHead,
     TableCell,
 } from '../components/ui/Table';
-import { PARAMETERS } from '../constants';
-
-const API_BASE = 'https://roa-data-backend.vercel.app';
+import { PARAMETERS, API_DOMAIN } from '../constants';
 
 function ReconciliationNew({ syncingData, syncProgress, syncResult, handleSyncData, setSyncResult, refreshTrigger }) {
     // Refs to control when the main transactions effect fires.
@@ -283,7 +281,7 @@ function ReconciliationNew({ syncingData, syncProgress, syncResult, handleSyncDa
                 selectedReviewStatuses.forEach(s => params.append('review_status', s));
             }
 
-            const url = `https://roa-data-backend.vercel.app/recon-data/download?${params.toString()}`;
+            const url = `${API_DOMAIN}/recon-data/download?${params.toString()}`;
             const response = await fetch(url);
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}`);
@@ -449,7 +447,7 @@ function ReconciliationNew({ syncingData, syncProgress, syncResult, handleSyncDa
                     }
                 ),
                 fetch(
-                    `https://roa-data-backend.vercel.app/reconciliation/review/${encodeURIComponent(txnId)}`,
+                    `${API_DOMAIN}/reconciliation/review/${encodeURIComponent(txnId)}`,
                     {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },

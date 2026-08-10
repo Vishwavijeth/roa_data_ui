@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { utils, writeFile } from 'xlsx';
-import { BE_API } from '../constants';
+import { BE_API, API_DOMAIN } from '../constants';
 import { IconDownload, IconArrowLeft } from '../components/shared/Icons';
 import SectionedDetailView from '../components/shared/SectionedDetailView';
 import { formatDateUS } from '../utils/helpers';
@@ -66,8 +66,8 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
     const handleDownloadNoSkyslopeFile = async (type) => {
         const isSale = type === 'sale';
         const url = isSale
-            ? 'https://roa-data-backend.vercel.app/sale/noskyslopefileid/download'
-            : 'https://roa-data-backend.vercel.app/otherincome/noskyslopefileid/download';
+            ? `${API_DOMAIN}/sale/noskyslopefileid/download`
+            : `${API_DOMAIN}/otherincome/noskyslopefileid/download`;
         const setLoading = isSale ? setDownloadingSaleNoSS : setDownloadingOtherNoSS;
         const fileName = isSale ? 'Sale_No_SkySlope_ID.xlsx' : 'OtherIncome_No_SkySlope_ID.xlsx';
 
@@ -108,7 +108,7 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
         setLoadingSyncLogs(true);
         setSyncLogsError(null);
         setSyncLogs(null);
-        fetch('https://roa-data-backend.vercel.app/brokerage_sync_logs')
+        fetch(`${API_DOMAIN}/brokerage_sync_logs`)
             .then(res => { if (!res.ok) throw new Error(`API error: ${res.status}`); return res.json(); })
             .then(json => { setSyncLogs(json); setLoadingSyncLogs(false); })
             .catch(err => { setSyncLogsError(err.message); setLoadingSyncLogs(false); });
@@ -119,8 +119,8 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
             setLoadingDetail(true);
             setDetailData(null);
             const detailUrl = viewMode === 'other_income'
-                ? `https://roa-data-backend.vercel.app/otherincome_transactions/detail?transactionid=${selectedRecord.transactionid}`
-                : `https://roa-data-backend.vercel.app/brokerage_engine/detail?transactionid=${selectedRecord.transactionid}`;
+                ? `${API_DOMAIN}/otherincome_transactions/detail?transactionid=${selectedRecord.transactionid}`
+                : `${API_DOMAIN}/brokerage_engine/detail?transactionid=${selectedRecord.transactionid}`;
             fetch(detailUrl)
                 .then(res => { if (!res.ok) throw new Error(`API error: ${res.status}`); return res.json(); })
                 .then(json => {
@@ -173,7 +173,7 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
 
     // Fetch sync info on mount
     useEffect(() => {
-        fetch('https://roa-data-backend.vercel.app/brokerage_engine/sync_info')
+        fetch(`${API_DOMAIN}/brokerage_engine/sync_info`)
             .then(res => res.json())
             .then(json => {
                 if (json && json.sync_info) {
@@ -217,7 +217,7 @@ function BrokerageView({ syncingBE, syncProgress, syncBEResult, handleSyncBE, se
             incomeTypeFilter.forEach(t => params.append('income_type', t));
             if (searchQuery.trim()) params.append('search', searchQuery.trim());
 
-            url = `https://roa-data-backend.vercel.app/otherincome_transactions?${params.toString()}`;
+            url = `${API_DOMAIN}/otherincome_transactions?${params.toString()}`;
         } else {
             if (brokerHold) params.append('brokerhold', 'true');
             if (closeDateFrom) params.append('from_close_date', closeDateFrom);

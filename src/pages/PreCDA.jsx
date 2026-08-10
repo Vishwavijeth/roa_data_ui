@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
+import { API_DOMAIN } from '../constants';
 
 function PreCDA() {
     const [qbStatus, setQbStatus] = useState('loading');
@@ -22,7 +23,7 @@ function PreCDA() {
             window.history.replaceState(null, '', cleanUrl);
         } else {
             // Hit the token status API to check active QuickBooks connection
-            fetch('https://roa-data-backend.vercel.app/auth/quickbooks/token-status')
+            fetch(`${API_DOMAIN}/auth/quickbooks/token-status`)
                 .then((res) => res.json())
                 .then((data) => {
                     if (data && data.connected) {
@@ -44,7 +45,7 @@ function PreCDA() {
     };
 
     const handleConnectQuickBooks = () => {
-        window.location.href = "https://roa-data-backend.vercel.app/auth/quickbooks/login";
+        window.location.href = `${API_DOMAIN}/auth/quickbooks/login`;
     };
 
     // Helper to render the QuickBooks status badge based on url parameters or API status

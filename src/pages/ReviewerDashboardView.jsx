@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { utils, writeFile } from 'xlsx';
-import { REVIEWER_SUMMARY_API, REVIEWER_FILTERS_API } from '../constants';
+import { REVIEWER_SUMMARY_API, REVIEWER_FILTERS_API, API_DOMAIN } from '../constants';
 import { IconDownload } from '../components/shared/Icons';
 import MultiSelect from '../components/shared/MultiSelect';
 import DateFilterInput from '../components/shared/DateFilterInput';
@@ -192,11 +192,11 @@ function ReviewerDashboardView() {
         try {
             const params = getFilterParams();
             const query = params.toString();
-            const endpoint = type === 'unassigned'
-                ? 'https://roa-data-backend.vercel.app/reviewer-dashboard/unassigned/download'
-                : 'https://roa-data-backend.vercel.app/reviewer-dashboard/download';
+            const endpointUrl = type === 'unassigned'
+                ? `${API_DOMAIN}/reviewer-dashboard/unassigned/download`
+                : `${API_DOMAIN}/reviewer-dashboard/download`;
 
-            const url = `${endpoint}${query ? `?${query}` : ''}`;
+            const url = `${endpointUrl}${query ? `?${query}` : ''}`;
             const response = await fetch(url);
             if (!response.ok) throw new Error(`Download API error: ${response.status} ${response.statusText}`);
 

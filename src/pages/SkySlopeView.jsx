@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { utils, writeFile } from 'xlsx';
-import { SS_API } from '../constants';
+import { SS_API, API_DOMAIN } from '../constants';
 import { IconDownload, IconArrowLeft } from '../components/shared/Icons';
 import SectionedDetailView from '../components/shared/SectionedDetailView';
 import { formatDateUS } from '../utils/helpers';
@@ -130,7 +130,7 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
         setLoadingSyncLogs(true);
         setSyncLogsError(null);
         setSyncLogs(null);
-        fetch('https://roa-data-backend.vercel.app/skyslope_sync_logs')
+        fetch(`${API_DOMAIN}/skyslope_sync_logs`)
             .then(res => { if (!res.ok) throw new Error(`API error: ${res.status}`); return res.json(); })
             .then(json => { setSyncLogs(json); setLoadingSyncLogs(false); })
             .catch(err => { setSyncLogsError(err.message); setLoadingSyncLogs(false); });
@@ -140,7 +140,7 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
         if (selectedRecord) {
             setLoadingDetail(true);
             setDetailData(null);
-            fetch(`https://roa-data-backend.vercel.app/skyslope/detail?saleguid=${selectedRecord.saleguid}`)
+            fetch(`${API_DOMAIN}/skyslope/detail?saleguid=${selectedRecord.saleguid}`)
                 .then(res => { if (!res.ok) throw new Error(`API error: ${res.status}`); return res.json(); })
                 .then(json => {
                     setDetailData(json);
@@ -200,7 +200,7 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
     // Fetch filters (status_list, stage_list) on mount
     useEffect(() => {
         let active = true;
-        fetch('https://roa-data-backend.vercel.app/skyslope-listing-filters')
+        fetch(`${API_DOMAIN}/skyslope-listing-filters`)
             .then(res => {
                 if (!res.ok) throw new Error(`Filters API error: ${res.status}`);
                 return res.json();
@@ -225,7 +225,7 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
 
     // Fetch sync info on mount
     useEffect(() => {
-        fetch('https://roa-data-backend.vercel.app/skyslope/sync_info')
+        fetch(`${API_DOMAIN}/skyslope/sync_info`)
             .then(res => {
                 if (!res.ok) throw new Error(`API error: ${res.status}`);
                 return res.json();
@@ -245,7 +245,7 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
     // Refetch sync info when sync finishes
     useEffect(() => {
         if (syncSSResult && syncSSResult.ok) {
-            fetch('https://roa-data-backend.vercel.app/skyslope/sync_info')
+            fetch(`${API_DOMAIN}/skyslope/sync_info`)
                 .then(res => res.json())
                 .then(json => {
                     if (json && json.sync_info) {
@@ -289,7 +289,7 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
         if (notInBe) params.append('not_in_be', 'True');
         if (leadChecklistFilter) params.append('checklist_lead_based', leadChecklistFilter);
 
-        const url = `https://roa-data-backend.vercel.app/skyslope-listing?${params.toString()}`;
+        const url = `${API_DOMAIN}/skyslope-listing?${params.toString()}`;
 
         fetch(url)
             .then(res => {
@@ -384,7 +384,7 @@ function SkySlopeView({ syncingSS, syncSSProgress, syncSSResult, handleSyncSS, s
             if (leadChecklistFilter) params.append('checklist_lead_based', leadChecklistFilter);
 
             const queryString = params.toString();
-            const downloadUrl = `https://roa-data-backend.vercel.app/skyslope/download${queryString ? `?${queryString}` : ''}`;
+            const downloadUrl = `${API_DOMAIN}/skyslope/download${queryString ? `?${queryString}` : ''}`;
 
             const response = await fetch(downloadUrl);
             if (!response.ok) throw new Error(`Download API error: ${response.status}`);

@@ -6,6 +6,7 @@ import { Skeleton } from '../components/ui/Skeleton';
 import { Button } from '../components/ui/Button';
 import DateFilterInput from '../components/shared/DateFilterInput';
 import MultiSelect from '../components/shared/MultiSelect';
+import { API_DOMAIN } from '../constants';
 
 function ReconciliationAnalytics({
     fromCloseDate = '',
@@ -52,7 +53,7 @@ function ReconciliationAnalytics({
             selectedStatuses.forEach(s => params.append('status', s));
         }
 
-        const url = `https://roa-data-backend.vercel.app/reconciliation/analytics?${params.toString()}`;
+        const url = `${API_DOMAIN}/reconciliation/analytics?${params.toString()}`;
 
         fetch(url)
             .then(res => {

@@ -17,7 +17,8 @@ import {
     COMMISSION_ADVANCES_ADDRESS_SUGGESTIONS_API,
     COMMISSION_ADVANCES_LOG_API,
     COMMISSION_ADVANCES_EDIT_API,
-    ROWS_PER_PAGE
+    ROWS_PER_PAGE,
+    API_DOMAIN
 } from '../constants';
 
 function CommissionAdvances() {
@@ -394,7 +395,7 @@ function CommissionAdvances() {
 
     const openSkySlopePopup = (saleguid) => {
         setSkySlopePopup({ open: true, saleguid, data: null, loading: true, error: null, segment: 'skyslope' });
-        fetch(`https://roa-data-backend.vercel.app/skyslope/detail?saleguid=${encodeURIComponent(saleguid)}`)
+        fetch(`${API_DOMAIN}/skyslope/detail?saleguid=${encodeURIComponent(saleguid)}`)
             .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
             .then(json => {
                 let seg = 'skyslope';

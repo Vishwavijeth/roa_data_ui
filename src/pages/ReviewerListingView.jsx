@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 
-import { REVIEWER_API, REVIEWER_FILTERS_API, ROWS_PER_PAGE } from '../constants';
+import { REVIEWER_API, REVIEWER_FILTERS_API, ROWS_PER_PAGE, API_DOMAIN } from '../constants';
 
 import { formatDateUS } from '../utils/helpers';
 import DateFilterInput from '../components/shared/DateFilterInput';
@@ -197,7 +197,7 @@ function ReviewerListingView() {
             typeOfSaleFilter.forEach(t => params.append('type_of_sale', t));
 
             const query = params.toString();
-            const url = `https://roa-data-backend.vercel.app/reviewer-listing/download${query ? `?${query}` : ''}`;
+            const url = `${API_DOMAIN}/reviewer-listing/download${query ? `?${query}` : ''}`;
 
             const response = await fetch(url);
             if (!response.ok) throw new Error(`Server returned ${response.status}`);

@@ -1,4 +1,4 @@
-const API_BASE = 'https://roa-data-backend.vercel.app';
+import { API_DOMAIN } from '../constants';
 
 // ── Global unauthorized handler (set once by the dashboard) ───────────────────
 let _unauthorizedHandler = null;
@@ -43,7 +43,7 @@ export async function refreshAccessToken() {
         const refreshToken = getRefreshToken();
         if (!refreshToken) throw new Error('No refresh token available');
 
-        const res = await fetch(`${API_BASE}/auth/refresh`, {
+        const res = await fetch(`${API_DOMAIN}/auth/refresh`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ refresh_token: refreshToken }),
@@ -113,7 +113,7 @@ export async function authFetch(url, options = {}, onUnauthorized = null) {
 export async function logoutUser() {
     const token = getAccessToken();
     try {
-        await fetch(`${API_BASE}/auth/logout`, {
+        await fetch(`${API_DOMAIN}/auth/logout`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

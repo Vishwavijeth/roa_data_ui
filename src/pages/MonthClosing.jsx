@@ -9,8 +9,8 @@ import { Input } from '../components/ui/Input';
 
 import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogContent, DialogFooter } from '../components/ui/Dialog';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/Tabs';
+import { API_DOMAIN } from '../constants';
 
-const BASE_URL = 'https://roa-data-backend.vercel.app';
 const fmtCurrency = v => (v != null ? `$${Number(v).toLocaleString()}` : '—');
 const fmtVal = v => (v != null && v !== '' ? String(v) : '—');
 
@@ -100,7 +100,7 @@ function SkySlopeDetailModal({ fileId, row, onClose }) {
         setLoading(true);
         setError(null);
         setDetailData(null);
-        fetch(`${BASE_URL}/skyslope/detail?saleguid=${fileId}`)
+        fetch(`${API_DOMAIN}/skyslope/detail?saleguid=${fileId}`)
             .then(res => { if (!res.ok) throw new Error(`HTTP ${res.status}`); return res.json(); })
             .then(json => { setDetailData(json); setLoading(false); })
             .catch(err => {
@@ -281,7 +281,7 @@ function BrokerageDetailModal({ transactionId, row, onClose }) {
         setLoading(true);
         setError(null);
         setDetailData(null);
-        fetch(`${BASE_URL}/brokerage_engine/detail?transactionid=${transactionId}`)
+        fetch(`${API_DOMAIN}/brokerage_engine/detail?transactionid=${transactionId}`)
             .then(res => { if (!res.ok) throw new Error(`HTTP ${res.status}`); return res.json(); })
             .then(json => { setDetailData(json); setLoading(false); })
             .catch(err => {
@@ -830,7 +830,7 @@ function MonthClosing() {
     const optionsPopulated = React.useRef(false);
 
     useEffect(() => {
-        fetch(`${BASE_URL}/transaction_specialist_dashboard`)
+        fetch(`${API_DOMAIN}/transaction_specialist_dashboard`)
             .then(res => res.json())
             .then(json => {
                 const rows = json && Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : []);
@@ -910,7 +910,7 @@ function MonthClosing() {
     });
 
     const buildColumnUrl = useCallback((colQuery, pageNum, searchQuery) => {
-        let url = `${BASE_URL}/month-closing/listing`;
+        let url = `${API_DOMAIN}/month-closing/listing`;
         const params = [`page=${pageNum}`];
         if (colQuery) {
             params.push(colQuery);
@@ -1000,7 +1000,7 @@ function MonthClosing() {
 
             // If colId is pending and a subfilter is active, fetch the unfiltered total count in the background!
             if (colId === 'pending' && pendingSubfilter.length > 0) {
-                let unfilteredUrl = `${BASE_URL}/month-closing/listing?page=1&status=pending`;
+                let unfilteredUrl = `${API_DOMAIN}/month-closing/listing?page=1&status=pending`;
                 if (searchQuery) unfilteredUrl += `&search=${encodeURIComponent(searchQuery)}`;
                 if (activeFrom) unfilteredUrl += `&from_close_date=${encodeURIComponent(activeFrom)}`;
                 if (activeTo) unfilteredUrl += `&to_close_date=${encodeURIComponent(activeTo)}`;
@@ -1118,7 +1118,7 @@ function MonthClosing() {
     const handleDownload = async () => {
         setDownloading(true);
         try {
-            let url = `${BASE_URL}/month-closing/download`;
+            let url = `${API_DOMAIN}/month-closing/download`;
             const params = [];
             
             if (activeFrom) params.push(`from_close_date=${encodeURIComponent(activeFrom)}`);

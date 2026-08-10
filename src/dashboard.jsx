@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { logoutUser, setUnauthorizedHandler } from './utils/api';
+import { API_DOMAIN } from './constants';
 import Sidebar from './components/layout/Sidebar';
 import ReconciliationView from './pages/ReconciliationView';
 import ReconciliationNew from './pages/ReconciliationNew';
@@ -85,10 +86,10 @@ function Dashboard({ setIsAuthenticated }) {
 
         try {
             const [resBE, resOI] = await Promise.all([
-                fetch('https://roa-data-backend.vercel.app/sync/brokerage-engine', {
+                fetch(`${API_DOMAIN}/sync/brokerage-engine`, {
                     method: 'POST',
                 }),
-                fetch('https://roa-data-backend.vercel.app/sync/other-income', {
+                fetch(`${API_DOMAIN}/sync/other-income`, {
                     method: 'POST',
                 })
             ]);
@@ -132,7 +133,7 @@ function Dashboard({ setIsAuthenticated }) {
         }, 300);
 
         try {
-            const res = await fetch('https://roa-data-backend.vercel.app/sync/skyslope-sales', {
+            const res = await fetch(`${API_DOMAIN}/sync/skyslope-sales`, {
                 method: 'POST',
             });
             const json = await res.json().catch(() => ({}));
@@ -205,7 +206,7 @@ function Dashboard({ setIsAuthenticated }) {
         };
 
         try {
-            const res = await fetch('https://roa-data-backend.vercel.app/data-sync');
+            const res = await fetch(`${API_DOMAIN}/data-sync`);
             const json = await res.json().catch(() => ({}));
 
             if (res.ok) {

@@ -13,26 +13,29 @@ export const PARAMETERS = [
     { id: 'title_company', label: 'Title Company', endpoint: 'title_company', skyslopeKey: 'skyslope_title_company', beKey: 'be_title_company' }
 ];
 
-export const API_BASE = 'https://roa-data-backend.vercel.app/compare';
-export const BE_API = 'https://roa-data-backend.vercel.app/brokerage_engine';
-export const SKYSLOPE_API = 'https://roa-data-backend.vercel.app/skyslope_api';
-export const SS_API = 'https://roa-data-backend.vercel.app/skyslope_api';
-export const TXN_SPECIALIST_API = 'https://roa-data-backend.vercel.app/transaction_specialist_listing';
-export const REVIEWER_API = 'https://roa-data-backend.vercel.app/reviewer-listing';
-export const REVIEWER_FILTERS_API = 'https://roa-data-backend.vercel.app/reviewers/filters';
-export const TXN_SPECIALIST_SUMMARY_API = 'https://roa-data-backend.vercel.app/transaction_specialist_dashboard';
-export const REVIEWER_SUMMARY_API = 'https://roa-data-backend.vercel.app/reviewer-dashboard';
-export const CHECKLIST_TYPE_MAPPING_API = 'https://roa-data-backend.vercel.app/checklist-type-validation';
-export const CHECKLIST_TYPE_MAPPING_FILTERS_API = 'https://roa-data-backend.vercel.app/checklist-type-validation/filters';
-export const COMMISSION_ADVANCES_SUMMARY_API = 'https://roa-data-backend.vercel.app/commission-advances/summary';
-export const COMMISSION_ADVANCES_LISTING_API = 'https://roa-data-backend.vercel.app/commission-advances/listing';
-export const COMMISSION_ADVANCES_DETAIL_API = 'https://roa-data-backend.vercel.app/commission-advances/detail';
-export const COMMISSION_ADVANCES_DROPDOWN_API = 'https://roa-data-backend.vercel.app/commission-advances/log-dropdown';
-export const COMMISSION_ADVANCES_STATUS_DROPDOWN_API = 'https://roa-data-backend.vercel.app/commission-advances/status-dropdown';
-export const COMMISSION_ADVANCES_SUGGESTIONS_API = 'https://roa-data-backend.vercel.app/commission-advances/agent-suggestions';
-export const COMMISSION_ADVANCES_ADDRESS_SUGGESTIONS_API = 'https://roa-data-backend.vercel.app/commission-advances/address-suggestions';
-export const COMMISSION_ADVANCES_LOG_API = 'https://roa-data-backend.vercel.app/commission-advances/log';
-export const COMMISSION_ADVANCES_EDIT_API = 'https://roa-data-backend.vercel.app/commission-advances/transaction';
+// ── API Domain (single source of truth) ───────────────────────────────────────
+export const API_DOMAIN = 'https://roa-data-backend.vercel.app';
+
+export const API_BASE = `${API_DOMAIN}/compare`;
+export const BE_API = `${API_DOMAIN}/brokerage_engine`;
+export const SKYSLOPE_API = `${API_DOMAIN}/skyslope_api`;
+export const SS_API = `${API_DOMAIN}/skyslope_api`;
+export const TXN_SPECIALIST_API = `${API_DOMAIN}/transaction_specialist_listing`;
+export const REVIEWER_API = `${API_DOMAIN}/reviewer-listing`;
+export const REVIEWER_FILTERS_API = `${API_DOMAIN}/reviewers/filters`;
+export const TXN_SPECIALIST_SUMMARY_API = `${API_DOMAIN}/transaction_specialist_dashboard`;
+export const REVIEWER_SUMMARY_API = `${API_DOMAIN}/reviewer-dashboard`;
+export const CHECKLIST_TYPE_MAPPING_API = `${API_DOMAIN}/checklist-type-validation`;
+export const CHECKLIST_TYPE_MAPPING_FILTERS_API = `${API_DOMAIN}/checklist-type-validation/filters`;
+export const COMMISSION_ADVANCES_SUMMARY_API = `${API_DOMAIN}/commission-advances/summary`;
+export const COMMISSION_ADVANCES_LISTING_API = `${API_DOMAIN}/commission-advances/listing`;
+export const COMMISSION_ADVANCES_DETAIL_API = `${API_DOMAIN}/commission-advances/detail`;
+export const COMMISSION_ADVANCES_DROPDOWN_API = `${API_DOMAIN}/commission-advances/log-dropdown`;
+export const COMMISSION_ADVANCES_STATUS_DROPDOWN_API = `${API_DOMAIN}/commission-advances/status-dropdown`;
+export const COMMISSION_ADVANCES_SUGGESTIONS_API = `${API_DOMAIN}/commission-advances/agent-suggestions`;
+export const COMMISSION_ADVANCES_ADDRESS_SUGGESTIONS_API = `${API_DOMAIN}/commission-advances/address-suggestions`;
+export const COMMISSION_ADVANCES_LOG_API = `${API_DOMAIN}/commission-advances/log`;
+export const COMMISSION_ADVANCES_EDIT_API = `${API_DOMAIN}/commission-advances/transaction`;
 
 export const ROWS_PER_PAGE = 50;
 
