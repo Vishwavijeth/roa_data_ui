@@ -135,7 +135,7 @@ function ReconciliationNew({ syncingData, syncProgress, syncResult, handleSyncDa
         setError(null);
         setMetricsLoading(true);
 
-        fetch(`${API_BASE}/reconciliation/transactions?page=1`)
+        fetch(`${API_DOMAIN}/reconciliation/transactions?page=1`)
             .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
             .then(json => {
                 // Discover available parameter filters (but do NOT pre-select any).
@@ -223,7 +223,7 @@ function ReconciliationNew({ syncingData, syncProgress, syncResult, handleSyncDa
             selectedReviewStatuses.forEach(s => params.append('review_status', s));
         }
 
-        fetch(`${API_BASE}/reconciliation/transactions?${params}`)
+        fetch(`${API_DOMAIN}/reconciliation/transactions?${params}`)
             .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
             .then(json => {
                 // Populate status filter options from transactions filters key
@@ -331,7 +331,7 @@ function ReconciliationNew({ syncingData, syncProgress, syncResult, handleSyncDa
 
         if (!expandedDetails[txnId]) {
             setExpandedLoading(prev => ({ ...prev, [txnId]: true }));
-            fetch(`${API_BASE}/reconciliation/transaction/${txnId}`)
+            fetch(`${API_DOMAIN}/reconciliation/transaction/${txnId}`)
                 .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
                 .then(data => {
                     setExpandedDetails(prev => ({ ...prev, [txnId]: data }));
@@ -362,12 +362,12 @@ function ReconciliationNew({ syncingData, syncProgress, syncResult, handleSyncDa
         const isMixed = hasSaleIncome && hasOtherIncome;
         const isOnlyOtherIncome = hasOtherIncome && !hasSaleIncome;
         const url = isMixed
-            ? `${API_BASE}/skyslope/detail?saleguid=${encodeURIComponent(saleguid)}`
+            ? `${API_DOMAIN}/skyslope/detail?saleguid=${encodeURIComponent(saleguid)}`
             : isOnlyOtherIncome
-                ? `${API_BASE}/otherincome_transactions/detail?transactionid=${encodeURIComponent(txnId)}`
+                ? `${API_DOMAIN}/otherincome_transactions/detail?transactionid=${encodeURIComponent(txnId)}`
                 : (saleguid
-                    ? `${API_BASE}/skyslope/detail?saleguid=${encodeURIComponent(saleguid)}`
-                    : `${API_BASE}/brokerage_engine/detail?transactionid=${encodeURIComponent(txnId)}`);
+                    ? `${API_DOMAIN}/skyslope/detail?saleguid=${encodeURIComponent(saleguid)}`
+                    : `${API_DOMAIN}/brokerage_engine/detail?transactionid=${encodeURIComponent(txnId)}`);
 
         fetch(url)
             .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
@@ -434,7 +434,7 @@ function ReconciliationNew({ syncingData, syncProgress, syncResult, handleSyncDa
             // Call both APIs in parallel
             const [resTrack, resReview] = await Promise.all([
                 fetch(
-                    `${API_BASE}/reconciliation/track?transaction_id=${encodeURIComponent(txnId)}&parameter=${encodeURIComponent(reviewForm.parameter)}`,
+                    `${API_DOMAIN}/reconciliation/track?transaction_id=${encodeURIComponent(txnId)}&parameter=${encodeURIComponent(reviewForm.parameter)}`,
                     {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },

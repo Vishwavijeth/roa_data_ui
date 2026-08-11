@@ -14,7 +14,7 @@ export const PARAMETERS = [
 ];
 
 // ── API Domain (single source of truth) ───────────────────────────────────────
-export const API_DOMAIN = 'https://roa-data-backend.vercel.app';
+export const API_DOMAIN = 'https://roa-analytics-backend-gamma.vercel.app';
 
 export const API_BASE = `${API_DOMAIN}/compare`;
 export const BE_API = `${API_DOMAIN}/brokerage_engine`;
