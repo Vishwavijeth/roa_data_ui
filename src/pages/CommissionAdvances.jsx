@@ -271,7 +271,11 @@ function CommissionAdvances() {
             .then(json => {
                 if (!active) return;
                 if (json.success && json.filters && Array.isArray(json.filters.status)) {
-                    setStatusOptions([...json.filters.status].sort());
+                    const fetched = json.filters.status;
+                    const combined = fetched.some(s => s.toLowerCase() === 'replacement')
+                        ? fetched
+                        : [...fetched, 'Replacement'];
+                    setStatusOptions([...combined].sort());
                 }
             })
             .catch(err => console.error('Failed to load status dropdown options:', err));
@@ -466,6 +470,52 @@ function CommissionAdvances() {
     const [editError, setEditError] = useState(null);
     const [editStatusOptions, setEditStatusOptions] = useState([]);
 
+    // ── Edit Modal Address Suggestions State ────────────────────────────
+    const [editAddressSuggestions, setEditAddressSuggestions] = useState([]);
+    const [showEditAddressSuggestions, setShowEditAddressSuggestions] = useState(false);
+    const editAddressJustSelectedRef = useRef(false);
+    const [editSelectedAddressInfo, setEditSelectedAddressInfo] = useState(null);
+
+    // Fetch Address Suggestions for Edit Modal when status is Replacement
+    useEffect(() => {
+        if (editAddressJustSelectedRef.current) {
+            editAddressJustSelectedRef.current = false;
+            return;
+        }
+        const statusLower = (editForm.status || '').trim().toLowerCase();
+        if (!editItem || statusLower !== 'replacement' || !editForm.address || editForm.address.trim().length < 1) {
+            setEditAddressSuggestions([]);
+            setShowEditAddressSuggestions(false);
+            return;
+        }
+
+        let active = true;
+        const timer = setTimeout(() => {
+            fetch(`${COMMISSION_ADVANCES_ADDRESS_SUGGESTIONS_API}?q=${encodeURIComponent(editForm.address.trim())}&limit=5`)
+                .then(res => res.json())
+                .then(json => {
+                    if (!active) return;
+                    let list = [];
+                    if (json.success && json.filters && Array.isArray(json.filters.address)) {
+                        list = json.filters.address;
+                    } else if (Array.isArray(json)) {
+                        list = json;
+                    } else if (json.data && Array.isArray(json.data)) {
+                        list = json.data;
+                    }
+
+                    setEditAddressSuggestions(list);
+                    setShowEditAddressSuggestions(list.length > 0);
+                })
+                .catch(err => console.error(err));
+        }, 300);
+
+        return () => {
+            active = false;
+            clearTimeout(timer);
+        };
+    }, [editForm.address, editForm.status, editItem]);
+
     // Fetch status options whenever the modal opens
     useEffect(() => {
         if (!editItem) return;
@@ -475,7 +525,11 @@ function CommissionAdvances() {
             .then(json => {
                 if (!active) return;
                 if (json.success && json.filters && Array.isArray(json.filters.status)) {
-                    setEditStatusOptions([...json.filters.status].sort());
+                    const fetched = json.filters.status;
+                    const combined = fetched.some(s => s.toLowerCase() === 'replacement')
+                        ? fetched
+                        : [...fetched, 'Replacement'];
+                    setEditStatusOptions([...combined].sort());
                 }
             })
             .catch(err => console.error('Failed to load edit status options:', err));
@@ -490,7 +544,20 @@ function CommissionAdvances() {
             paid_date: item.paid_date ? item.paid_date.slice(0, 10) : '',
             approved_date: item.approved_date ? item.approved_date.slice(0, 10) : '',
             notes: item.notes || '',
+            address: item.address || '',
         });
+        if (item.saleguid || item.sale_guid || item.ss_status || item.close_date) {
+            setEditSelectedAddressInfo({
+                address: item.address || '',
+                ss_status: item.ss_status || item.status || '',
+                close_date: item.close_date || item.closed_date || null,
+                saleguid: item.saleguid || item.sale_guid || null,
+            });
+        } else {
+            setEditSelectedAddressInfo(null);
+        }
+        setEditAddressSuggestions([]);
+        setShowEditAddressSuggestions(false);
         setEditSuccess(false);
         setEditError(null);
     };
@@ -498,6 +565,9 @@ function CommissionAdvances() {
     const closeEditModal = () => {
         setEditItem(null);
         setEditForm({});
+        setEditSelectedAddressInfo(null);
+        setEditAddressSuggestions([]);
+        setShowEditAddressSuggestions(false);
         setEditError(null);
         setEditSuccess(false);
     };
@@ -518,6 +588,7 @@ function CommissionAdvances() {
             const isWageGarnishment = statusLower.includes('garnishment') || statusLower.includes('garnish');
             const isCancelledOrLeft = statusLower === 'cancelled' || statusLower === 'left roa';
             const isPaid = statusLower === 'paid';
+            const isReplacement = statusLower === 'replacement';
 
             // Always start with status
             const payload = { status: editForm.status.trim() };
@@ -528,6 +599,16 @@ function CommissionAdvances() {
             if (editForm.paid_date) payload.paid_date = editForm.paid_date;
             if (editForm.approved_date) payload.approved_date = editForm.approved_date;
             if (editForm.notes.trim()) payload.notes = editForm.notes.trim();
+
+            if (isReplacement) {
+                if (editForm.address && editForm.address.trim()) {
+                    payload.address = editForm.address.trim();
+                }
+                const saleguid = editSelectedAddressInfo?.saleguid || editSelectedAddressInfo?.sale_guid || editItem?.saleguid || editItem?.sale_guid;
+                if (saleguid) {
+                    payload.saleguid = saleguid;
+                }
+            }
 
             const res = await fetch(`${COMMISSION_ADVANCES_EDIT_API}/${editItem.id}`, {
                 method: 'PATCH',
@@ -603,6 +684,14 @@ function CommissionAdvances() {
                 </Badge>
             );
         }
+        if (s.includes('replacement') || s === 'replacement') {
+            return (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold border shadow-sm bg-purple-50 text-purple-700 border-purple-200">
+                    <span className="w-1.5 h-1.5 rounded-full bg-purple-500 flex-shrink-0" />
+                    Replacement
+                </span>
+            );
+        }
         if (s.includes('pending partial') || s === 'pending partial') {
             return (
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold border shadow-sm bg-orange-50 text-orange-700 border-orange-200">
@@ -646,6 +735,9 @@ function CommissionAdvances() {
                     if (keyLower.includes('paid')) {
                         badgeClass = 'bg-emerald-50 text-emerald-700 border-emerald-200';
                         dotClass = 'bg-emerald-500';
+                    } else if (keyLower.includes('replacement')) {
+                        badgeClass = 'bg-purple-50 text-purple-700 border-purple-200';
+                        dotClass = 'bg-purple-500';
                     } else if (keyLower.includes('pending')) {
                         badgeClass = 'bg-amber-50 text-amber-700 border-amber-200';
                         dotClass = 'bg-amber-500';
@@ -1550,10 +1642,115 @@ function CommissionAdvances() {
                                                 <option key="Pending" value="Pending">Pending</option>,
                                                 <option key="Paid" value="Paid">Paid</option>,
                                                 <option key="Wage Garnishment" value="Wage Garnishment">Wage Garnishment</option>,
+                                                <option key="Replacement" value="Replacement">Replacement</option>,
                                             ]
                                         }
                                     </select>
                                 </div>
+
+                                {/* Property Address Search (visible when status is Replacement) */}
+                                {(editForm.status || '').trim().toLowerCase() === 'replacement' && (
+                                    <div className="space-y-1 relative">
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block" htmlFor="edit-address">
+                                            Property Address <span className="text-red-500">*</span>
+                                        </label>
+                                        <Input
+                                            id="edit-address"
+                                            name="address"
+                                            value={editForm.address || ''}
+                                            onChange={(e) => {
+                                                handleEditFormChange(e);
+                                                setShowEditAddressSuggestions(false);
+                                                setEditSelectedAddressInfo(null);
+                                            }}
+                                            onBlur={() => setTimeout(() => setShowEditAddressSuggestions(false), 150)}
+                                            placeholder="Type to search replacement address..."
+                                            autoComplete="off"
+                                            className="w-full h-9 text-sm"
+                                        />
+                                        {showEditAddressSuggestions && editAddressSuggestions.length > 0 && (
+                                            <div className="absolute z-30 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-56 overflow-y-auto py-1">
+                                                {editAddressSuggestions.map((item, idx) => {
+                                                    const addrStr = typeof item === 'string' ? item : (item.address || item.property_address || item.name || JSON.stringify(item));
+                                                    const status = typeof item === 'object' ? (item.ss_status || '') : '';
+                                                    const statusColor = {
+                                                        closed:    'bg-emerald-100 text-emerald-700 [&>span]:bg-emerald-500',
+                                                        archived:  'bg-slate-100 text-slate-500 [&>span]:bg-slate-400',
+                                                        active:    'bg-blue-100 text-blue-700 [&>span]:bg-blue-500',
+                                                    }[status.toLowerCase()] || 'bg-amber-100 text-amber-700 [&>span]:bg-amber-500';
+                                                    return (
+                                                        <button
+                                                            key={idx}
+                                                            type="button"
+                                                            onMouseDown={(e) => {
+                                                                e.preventDefault();
+                                                                editAddressJustSelectedRef.current = true;
+                                                                const addrValue = typeof item === 'string' ? item : (item.address || item.property_address || addrStr);
+                                                                setEditForm(prev => ({ ...prev, address: addrValue }));
+                                                                if (typeof item === 'object') {
+                                                                    setEditSelectedAddressInfo(item);
+                                                                }
+                                                                setShowEditAddressSuggestions(false);
+                                                            }}
+                                                            className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 text-slate-800 transition-colors flex items-center justify-between gap-2 border-b border-slate-50 last:border-0"
+                                                        >
+                                                            <span className="font-semibold text-slate-800">{addrStr}</span>
+                                                            {status && (
+                                                                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider shrink-0 ${statusColor}`}>
+                                                                    <span className="w-1.5 h-1.5 rounded-full" />
+                                                                    {status}
+                                                                </span>
+                                                            )}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                        {/* Selected Address Info Card */}
+                                        {editSelectedAddressInfo && (
+                                            <div className="mt-2 rounded-lg border border-blue-100 bg-blue-50/60 px-3.5 py-3 flex items-center gap-4 flex-wrap">
+                                                {editSelectedAddressInfo.ss_status && (() => {
+                                                    const s = (editSelectedAddressInfo.ss_status || '').toLowerCase();
+                                                    const cls = s === 'closed'
+                                                        ? 'bg-emerald-100 text-emerald-700'
+                                                        : s === 'archived'
+                                                            ? 'bg-slate-100 text-slate-500'
+                                                            : 'bg-amber-100 text-amber-700';
+                                                    const dot = s === 'closed'
+                                                        ? 'bg-emerald-500'
+                                                        : s === 'archived'
+                                                            ? 'bg-slate-400'
+                                                            : 'bg-amber-500';
+                                                    return (
+                                                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider shrink-0 ${cls}`}>
+                                                            <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />
+                                                            {editSelectedAddressInfo.ss_status}
+                                                        </span>
+                                                    );
+                                                })()}
+                                                {editSelectedAddressInfo.close_date && (
+                                                    <div>
+                                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Close Date</p>
+                                                        <p className="text-xs font-semibold text-slate-700">{formatDateUS(editSelectedAddressInfo.close_date)}</p>
+                                                    </div>
+                                                )}
+                                                {(editSelectedAddressInfo.saleguid || editSelectedAddressInfo.sale_guid) && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => openSkySlopePopup(editSelectedAddressInfo.saleguid || editSelectedAddressInfo.sale_guid)}
+                                                        className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 transition-all shadow-sm shrink-0"
+                                                    >
+                                                        <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                        </svg>
+                                                        Details
+                                                    </button>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
 
                                 {/* Amount & Dates — visibility depends on status */}
                                 {(() => {
