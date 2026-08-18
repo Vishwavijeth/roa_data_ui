@@ -15,11 +15,12 @@ import MonthClosing from './pages/MonthClosing';
 import AccountHold from './pages/AccountHold';
 import ChecklistTypeMappingView from './pages/ChecklistTypeMappingView';
 import CommissionAdvances from './pages/CommissionAdvances';
+import CommissionAdvancesFlow from './pages/CommissionAdvancesFlow';
 
 // ── Dashboard Shell (layout + sidebar + lifted sync state) ───────────────────
 function Dashboard({ setIsAuthenticated }) {
     // Restore the active page from the URL hash on refresh
-    const validPages = ['dashboard', 'reconciliation_new', 'brokerage', 'skyslope', 'cda_sent', 'pre_cda', 'month_closing', 'txn_specialist', 'reviewer', 'txn_specialist_dash', 'reviewer_dash', 'checklist_type_mapping', 'commission_advances'];
+    const validPages = ['dashboard', 'reconciliation_new', 'brokerage', 'skyslope', 'cda_sent', 'pre_cda', 'month_closing', 'txn_specialist', 'reviewer', 'txn_specialist_dash', 'reviewer_dash', 'checklist_type_mapping', 'commission_advances', 'commission_advances_flow'];
 
     // Normalise sub-tab hashes and query parameters to their top-level page id
     // e.g. 'reconciliation_new/analytics' → 'reconciliation_new', 'commission_advances?agent_name=X' → 'commission_advances'
@@ -274,6 +275,8 @@ function Dashboard({ setIsAuthenticated }) {
                 return <ChecklistTypeMappingView />;
             case 'commission_advances':
                 return <CommissionAdvances />;
+            case 'commission_advances_flow':
+                return <CommissionAdvancesFlow />;
             default:
                 return <ReconciliationView />;
         }
