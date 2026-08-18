@@ -382,7 +382,7 @@ function CommissionAdvancesFlow() {
                             <TableRow className="bg-slate-50/80 hover:bg-slate-50/80">
                                 <TableHead className="text-xs font-bold uppercase text-slate-500">Property Address</TableHead>
                                 <TableHead className="text-xs font-bold uppercase text-slate-500">Agent Name(s)</TableHead>
-                                <TableHead className="text-xs font-bold uppercase text-slate-500 text-right">Advance Amount</TableHead>
+                                <TableHead className="text-xs font-bold uppercase text-slate-500 text-right">Amount</TableHead>
                                 <TableHead className="text-xs font-bold uppercase text-slate-500 text-right">GCI</TableHead>
                                 <TableHead className="text-xs font-bold uppercase text-slate-500 text-center">Status & Approvals</TableHead>
                             </TableRow>
@@ -427,7 +427,7 @@ function CommissionAdvancesFlow() {
                                                     {renderAgentNames(item)}
                                                 </TableCell>
 
-                                                {/* Advance Amount */}
+                                                {/* Amount */}
                                                 <TableCell className="text-right text-xs font-bold text-emerald-600">
                                                     {formatCurrency(item.amount)}
                                                 </TableCell>
@@ -562,7 +562,7 @@ function CommissionAdvancesFlow() {
                                                                             <span className="font-bold text-blue-600">{formatCurrency(item.gci)}</span>
                                                                         </div>
                                                                         <div>
-                                                                            <span className="text-[10px] text-slate-400 font-bold block uppercase">Advance Amount</span>
+                                                                            <span className="text-[10px] text-slate-400 font-bold block uppercase">Amount</span>
                                                                             <span className="font-bold text-emerald-600">{formatCurrency(item.amount)}</span>
                                                                         </div>
                                                                         <div>
