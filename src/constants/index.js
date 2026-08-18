@@ -36,6 +36,7 @@ export const COMMISSION_ADVANCES_SUGGESTIONS_API = `${API_DOMAIN}/commission-adv
 export const COMMISSION_ADVANCES_ADDRESS_SUGGESTIONS_API = `${API_DOMAIN}/commission-advances/address-suggestions`;
 export const COMMISSION_ADVANCES_LOG_API = `${API_DOMAIN}/commission-advances/log`;
 export const COMMISSION_ADVANCES_EDIT_API = `${API_DOMAIN}/commission-advances/transaction`;
+export const COMMISSION_ADVANCES_FLOW_LIST_API = `${API_DOMAIN}/commission-advances-flow/list`;
 
 export const ROWS_PER_PAGE = 50;
 

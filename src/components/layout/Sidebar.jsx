@@ -27,6 +27,7 @@ function Sidebar({ activePage, setActivePage, onLogout }) {
                 { id: 'cda_sent', label: 'CDA Sent', icon: <IconCdaSent /> },
                 { id: 'pre_cda', label: 'Account Hold', icon: <IconPreCda /> },
                 { id: 'commission_advances', label: 'Commission Advances', icon: <IconCommission /> },
+                { id: 'commission_advances_flow', label: 'Commission Advances Flow', icon: <IconCommission /> },
             ],
         },
         {
