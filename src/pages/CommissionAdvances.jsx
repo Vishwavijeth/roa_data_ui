@@ -86,13 +86,13 @@ function CommissionAdvances() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    agent_name:    logForm.agent_name.trim(),
-                    amount:        parseFloat(logForm.amount) || 0,
-                    address:       logForm.address.trim(),
-                    company:       logForm.company.trim(),
+                    agent_name: logForm.agent_name.trim(),
+                    amount: parseFloat(logForm.amount) || 0,
+                    address: logForm.address.trim(),
+                    company: logForm.company.trim(),
                     approved_date: logForm.date || null,
-                    notes:         logForm.notes.trim() || null,
-                    saleguid:      selectedAddressInfo?.saleguid || null,
+                    notes: logForm.notes.trim() || null,
+                    saleguid: selectedAddressInfo?.saleguid || null,
                 }),
             });
             const json = await res.json().catch(() => ({}));
@@ -541,6 +541,7 @@ function CommissionAdvances() {
         setEditForm({
             status: item.status || '',
             amount: '',
+            operation: 'add',
             paid_date: item.paid_date ? item.paid_date.slice(0, 10) : '',
             approved_date: item.approved_date ? item.approved_date.slice(0, 10) : '',
             notes: item.notes || '',
@@ -595,6 +596,7 @@ function CommissionAdvances() {
 
             if (!isPaid && editForm.amount !== '' && !isWageGarnishment && !isCancelledOrLeft) {
                 payload.amount = parseFloat(editForm.amount) || 0;
+                payload.operation = editForm.operation || 'add';
             }
             if (editForm.paid_date) payload.paid_date = editForm.paid_date;
             if (editForm.approved_date) payload.approved_date = editForm.approved_date;
@@ -629,12 +631,14 @@ function CommissionAdvances() {
 
     // ── Formatters & Helpers ───────────────────────────────────────────────────
     const formatCurrency = (val) => {
-        if (val === undefined || val === null || isNaN(val)) return '—';
+        if (val === undefined || val === null || val === '' || isNaN(Number(val))) return '—';
+        const num = Number(val);
         return new Intl.NumberFormat('en-US', {
             style: 'currency',
             currency: 'USD',
-            maximumFractionDigits: 0
-        }).format(val);
+            minimumFractionDigits: num % 1 === 0 ? 0 : 2,
+            maximumFractionDigits: 2
+        }).format(num);
     };
 
     const formatHistoryDateTime = (dateStr) => {
@@ -808,15 +812,14 @@ function CommissionAdvances() {
         const barColor = isOver
             ? 'bg-red-500'
             : pct >= 80
-            ? 'bg-amber-500'
-            : 'bg-indigo-500';
+                ? 'bg-amber-500'
+                : 'bg-indigo-500';
 
         return (
             <div className="space-y-1.5 min-w-[140px]">
                 <div className="flex items-center justify-between gap-2">
-                    <span className={`text-xs font-bold ${
-                        isOver ? 'text-red-600' : 'text-slate-800'
-                    }`}>
+                    <span className={`text-xs font-bold ${isOver ? 'text-red-600' : 'text-slate-800'
+                        }`}>
                         {formatCurrency(amount)}
                     </span>
                     {isOver && (
@@ -875,11 +878,10 @@ function CommissionAdvances() {
                                     <button
                                         type="button"
                                         onClick={() => setSkySlopePopup(prev => ({ ...prev, segment: 'skyslope' }))}
-                                        className={`flex-1 py-3 text-xs font-bold border-b-2 text-center transition-all ${
-                                            skySlopePopup.segment === 'skyslope'
-                                                ? 'border-sky-600 text-sky-700 bg-sky-50/10'
-                                                : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50/50'
-                                        }`}
+                                        className={`flex-1 py-3 text-xs font-bold border-b-2 text-center transition-all ${skySlopePopup.segment === 'skyslope'
+                                            ? 'border-sky-600 text-sky-700 bg-sky-50/10'
+                                            : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50/50'
+                                            }`}
                                     >
                                         SkySlope Record
                                     </button>
@@ -888,11 +890,10 @@ function CommissionAdvances() {
                                     <button
                                         type="button"
                                         onClick={() => setSkySlopePopup(prev => ({ ...prev, segment: 'brokerage_engine' }))}
-                                        className={`flex-1 py-3 text-xs font-bold border-b-2 text-center transition-all ${
-                                            skySlopePopup.segment === 'brokerage_engine'
-                                                ? 'border-indigo-600 text-indigo-700 bg-indigo-50/10'
-                                                : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50/50'
-                                        }`}
+                                        className={`flex-1 py-3 text-xs font-bold border-b-2 text-center transition-all ${skySlopePopup.segment === 'brokerage_engine'
+                                            ? 'border-indigo-600 text-indigo-700 bg-indigo-50/10'
+                                            : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50/50'
+                                            }`}
                                     >
                                         Brokerage Engine Record
                                     </button>
@@ -901,11 +902,10 @@ function CommissionAdvances() {
                                     <button
                                         type="button"
                                         onClick={() => setSkySlopePopup(prev => ({ ...prev, segment: 'other_income' }))}
-                                        className={`flex-1 py-3 text-xs font-bold border-b-2 text-center transition-all ${
-                                            skySlopePopup.segment === 'other_income'
-                                                ? 'border-emerald-600 text-emerald-700 bg-emerald-50/10'
-                                                : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50/50'
-                                        }`}
+                                        className={`flex-1 py-3 text-xs font-bold border-b-2 text-center transition-all ${skySlopePopup.segment === 'other_income'
+                                            ? 'border-emerald-600 text-emerald-700 bg-emerald-50/10'
+                                            : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50/50'
+                                            }`}
                                     >
                                         Other Income Record
                                     </button>
@@ -979,87 +979,230 @@ function CommissionAdvances() {
                 <div className="p-8 max-w-3xl mx-auto w-full space-y-6">
                     {/* Top Header Block */}
                     <div className="space-y-2 border-b border-slate-200/80 pb-5">
-                    <button
-                        onClick={handleBackToList}
-                        className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-800 transition-colors select-none"
-                    >
-                        <IconArrowLeft /> Back to Commission Advances
-                    </button>
-                    <div className="flex justify-between items-end pt-2">
-                        <div>
-                            <h1 className="text-2xl font-bold tracking-tight text-slate-900">Log New Commission Advance</h1>
-                            <p className="text-sm text-slate-500 mt-1">
-                                Fill in the details below to record a new advance entry.
-                            </p>
+                        <button
+                            onClick={handleBackToList}
+                            className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-800 transition-colors select-none"
+                        >
+                            <IconArrowLeft /> Back to Commission Advances
+                        </button>
+                        <div className="flex justify-between items-end pt-2">
+                            <div>
+                                <h1 className="text-2xl font-bold tracking-tight text-slate-900">Log New Commission Advance</h1>
+                                <p className="text-sm text-slate-500 mt-1">
+                                    Fill in the details below to record a new advance entry.
+                                </p>
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                {/* Form Card */}
-                <Card className="border-slate-200/80 shadow-sm bg-white overflow-hidden">
-                    <CardContent className="p-6">
-                        <form onSubmit={handleLogFormSubmit} className="space-y-4">
-                            {/* Row 1: Agent Name & Company */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {/* Agent Name with Autocomplete Suggestions */}
-                                <div className="space-y-1 relative">
-                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block" htmlFor="log-agent-name">
-                                        Agent Name <span className="text-red-500">*</span>
-                                    </label>
-                                    {/* Wrapper for input + inline spinner */}
-                                    <div className="relative">
-                                        <Input
-                                            id="log-agent-name"
-                                            name="agent_name"
-                                            value={logForm.agent_name}
-                                            onChange={(e) => {
-                                                handleLogFormChange(e);
-                                                setShowAgentSuggestions(false);
-                                                setSelectedAgentInfo(null);
-                                            }}
-                                            onBlur={() => setTimeout(() => setShowAgentSuggestions(false), 150)}
-                                            placeholder="Type to search agent..."
-                                            required
-                                            autoComplete="off"
-                                            className={`w-full h-9 text-sm ${fetchingAgentSuggestions ? 'pr-8' : ''}`}
-                                        />
-                                        {fetchingAgentSuggestions && (
-                                            <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
-                                                <svg className="animate-spin h-3.5 w-3.5 text-blue-400" fill="none" viewBox="0 0 24 24">
-                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                                                </svg>
+                    {/* Form Card */}
+                    <Card className="border-slate-200/80 shadow-sm bg-white overflow-hidden">
+                        <CardContent className="p-6">
+                            <form onSubmit={handleLogFormSubmit} className="space-y-4">
+                                {/* Row 1: Agent Name & Company */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {/* Agent Name with Autocomplete Suggestions */}
+                                    <div className="space-y-1 relative">
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block" htmlFor="log-agent-name">
+                                            Agent Name <span className="text-red-500">*</span>
+                                        </label>
+                                        {/* Wrapper for input + inline spinner */}
+                                        <div className="relative">
+                                            <Input
+                                                id="log-agent-name"
+                                                name="agent_name"
+                                                value={logForm.agent_name}
+                                                onChange={(e) => {
+                                                    handleLogFormChange(e);
+                                                    setShowAgentSuggestions(false);
+                                                    setSelectedAgentInfo(null);
+                                                }}
+                                                onBlur={() => setTimeout(() => setShowAgentSuggestions(false), 150)}
+                                                placeholder="Type to search agent..."
+                                                required
+                                                autoComplete="off"
+                                                className={`w-full h-9 text-sm ${fetchingAgentSuggestions ? 'pr-8' : ''}`}
+                                            />
+                                            {fetchingAgentSuggestions && (
+                                                <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
+                                                    <svg className="animate-spin h-3.5 w-3.5 text-blue-400" fill="none" viewBox="0 0 24 24">
+                                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                                    </svg>
+                                                </div>
+                                            )}
+                                        </div>
+                                        {showAgentSuggestions && !fetchingAgentSuggestions && agentSuggestions.length > 0 && (
+                                            <div className="absolute z-30 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-56 overflow-y-auto py-1">
+                                                {agentSuggestions.map((item, idx) => {
+                                                    const nameStr = typeof item === 'string' ? item : (item.display_name || item.agent_name || item.name || JSON.stringify(item));
+                                                    const status = typeof item === 'object' ? (item.agent_status || '') : '';
+                                                    const isActive = status.toLowerCase() === 'active';
+                                                    return (
+                                                        <button
+                                                            key={idx}
+                                                            type="button"
+                                                            onMouseDown={(e) => {
+                                                                e.preventDefault();
+                                                                agentJustSelectedRef.current = true;
+                                                                const displayName = typeof item === 'string' ? item : (item.display_name || item.agent_name || nameStr);
+                                                                setLogForm(prev => ({ ...prev, agent_name: displayName }));
+                                                                if (typeof item === 'object') {
+                                                                    setSelectedAgentInfo(item);
+                                                                }
+                                                                setShowAgentSuggestions(false);
+                                                            }}
+                                                            className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 text-slate-800 transition-colors flex items-center justify-between gap-2 border-b border-slate-50 last:border-0"
+                                                        >
+                                                            <span className="font-semibold text-slate-800">{nameStr}</span>
+                                                            {status && (
+                                                                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider shrink-0 ${isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                                                                    }`}>
+                                                                    <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                                                                    {status}
+                                                                </span>
+                                                            )}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                        {/* Selected Agent Info Card */}
+                                        {selectedAgentInfo && (
+                                            <div className="mt-2 rounded-lg border border-blue-100 bg-blue-50/60 px-3.5 py-3 space-y-2">
+                                                {/* Status row */}
+                                                <div className="flex items-center gap-2">
+                                                    <span
+                                                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${(selectedAgentInfo.agent_status || '').toLowerCase() === 'active'
+                                                            ? 'bg-emerald-100 text-emerald-700'
+                                                            : 'bg-amber-100 text-amber-700'
+                                                            }`}
+                                                    >
+                                                        <span className={`w-1.5 h-1.5 rounded-full ${(selectedAgentInfo.agent_status || '').toLowerCase() === 'active'
+                                                            ? 'bg-emerald-500'
+                                                            : 'bg-amber-500'
+                                                            }`} />
+                                                        {selectedAgentInfo.agent_status || 'Unknown'}
+                                                    </span>
+                                                </div>
+                                                {/* General Notes */}
+                                                {selectedAgentInfo.general_notes && (
+                                                    <div>
+                                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">General Notes</p>
+                                                        <p className="text-xs text-slate-700 leading-snug">{selectedAgentInfo.general_notes}</p>
+                                                    </div>
+                                                )}
+                                                {/* Internal Notes */}
+                                                {selectedAgentInfo.internal_notes && (
+                                                    <div>
+                                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Internal Notes</p>
+                                                        <p className="text-xs text-slate-700 leading-snug">{selectedAgentInfo.internal_notes}</p>
+                                                    </div>
+                                                )}
+                                                {/* Fallback if both notes are null */}
+                                                {!selectedAgentInfo.general_notes && !selectedAgentInfo.internal_notes && (
+                                                    <p className="text-[11px] text-slate-400 italic">No notes</p>
+                                                )}
                                             </div>
                                         )}
                                     </div>
-                                    {showAgentSuggestions && !fetchingAgentSuggestions && agentSuggestions.length > 0 && (
+
+                                    {/* Company with Typeahead Suggestions */}
+                                    <div className="space-y-1 relative">
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block" htmlFor="log-company">
+                                            Company <span className="text-red-500">*</span>
+                                        </label>
+                                        <Input
+                                            id="log-company"
+                                            name="company"
+                                            value={logForm.company}
+                                            onChange={(e) => {
+                                                handleLogFormChange(e);
+                                                setShowCompanySuggestions(true);
+                                            }}
+                                            onFocus={() => setShowCompanySuggestions(true)}
+                                            onBlur={() => setTimeout(() => setShowCompanySuggestions(false), 150)}
+                                            placeholder="Select or type a new company..."
+                                            required
+                                            autoComplete="off"
+                                            className="w-full h-9 text-sm"
+                                        />
+                                        {showCompanySuggestions && dropdownOptions.company.length > 0 && (() => {
+                                            const filtered = dropdownOptions.company.filter(c =>
+                                                c.toLowerCase().includes((logForm.company || '').toLowerCase())
+                                            );
+                                            return filtered.length > 0 ? (
+                                                <div className="absolute z-30 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-48 overflow-y-auto py-1">
+                                                    {filtered.map((comp) => (
+                                                        <button
+                                                            key={comp}
+                                                            type="button"
+                                                            onMouseDown={(e) => {
+                                                                e.preventDefault();
+                                                                setLogForm(prev => ({ ...prev, company: comp }));
+                                                                setShowCompanySuggestions(false);
+                                                            }}
+                                                            className="w-full text-left px-3 py-1.5 text-sm hover:bg-blue-50 text-slate-800 transition-colors border-b border-slate-50 last:border-0"
+                                                        >
+                                                            {comp}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            ) : null;
+                                        })()}
+                                    </div>
+                                </div>
+
+                                {/* Row 2: Property Address (full width, autocomplete) */}
+                                <div className="space-y-1 relative">
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block" htmlFor="log-address">
+                                        Property Address <span className="text-red-500">*</span>
+                                    </label>
+                                    <Input
+                                        id="log-address"
+                                        name="address"
+                                        value={logForm.address}
+                                        onChange={(e) => {
+                                            handleLogFormChange(e);
+                                            setShowAddressSuggestions(false);
+                                            setSelectedAddressInfo(null);
+                                        }}
+                                        onBlur={() => setTimeout(() => setShowAddressSuggestions(false), 150)}
+                                        placeholder="Type to search address..."
+                                        required
+                                        autoComplete="off"
+                                        className="w-full h-9 text-sm"
+                                    />
+                                    {showAddressSuggestions && addressSuggestions.length > 0 && (
                                         <div className="absolute z-30 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-56 overflow-y-auto py-1">
-                                            {agentSuggestions.map((item, idx) => {
-                                                const nameStr = typeof item === 'string' ? item : (item.display_name || item.agent_name || item.name || JSON.stringify(item));
-                                                const status = typeof item === 'object' ? (item.agent_status || '') : '';
-                                                const isActive = status.toLowerCase() === 'active';
+                                            {addressSuggestions.map((item, idx) => {
+                                                const addrStr = typeof item === 'string' ? item : (item.address || item.property_address || item.name || JSON.stringify(item));
+                                                const status = typeof item === 'object' ? (item.ss_status || '') : '';
+                                                const statusColor = {
+                                                    closed: 'bg-emerald-100 text-emerald-700 [&>span]:bg-emerald-500',
+                                                    archived: 'bg-slate-100 text-slate-500 [&>span]:bg-slate-400',
+                                                    active: 'bg-blue-100 text-blue-700 [&>span]:bg-blue-500',
+                                                }[status.toLowerCase()] || 'bg-amber-100 text-amber-700 [&>span]:bg-amber-500';
                                                 return (
                                                     <button
                                                         key={idx}
                                                         type="button"
                                                         onMouseDown={(e) => {
                                                             e.preventDefault();
-                                                            agentJustSelectedRef.current = true;
-                                                            const displayName = typeof item === 'string' ? item : (item.display_name || item.agent_name || nameStr);
-                                                            setLogForm(prev => ({ ...prev, agent_name: displayName }));
+                                                            addressJustSelectedRef.current = true;
+                                                            const addrValue = typeof item === 'string' ? item : (item.address || item.property_address || addrStr);
+                                                            setLogForm(prev => ({ ...prev, address: addrValue }));
                                                             if (typeof item === 'object') {
-                                                                setSelectedAgentInfo(item);
+                                                                setSelectedAddressInfo(item);
                                                             }
-                                                            setShowAgentSuggestions(false);
+                                                            setShowAddressSuggestions(false);
                                                         }}
                                                         className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 text-slate-800 transition-colors flex items-center justify-between gap-2 border-b border-slate-50 last:border-0"
                                                     >
-                                                        <span className="font-semibold text-slate-800">{nameStr}</span>
+                                                        <span className="font-semibold text-slate-800">{addrStr}</span>
                                                         {status && (
-                                                            <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider shrink-0 ${
-                                                                isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
-                                                            }`}>
-                                                                <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                                                            <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider shrink-0 ${statusColor}`}>
+                                                                <span className="w-1.5 h-1.5 rounded-full" />
                                                                 {status}
                                                             </span>
                                                         )}
@@ -1068,299 +1211,153 @@ function CommissionAdvances() {
                                             })}
                                         </div>
                                     )}
-                                    {/* Selected Agent Info Card */}
-                                    {selectedAgentInfo && (
-                                        <div className="mt-2 rounded-lg border border-blue-100 bg-blue-50/60 px-3.5 py-3 space-y-2">
-                                            {/* Status row */}
-                                            <div className="flex items-center gap-2">
-                                                <span
-                                                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                                                        (selectedAgentInfo.agent_status || '').toLowerCase() === 'active'
-                                                            ? 'bg-emerald-100 text-emerald-700'
-                                                            : 'bg-amber-100 text-amber-700'
-                                                    }`}
+                                    {/* Selected Address Info Card */}
+                                    {selectedAddressInfo && (
+                                        <div className="mt-2 rounded-lg border border-blue-100 bg-blue-50/60 px-3.5 py-3 flex items-center gap-4 flex-wrap">
+                                            {selectedAddressInfo.ss_status && (() => {
+                                                const s = (selectedAddressInfo.ss_status || '').toLowerCase();
+                                                const cls = s === 'closed'
+                                                    ? 'bg-emerald-100 text-emerald-700'
+                                                    : s === 'archived'
+                                                        ? 'bg-slate-100 text-slate-500'
+                                                        : 'bg-amber-100 text-amber-700';
+                                                const dot = s === 'closed'
+                                                    ? 'bg-emerald-500'
+                                                    : s === 'archived'
+                                                        ? 'bg-slate-400'
+                                                        : 'bg-amber-500';
+                                                return (
+                                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider shrink-0 ${cls}`}>
+                                                        <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />
+                                                        {selectedAddressInfo.ss_status}
+                                                    </span>
+                                                );
+                                            })()}
+                                            {selectedAddressInfo.close_date && (
+                                                <div>
+                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Close Date</p>
+                                                    <p className="text-xs font-semibold text-slate-700">{formatDateUS(selectedAddressInfo.close_date)}</p>
+                                                </div>
+                                            )}
+                                            {selectedAddressInfo.saleguid && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => openSkySlopePopup(selectedAddressInfo.saleguid)}
+                                                    className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 transition-all shadow-sm shrink-0"
                                                 >
-                                                    <span className={`w-1.5 h-1.5 rounded-full ${
-                                                        (selectedAgentInfo.agent_status || '').toLowerCase() === 'active'
-                                                            ? 'bg-emerald-500'
-                                                            : 'bg-amber-500'
-                                                    }`} />
-                                                    {selectedAgentInfo.agent_status || 'Unknown'}
-                                                </span>
-                                            </div>
-                                            {/* General Notes */}
-                                            {selectedAgentInfo.general_notes && (
-                                                <div>
-                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">General Notes</p>
-                                                    <p className="text-xs text-slate-700 leading-snug">{selectedAgentInfo.general_notes}</p>
-                                                </div>
-                                            )}
-                                            {/* Internal Notes */}
-                                            {selectedAgentInfo.internal_notes && (
-                                                <div>
-                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Internal Notes</p>
-                                                    <p className="text-xs text-slate-700 leading-snug">{selectedAgentInfo.internal_notes}</p>
-                                                </div>
-                                            )}
-                                            {/* Fallback if both notes are null */}
-                                            {!selectedAgentInfo.general_notes && !selectedAgentInfo.internal_notes && (
-                                                <p className="text-[11px] text-slate-400 italic">No notes</p>
+                                                    <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                    </svg>
+                                                    Details
+                                                </button>
                                             )}
                                         </div>
                                     )}
                                 </div>
 
-                                {/* Company with Typeahead Suggestions */}
-                                <div className="space-y-1 relative">
-                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block" htmlFor="log-company">
-                                        Company <span className="text-red-500">*</span>
-                                    </label>
-                                    <Input
-                                        id="log-company"
-                                        name="company"
-                                        value={logForm.company}
-                                        onChange={(e) => {
-                                            handleLogFormChange(e);
-                                            setShowCompanySuggestions(true);
-                                        }}
-                                        onFocus={() => setShowCompanySuggestions(true)}
-                                        onBlur={() => setTimeout(() => setShowCompanySuggestions(false), 150)}
-                                        placeholder="Select or type a new company..."
-                                        required
-                                        autoComplete="off"
-                                        className="w-full h-9 text-sm"
-                                    />
-                                    {showCompanySuggestions && dropdownOptions.company.length > 0 && (() => {
-                                        const filtered = dropdownOptions.company.filter(c =>
-                                            c.toLowerCase().includes((logForm.company || '').toLowerCase())
-                                        );
-                                        return filtered.length > 0 ? (
-                                            <div className="absolute z-30 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-48 overflow-y-auto py-1">
-                                                {filtered.map((comp) => (
-                                                    <button
-                                                        key={comp}
-                                                        type="button"
-                                                        onMouseDown={(e) => {
-                                                            e.preventDefault();
-                                                            setLogForm(prev => ({ ...prev, company: comp }));
-                                                            setShowCompanySuggestions(false);
-                                                        }}
-                                                        className="w-full text-left px-3 py-1.5 text-sm hover:bg-blue-50 text-slate-800 transition-colors border-b border-slate-50 last:border-0"
-                                                    >
-                                                        {comp}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        ) : null;
-                                    })()}
+                                {/* Row 3: Amount & Date */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block" htmlFor="log-amount">
+                                            Amount ($) <span className="text-red-500">*</span>
+                                        </label>
+                                        <Input
+                                            id="log-amount"
+                                            name="amount"
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            value={logForm.amount}
+                                            onChange={handleLogFormChange}
+                                            placeholder="e.g. 5880"
+                                            required
+                                            className="w-full h-9 text-sm"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block" htmlFor="log-date">
+                                            Approval Date
+                                        </label>
+                                        <Input
+                                            id="log-date"
+                                            name="date"
+                                            type="date"
+                                            value={logForm.date}
+                                            onChange={handleLogFormChange}
+                                            className="w-full h-9 text-sm bg-white"
+                                        />
+                                    </div>
                                 </div>
-                            </div>
 
-                            {/* Row 2: Property Address (full width, autocomplete) */}
-                            <div className="space-y-1 relative">
-                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block" htmlFor="log-address">
-                                    Property Address <span className="text-red-500">*</span>
-                                </label>
-                                <Input
-                                    id="log-address"
-                                    name="address"
-                                    value={logForm.address}
-                                    onChange={(e) => {
-                                        handleLogFormChange(e);
-                                        setShowAddressSuggestions(false);
-                                        setSelectedAddressInfo(null);
-                                    }}
-                                    onBlur={() => setTimeout(() => setShowAddressSuggestions(false), 150)}
-                                    placeholder="Type to search address..."
-                                    required
-                                    autoComplete="off"
-                                    className="w-full h-9 text-sm"
-                                />
-                                {showAddressSuggestions && addressSuggestions.length > 0 && (
-                                    <div className="absolute z-30 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-56 overflow-y-auto py-1">
-                                        {addressSuggestions.map((item, idx) => {
-                                            const addrStr = typeof item === 'string' ? item : (item.address || item.property_address || item.name || JSON.stringify(item));
-                                            const status = typeof item === 'object' ? (item.ss_status || '') : '';
-                                            const statusColor = {
-                                                closed:    'bg-emerald-100 text-emerald-700 [&>span]:bg-emerald-500',
-                                                archived:  'bg-slate-100 text-slate-500 [&>span]:bg-slate-400',
-                                                active:    'bg-blue-100 text-blue-700 [&>span]:bg-blue-500',
-                                            }[status.toLowerCase()] || 'bg-amber-100 text-amber-700 [&>span]:bg-amber-500';
-                                            return (
-                                                <button
-                                                    key={idx}
-                                                    type="button"
-                                                    onMouseDown={(e) => {
-                                                        e.preventDefault();
-                                                        addressJustSelectedRef.current = true;
-                                                        const addrValue = typeof item === 'string' ? item : (item.address || item.property_address || addrStr);
-                                                        setLogForm(prev => ({ ...prev, address: addrValue }));
-                                                        if (typeof item === 'object') {
-                                                            setSelectedAddressInfo(item);
-                                                        }
-                                                        setShowAddressSuggestions(false);
-                                                    }}
-                                                    className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 text-slate-800 transition-colors flex items-center justify-between gap-2 border-b border-slate-50 last:border-0"
-                                                >
-                                                    <span className="font-semibold text-slate-800">{addrStr}</span>
-                                                    {status && (
-                                                        <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider shrink-0 ${statusColor}`}>
-                                                            <span className="w-1.5 h-1.5 rounded-full" />
-                                                            {status}
-                                                        </span>
-                                                    )}
-                                                </button>
-                                            );
-                                        })}
+                                {/* Row 4: Notes */}
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block" htmlFor="log-notes">
+                                        Notes
+                                    </label>
+                                    <textarea
+                                        id="log-notes"
+                                        name="notes"
+                                        value={logForm.notes}
+                                        onChange={handleLogFormChange}
+                                        placeholder="Optional notes about this advance..."
+                                        rows={3}
+                                        className="flex w-full rounded-md border border-input bg-white px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring text-slate-800 resize-none"
+                                    />
+                                </div>
+
+                                {/* Success Banner */}
+                                {logSuccess && (
+                                    <div className="flex items-center gap-3 px-4 py-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm font-semibold">
+                                        <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        Commission advance logged successfully.
                                     </div>
                                 )}
-                                {/* Selected Address Info Card */}
-                                {selectedAddressInfo && (
-                                    <div className="mt-2 rounded-lg border border-blue-100 bg-blue-50/60 px-3.5 py-3 flex items-center gap-4 flex-wrap">
-                                        {selectedAddressInfo.ss_status && (() => {
-                                            const s = (selectedAddressInfo.ss_status || '').toLowerCase();
-                                            const cls = s === 'closed'
-                                                ? 'bg-emerald-100 text-emerald-700'
-                                                : s === 'archived'
-                                                    ? 'bg-slate-100 text-slate-500'
-                                                    : 'bg-amber-100 text-amber-700';
-                                            const dot = s === 'closed'
-                                                ? 'bg-emerald-500'
-                                                : s === 'archived'
-                                                    ? 'bg-slate-400'
-                                                    : 'bg-amber-500';
-                                            return (
-                                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider shrink-0 ${cls}`}>
-                                                    <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />
-                                                    {selectedAddressInfo.ss_status}
-                                                </span>
-                                            );
-                                        })()}
-                                        {selectedAddressInfo.close_date && (
-                                            <div>
-                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Close Date</p>
-                                                <p className="text-xs font-semibold text-slate-700">{formatDateUS(selectedAddressInfo.close_date)}</p>
-                                            </div>
-                                        )}
-                                        {selectedAddressInfo.saleguid && (
-                                            <button
-                                                type="button"
-                                                onClick={() => openSkySlopePopup(selectedAddressInfo.saleguid)}
-                                                className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 transition-all shadow-sm shrink-0"
-                                            >
-                                                <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+
+                                {/* Error Banner */}
+                                {logError && (
+                                    <div className="flex items-start gap-3 px-4 py-2.5 rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm font-semibold">
+                                        <svg className="h-4 w-4 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                                        </svg>
+                                        {logError}
+                                    </div>
+                                )}
+
+                                {/* Actions */}
+                                <div className="pt-2 flex items-center justify-end gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={handleBackToList}
+                                        className="inline-flex items-center justify-center whitespace-nowrap rounded-md font-semibold transition-colors h-9 px-4 text-sm border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 select-none"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <Button
+                                        id="log-advance-submit-btn"
+                                        type="submit"
+                                        disabled={logSubmitting}
+                                        className="bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-sm transition-all h-9 min-w-[120px]"
+                                    >
+                                        {logSubmitting ? (
+                                            <span className="flex items-center gap-2">
+                                                <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                                                 </svg>
-                                                Details
-                                            </button>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Row 3: Amount & Date */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="space-y-1">
-                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block" htmlFor="log-amount">
-                                        Amount ($) <span className="text-red-500">*</span>
-                                    </label>
-                                    <Input
-                                        id="log-amount"
-                                        name="amount"
-                                        type="number"
-                                        min="0"
-                                        step="0.01"
-                                        value={logForm.amount}
-                                        onChange={handleLogFormChange}
-                                        placeholder="e.g. 5880"
-                                        required
-                                        className="w-full h-9 text-sm"
-                                    />
+                                                Submitting...
+                                            </span>
+                                        ) : 'Submit Advance'}
+                                    </Button>
                                 </div>
-                                <div className="space-y-1">
-                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block" htmlFor="log-date">
-                                        Approval Date
-                                    </label>
-                                    <Input
-                                        id="log-date"
-                                        name="date"
-                                        type="date"
-                                        value={logForm.date}
-                                        onChange={handleLogFormChange}
-                                        className="w-full h-9 text-sm bg-white"
-                                    />
-                                </div>
-                            </div>
+                            </form>
+                        </CardContent>
+                    </Card>
+                </div>
 
-                            {/* Row 4: Notes */}
-                            <div className="space-y-1">
-                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block" htmlFor="log-notes">
-                                    Notes
-                                </label>
-                                <textarea
-                                    id="log-notes"
-                                    name="notes"
-                                    value={logForm.notes}
-                                    onChange={handleLogFormChange}
-                                    placeholder="Optional notes about this advance..."
-                                    rows={3}
-                                    className="flex w-full rounded-md border border-input bg-white px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring text-slate-800 resize-none"
-                                />
-                            </div>
-
-                            {/* Success Banner */}
-                            {logSuccess && (
-                                <div className="flex items-center gap-3 px-4 py-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm font-semibold">
-                                    <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
-                                    Commission advance logged successfully.
-                                </div>
-                            )}
-
-                            {/* Error Banner */}
-                            {logError && (
-                                <div className="flex items-start gap-3 px-4 py-2.5 rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm font-semibold">
-                                    <svg className="h-4 w-4 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-                                    </svg>
-                                    {logError}
-                                </div>
-                            )}
-
-                            {/* Actions */}
-                            <div className="pt-2 flex items-center justify-end gap-3">
-                                <button
-                                    type="button"
-                                    onClick={handleBackToList}
-                                    className="inline-flex items-center justify-center whitespace-nowrap rounded-md font-semibold transition-colors h-9 px-4 text-sm border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 select-none"
-                                >
-                                    Cancel
-                                </button>
-                                <Button
-                                    id="log-advance-submit-btn"
-                                    type="submit"
-                                    disabled={logSubmitting}
-                                    className="bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-sm transition-all h-9 min-w-[120px]"
-                                >
-                                    {logSubmitting ? (
-                                        <span className="flex items-center gap-2">
-                                            <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                            </svg>
-                                            Submitting...
-                                        </span>
-                                    ) : 'Submit Advance'}
-                                </Button>
-                            </div>
-                        </form>
-                    </CardContent>
-                </Card>
-            </div>
-
-            {renderSkySlopePopupModal()}
+                {renderSkySlopePopupModal()}
             </>
         );
     }
@@ -1370,504 +1367,594 @@ function CommissionAdvances() {
         return (
             <>
                 <div className="p-8 max-w-7xl mx-auto w-full space-y-6">
-                {/* Back Link */}
-                <div>
-                    <button
-                        onClick={handleBackToList}
-                        className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-800 transition-colors select-none"
-                    >
-                        <IconArrowLeft /> Back to Commission Advances
-                    </button>
-                </div>
-
-                {/* Agent Header Info Card */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white p-6 rounded-xl border border-slate-200/80 shadow-sm">
-                    <div className="flex items-center gap-4">
-                        <div>
-                            <h2 className="text-xl font-bold text-slate-900">{activeAgentName}</h2>
-                            <p className="text-xs text-slate-400 mt-1 font-medium">Commission Advance Detail History</p>
-                        </div>
+                    {/* Back Link */}
+                    <div>
+                        <button
+                            onClick={handleBackToList}
+                            className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-800 transition-colors select-none"
+                        >
+                            <IconArrowLeft /> Back to Commission Advances
+                        </button>
                     </div>
-                    <div className="flex gap-8 items-center">
-                        <div className="text-right">
-                            <p className="text-xs text-slate-400 font-semibold tracking-wide uppercase">Total Records</p>
-                            <p className="text-xl font-bold text-slate-900 mt-0.5">
-                                {detailLoading ? '...' : detailItems.length}
-                            </p>
-                        </div>
-                        <div className="text-right">
-                            <p className="text-xs text-slate-400 font-semibold tracking-wide uppercase">Total Outstanding</p>
-                            <p className="text-xl font-bold text-slate-900 mt-0.5">
-                                {detailLoading ? '...' : formatCurrency(detailItems.reduce((s, i) => s + (i.outstanding_amount || 0), 0))}
-                            </p>
-                        </div>
-                    </div>
-                </div>
 
-                {/* Detailed Table */}
-                <Card className="border-slate-200/80 shadow-sm overflow-hidden bg-white">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead className="w-1/4">Property Address</TableHead>
-                                <TableHead>Company</TableHead>
-                                <TableHead>Original Amount</TableHead>
-                                <TableHead>Outstanding</TableHead>
-                                <TableHead>Approved Date</TableHead>
-                                <TableHead>Paid Date</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead className="w-1/5">Notes</TableHead>
-                                <TableHead className="w-48 text-right">Action</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {detailLoading ? (
-                                Array.from({ length: 4 }).map((_, idx) => (
-                                    <TableRow key={idx} className="animate-pulse">
-                                        <TableCell><div className="h-4 bg-slate-100 rounded w-4/5" /></TableCell>
-                                        <TableCell><div className="h-4 bg-slate-100 rounded w-16" /></TableCell>
-                                        <TableCell><div className="h-4 bg-slate-100 rounded w-14" /></TableCell>
-                                        <TableCell><div className="h-4 bg-slate-100 rounded w-14" /></TableCell>
-                                        <TableCell><div className="h-4 bg-slate-100 rounded w-20" /></TableCell>
-                                        <TableCell><div className="h-4 bg-slate-100 rounded w-20" /></TableCell>
-                                        <TableCell><div className="h-6 bg-slate-100 rounded-full w-20" /></TableCell>
-                                        <TableCell><div className="h-4 bg-slate-100 rounded w-3/4" /></TableCell>
-                                        <TableCell><div className="h-8 bg-slate-100 rounded w-12 ml-auto" /></TableCell>
-                                    </TableRow>
-                                ))
-                            ) : detailError ? (
-                                <TableRow>
-                                    <TableCell colSpan={9} className="text-center py-10 text-red-500 bg-red-50/50">
-                                        Error loading details: {detailError}
-                                    </TableCell>
-                                </TableRow>
-                            ) : detailItems.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={9} className="text-center py-12 text-slate-400">
-                                        No transaction items found for this agent.
-                                    </TableCell>
-                                </TableRow>
-                            ) : (
-                                detailItems.map((item, idx) => (
-                                    <React.Fragment key={item.id ?? idx}>
-                                        <TableRow className={expandedLogs[item.id] ? "border-b-0" : ""}>
-                                            <TableCell className="font-medium text-slate-800 text-sm">
-                                                {(() => {
-                                                    const addr = item.address || '';
-                                                    const commaIdx = addr.indexOf(',');
-                                                    if (!addr) return '—';
-                                                    if (commaIdx === -1) return addr;
-                                                    const line1 = addr.slice(0, commaIdx).trim();
-                                                    const line2 = addr.slice(commaIdx + 1).trim();
-                                                    return (
-                                                        <span className="flex flex-col gap-0.5">
-                                                            <span className="font-semibold text-slate-800">{line1}</span>
-                                                            <span className="text-xs text-slate-400 font-normal">{line2}</span>
-                                                        </span>
-                                                    );
-                                                })()}
-                                            </TableCell>
-                                            <TableCell className="text-slate-600 font-medium text-sm">
-                                                {item.company || '—'}
-                                            </TableCell>
-                                            <TableCell className="font-semibold text-slate-900 text-sm">
-                                                {formatCurrency(item.original_amount)}
-                                            </TableCell>
-                                            <TableCell className="text-sm">
-                                                <span className={`font-bold ${
-                                                    (item.outstanding_amount || 0) > 0
-                                                        ? 'text-red-600'
-                                                        : 'text-emerald-600'
-                                                }`}>
-                                                    {formatCurrency(item.outstanding_amount)}
-                                                </span>
-                                            </TableCell>
-                                            <TableCell className="text-slate-500 font-medium text-sm">
-                                                {formatDateUS(item.approved_date)}
-                                            </TableCell>
-                                            <TableCell className="text-slate-500 font-medium text-sm">
-                                                {formatDateUS(item.paid_date)}
-                                            </TableCell>
-                                            <TableCell>
-                                                {renderDetailStatusBadge(item.status)}
-                                            </TableCell>
-                                            <TableCell
-                                                className="text-slate-500 italic text-xs max-w-[180px] truncate"
-                                                title={item.notes || ''}
-                                            >
-                                                {item.notes || '—'}
-                                            </TableCell>
-                                            <TableCell className="text-right">
-                                                <div className="flex items-center justify-end gap-1.5">
-                                                    <button
-                                                        onClick={() => toggleLogs(item.id)}
-                                                        className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-semibold border transition-all shadow-sm ${
-                                                            expandedLogs[item.id]
-                                                                ? 'bg-blue-600 text-white border-blue-600'
-                                                                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-800'
-                                                        }`}
-                                                    >
-                                                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                        </svg>
-                                                        Logs {item.history && item.history.length > 0 ? `(${item.history.length})` : ''}
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        disabled={!item.saleguid && !item.sale_guid}
-                                                        onClick={() => {
-                                                            const guid = item.saleguid || item.sale_guid;
-                                                            if (guid) openSkySlopePopup(guid);
-                                                        }}
-                                                        title={item.saleguid || item.sale_guid ? "View SkySlope Details" : "No SkySlope Sale GUID linked"}
-                                                        className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold border transition-all shadow-sm ${
-                                                            item.saleguid || item.sale_guid
-                                                                ? 'border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 hover:border-indigo-300 cursor-pointer'
-                                                                : 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed opacity-60'
-                                                        }`}
-                                                    >
-                                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                                        </svg>
-                                                        Details
-                                                    </button>
-                                                    <button
-                                                        onClick={() => openEditModal(item)}
-                                                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold border border-slate-200 bg-white text-slate-600 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 transition-all shadow-sm"
-                                                    >
-                                                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                                        </svg>
-                                                        Edit
-                                                    </button>
-                                                </div>
-                                            </TableCell>
-                                        </TableRow>
-
-                                        {/* Transaction History Section */}
-                                        {expandedLogs[item.id] && (
-                                            <TableRow className="bg-slate-50/70 hover:bg-slate-50/70 border-b border-slate-200">
-                                                <TableCell colSpan={9} className="py-3 px-6">
-                                                    {item.history && item.history.length > 0 ? (
-                                                        <div className="space-y-3">
-                                                            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500">
-                                                                <svg className="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                                </svg>
-                                                                History Log ({item.history.length} {item.history.length === 1 ? 'entry' : 'entries'})
-                                                            </div>
-                                                            <div className="space-y-3">
-                                                                {item.history.map((hist, hIdx) => (
-                                                                    <div key={hIdx} className="bg-white border border-slate-200/90 rounded-lg p-3 shadow-2xs space-y-2">
-                                                                        <div className="text-xs font-semibold text-slate-700 border-b border-slate-100 pb-1.5 flex items-center gap-1.5">
-                                                                            <span className="w-2 h-2 rounded-full bg-blue-500" />
-                                                                            {formatHistoryDateTime(hist.edited_at)}
-                                                                        </div>
-                                                                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 pt-1">
-                                                                            {hist.changes && hist.changes.map((change, cIdx) => (
-                                                                                <div key={cIdx} className="bg-slate-50 border border-slate-100 rounded-md p-2.5 text-xs space-y-1">
-                                                                                    <div className="font-semibold text-slate-700 text-xs">
-                                                                                        {change.field}
-                                                                                    </div>
-                                                                                    <div className="flex items-center gap-1.5 font-mono text-slate-800 text-xs flex-wrap">
-                                                                                        <span className="text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200/60">
-                                                                                            {change.old_value !== null && change.old_value !== undefined && change.old_value !== '' ? String(change.old_value) : '—'}
-                                                                                        </span>
-                                                                                        <span className="text-slate-400 font-sans font-bold">→</span>
-                                                                                        <span className="font-semibold text-slate-900 bg-white px-1.5 py-0.5 rounded border border-slate-200 shadow-2xs">
-                                                                                            {change.new_value !== null && change.new_value !== undefined && change.new_value !== '' ? String(change.new_value) : '—'}
-                                                                                        </span>
-                                                                                    </div>
-                                                                                </div>
-                                                                            ))}
-                                                                        </div>
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        </div>
-                                                    ) : (
-                                                        <div className="text-xs text-slate-400 italic py-1">
-                                                            No history logs recorded for this transaction.
-                                                        </div>
-                                                    )}
-                                                </TableCell>
-                                            </TableRow>
-                                        )}
-                                    </React.Fragment>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
-                </Card>
-
-                {/* ── Edit Modal ─────────────────────────────────────────── */}
-                {editItem && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backdropFilter: 'blur(4px)', backgroundColor: 'rgba(15,23,42,0.45)' }}>
-                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl border border-slate-200/80 overflow-hidden">
-                            {/* Modal Header */}
-                            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-                                <div>
-                                    <h3 className="text-base font-bold text-slate-900">Edit Advance Record</h3>
-                                    <p className="text-xs text-slate-400 mt-0.5">{editItem.address || 'Record #' + editItem.id}</p>
-                                </div>
-                                <button
-                                    onClick={closeEditModal}
-                                    className="h-8 w-8 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors"
-                                >
-                                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                </button>
+                    {/* Agent Header Info Card */}
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white p-6 rounded-xl border border-slate-200/80 shadow-sm">
+                        <div className="flex items-center gap-4">
+                            <div>
+                                <h2 className="text-xl font-bold text-slate-900">{activeAgentName}</h2>
+                                <p className="text-xs text-slate-400 mt-1 font-medium">Commission Advance Detail History</p>
                             </div>
+                        </div>
+                        <div className="flex gap-8 items-center">
+                            <div className="text-right">
+                                <p className="text-xs text-slate-400 font-semibold tracking-wide uppercase">Total Records</p>
+                                <p className="text-xl font-bold text-slate-900 mt-0.5">
+                                    {detailLoading ? '...' : detailItems.length}
+                                </p>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-xs text-slate-400 font-semibold tracking-wide uppercase">Total Outstanding</p>
+                                <p className="text-xl font-bold text-slate-900 mt-0.5">
+                                    {detailLoading ? '...' : formatCurrency(detailItems.reduce((s, i) => s + (i.outstanding_amount || 0), 0))}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
 
-                            {/* Modal Body */}
-                            <form onSubmit={handleEditSubmit} className="p-6 space-y-4">
+                    {/* Detailed Table View (Single Table with Status Column) */}
+                    <Card className="border-slate-200/80 shadow-sm overflow-hidden bg-white">
+                        <Table className="w-full">
+                            <TableHeader className="bg-slate-50/70">
+                                <TableRow className="border-b border-slate-200">
+                                    <TableHead className="w-[25%] text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                        Property Address &<br />Company
+                                    </TableHead>
+                                    <TableHead className="w-[10%] text-xs font-bold text-slate-500 uppercase tracking-wider">Original</TableHead>
+                                    <TableHead className="w-[10%] text-xs font-bold text-slate-500 uppercase tracking-wider">Paid</TableHead>
+                                    <TableHead className="w-[11%] text-xs font-bold text-slate-500 uppercase tracking-wider">Outstanding</TableHead>
+                                    <TableHead className="w-[10%] text-xs font-bold text-slate-500 uppercase tracking-wider">Approved Date</TableHead>
+                                    <TableHead className="w-[10%] text-xs font-bold text-slate-500 uppercase tracking-wider">Paid Date</TableHead>
+                                    <TableHead className="w-[11%] text-xs font-bold text-slate-500 uppercase tracking-wider">Status</TableHead>
+                                    <TableHead className="w-[8%] text-xs font-bold text-slate-500 uppercase tracking-wider">Notes</TableHead>
+                                    <TableHead className="w-[5%] text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Actions</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {detailLoading ? (
+                                    Array.from({ length: 4 }).map((_, idx) => (
+                                        <TableRow key={idx} className="animate-pulse">
+                                            <TableCell><div className="h-4 bg-slate-100 rounded w-4/5 mb-1" /><div className="h-3 bg-slate-100 rounded w-1/3" /></TableCell>
+                                            <TableCell><div className="h-4 bg-slate-100 rounded w-14" /></TableCell>
+                                            <TableCell><div className="h-4 bg-slate-100 rounded w-14" /></TableCell>
+                                            <TableCell><div className="h-4 bg-slate-100 rounded w-14" /></TableCell>
+                                            <TableCell><div className="h-4 bg-slate-100 rounded w-16" /></TableCell>
+                                            <TableCell><div className="h-4 bg-slate-100 rounded w-16" /></TableCell>
+                                            <TableCell><div className="h-6 bg-slate-100 rounded-full w-20" /></TableCell>
+                                            <TableCell><div className="h-4 bg-slate-100 rounded w-12" /></TableCell>
+                                            <TableCell><div className="h-7 bg-slate-100 rounded w-28 ml-auto" /></TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : detailError ? (
+                                    <TableRow>
+                                        <TableCell colSpan={9} className="text-center py-10 text-red-500 bg-red-50/50 font-semibold">
+                                            Error loading details: {detailError}
+                                        </TableCell>
+                                    </TableRow>
+                                ) : detailItems.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={9} className="text-center py-12 text-slate-400 font-medium">
+                                            No transaction items found for this agent.
+                                        </TableCell>
+                                    </TableRow>
+                                ) : (
+                                    detailItems.map((item, idx) => {
+                                        const addr = item.address || '';
+                                        const commaIdx = addr.indexOf(',');
+                                        const line1 = commaIdx === -1 ? addr : addr.slice(0, commaIdx).trim();
+                                        const line2 = commaIdx === -1 ? '' : addr.slice(commaIdx + 1).trim();
+                                        const paidAmount = Math.max(0, (item.original_amount || 0) - (item.outstanding_amount || 0));
 
-                                {/* Status */}
-                                <div className="space-y-1">
-                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Status</label>
-                                    <select
-                                        name="status"
-                                        value={editForm.status}
-                                        onChange={handleEditFormChange}
-                                        className="flex w-full rounded-md border border-input bg-white px-3 h-9 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring text-slate-800"
-                                    >
-                                        <option value="">— Select status —</option>
-                                        {editStatusOptions.length > 0
-                                            ? editStatusOptions.map(s => (
-                                                <option key={s} value={s}>{s}</option>
-                                            ))
-                                            : [
-                                                <option key="Pending" value="Pending">Pending</option>,
-                                                <option key="Paid" value="Paid">Paid</option>,
-                                                <option key="Wage Garnishment" value="Wage Garnishment">Wage Garnishment</option>,
-                                                <option key="Replacement" value="Replacement">Replacement</option>,
-                                            ]
-                                        }
-                                    </select>
-                                </div>
-
-                                {/* Property Address Search (visible when status is Replacement) */}
-                                {(editForm.status || '').trim().toLowerCase() === 'replacement' && (
-                                    <div className="space-y-1 relative">
-                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block" htmlFor="edit-address">
-                                            Property Address <span className="text-red-500">*</span>
-                                        </label>
-                                        <Input
-                                            id="edit-address"
-                                            name="address"
-                                            value={editForm.address || ''}
-                                            onChange={(e) => {
-                                                handleEditFormChange(e);
-                                                setShowEditAddressSuggestions(false);
-                                                setEditSelectedAddressInfo(null);
-                                            }}
-                                            onBlur={() => setTimeout(() => setShowEditAddressSuggestions(false), 150)}
-                                            placeholder="Type to search replacement address..."
-                                            autoComplete="off"
-                                            className="w-full h-9 text-sm"
-                                        />
-                                        {showEditAddressSuggestions && editAddressSuggestions.length > 0 && (
-                                            <div className="absolute z-30 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-56 overflow-y-auto py-1">
-                                                {editAddressSuggestions.map((item, idx) => {
-                                                    const addrStr = typeof item === 'string' ? item : (item.address || item.property_address || item.name || JSON.stringify(item));
-                                                    const status = typeof item === 'object' ? (item.ss_status || '') : '';
-                                                    const statusColor = {
-                                                        closed:    'bg-emerald-100 text-emerald-700 [&>span]:bg-emerald-500',
-                                                        archived:  'bg-slate-100 text-slate-500 [&>span]:bg-slate-400',
-                                                        active:    'bg-blue-100 text-blue-700 [&>span]:bg-blue-500',
-                                                    }[status.toLowerCase()] || 'bg-amber-100 text-amber-700 [&>span]:bg-amber-500';
-                                                    return (
-                                                        <button
-                                                            key={idx}
-                                                            type="button"
-                                                            onMouseDown={(e) => {
-                                                                e.preventDefault();
-                                                                editAddressJustSelectedRef.current = true;
-                                                                const addrValue = typeof item === 'string' ? item : (item.address || item.property_address || addrStr);
-                                                                setEditForm(prev => ({ ...prev, address: addrValue }));
-                                                                if (typeof item === 'object') {
-                                                                    setEditSelectedAddressInfo(item);
-                                                                }
-                                                                setShowEditAddressSuggestions(false);
-                                                            }}
-                                                            className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 text-slate-800 transition-colors flex items-center justify-between gap-2 border-b border-slate-50 last:border-0"
-                                                        >
-                                                            <span className="font-semibold text-slate-800">{addrStr}</span>
-                                                            {status && (
-                                                                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider shrink-0 ${statusColor}`}>
-                                                                    <span className="w-1.5 h-1.5 rounded-full" />
-                                                                    {status}
+                                        return (
+                                            <React.Fragment key={item.id ?? idx}>
+                                                <TableRow className={`hover:bg-slate-50/80 transition-colors ${expandedLogs[item.id] ? 'border-b-0' : ''}`}>
+                                                    {/* Property Address & Company */}
+                                                    <TableCell className="py-3.5 align-top">
+                                                        <div className="space-y-0.5 min-w-0">
+                                                            <span className="font-semibold text-slate-800 text-sm block truncate" title={addr}>
+                                                                {line1 || '—'}
+                                                            </span>
+                                                            {line2 && (
+                                                                <span className="text-xs text-slate-400 font-normal block truncate" title={line2}>
+                                                                    {line2}
                                                                 </span>
                                                             )}
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
-                                        )}
-                                        {/* Selected Address Info Card */}
-                                        {editSelectedAddressInfo && (
-                                            <div className="mt-2 rounded-lg border border-blue-100 bg-blue-50/60 px-3.5 py-3 flex items-center gap-4 flex-wrap">
-                                                {editSelectedAddressInfo.ss_status && (() => {
-                                                    const s = (editSelectedAddressInfo.ss_status || '').toLowerCase();
-                                                    const cls = s === 'closed'
-                                                        ? 'bg-emerald-100 text-emerald-700'
-                                                        : s === 'archived'
-                                                            ? 'bg-slate-100 text-slate-500'
-                                                            : 'bg-amber-100 text-amber-700';
-                                                    const dot = s === 'closed'
-                                                        ? 'bg-emerald-500'
-                                                        : s === 'archived'
-                                                            ? 'bg-slate-400'
-                                                            : 'bg-amber-500';
-                                                    return (
-                                                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider shrink-0 ${cls}`}>
-                                                            <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />
-                                                            {editSelectedAddressInfo.ss_status}
+                                                            {item.company && (
+                                                                <span className="inline-block mt-1 text-[11px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200/60">
+                                                                    {item.company}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </TableCell>
+
+                                                    {/* Original */}
+                                                    <TableCell className="py-3.5 align-top font-medium text-slate-800 text-sm">
+                                                        {formatCurrency(item.original_amount)}
+                                                    </TableCell>
+
+                                                    {/* Paid */}
+                                                    <TableCell className="py-3.5 align-top font-medium text-slate-700 text-sm">
+                                                        {formatCurrency(paidAmount)}
+                                                    </TableCell>
+
+                                                    {/* Outstanding */}
+                                                    <TableCell className="py-3.5 align-top text-sm">
+                                                        <span className={`font-bold ${(item.outstanding_amount || 0) > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                                                            {formatCurrency(item.outstanding_amount)}
                                                         </span>
-                                                    );
-                                                })()}
-                                                {editSelectedAddressInfo.close_date && (
-                                                    <div>
-                                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Close Date</p>
-                                                        <p className="text-xs font-semibold text-slate-700">{formatDateUS(editSelectedAddressInfo.close_date)}</p>
-                                                    </div>
+                                                    </TableCell>
+
+                                                    {/* Approved Date */}
+                                                    <TableCell className="py-3.5 align-top text-xs font-medium text-slate-600">
+                                                        {formatDateUS(item.approved_date)}
+                                                    </TableCell>
+
+                                                    {/* Paid Date */}
+                                                    <TableCell className="py-3.5 align-top text-xs font-medium text-slate-600">
+                                                        {formatDateUS(item.paid_date)}
+                                                    </TableCell>
+
+                                                    {/* Status */}
+                                                    <TableCell className="py-3.5 align-top">
+                                                        {renderDetailStatusBadge(item.status)}
+                                                    </TableCell>
+
+                                                    {/* Notes */}
+                                                    <TableCell className="py-3.5 align-top text-xs text-slate-500 italic max-w-[140px] truncate" title={item.notes || ''}>
+                                                        {item.notes || '—'}
+                                                    </TableCell>
+
+                                                    {/* Actions */}
+                                                    <TableCell className="py-3.5 align-top text-right">
+                                                        <div className="flex flex-col items-end gap-1.5">
+                                                            <button
+                                                                onClick={() => toggleLogs(item.id)}
+                                                                className={`w-20 justify-center inline-flex items-center gap-1 px-2 py-1.5 rounded-md text-xs font-semibold border transition-all shadow-2xs ${expandedLogs[item.id]
+                                                                    ? 'bg-blue-600 text-white border-blue-600'
+                                                                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                                                                    }`}
+                                                            >
+                                                                Logs {item.history && item.history.length > 0 ? `(${item.history.length})` : ''}
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                disabled={!item.saleguid && !item.sale_guid}
+                                                                onClick={() => {
+                                                                    const guid = item.saleguid || item.sale_guid;
+                                                                    if (guid) openSkySlopePopup(guid);
+                                                                }}
+                                                                title={item.saleguid || item.sale_guid ? "View SkySlope Details" : "No SkySlope Sale GUID linked"}
+                                                                className={`w-20 justify-center inline-flex items-center gap-1 px-2 py-1.5 rounded-md text-xs font-semibold border transition-all shadow-2xs ${item.saleguid || item.sale_guid
+                                                                    ? 'border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
+                                                                    : 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed opacity-60'
+                                                                    }`}
+                                                            >
+                                                                Details
+                                                            </button>
+                                                            <button
+                                                                onClick={() => openEditModal(item)}
+                                                                className="w-20 justify-center inline-flex items-center gap-1 px-2 py-1.5 rounded-md text-xs font-semibold border border-slate-200 bg-white text-slate-600 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 transition-all shadow-2xs"
+                                                            >
+                                                                Edit
+                                                            </button>
+                                                        </div>
+                                                    </TableCell>
+                                                </TableRow>
+
+                                                {/* Transaction History Section (Ledger View) */}
+                                                {expandedLogs[item.id] && (
+                                                    <TableRow className="bg-slate-50/70 hover:bg-slate-50/70 border-b border-slate-200">
+                                                        <TableCell colSpan={9} className="py-4 px-6">
+                                                            {item.history && item.history.length > 0 ? (
+                                                                <div className="space-y-3 bg-slate-900/5 p-4 rounded-xl border border-slate-200/90 shadow-inner">
+                                                                    <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-700">
+                                                                        <svg className="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                                        </svg>
+                                                                        Log history ({item.history.length} {item.history.length === 1 ? 'entry' : 'entries'})
+                                                                    </div>
+
+                                                                    <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-2xs">
+                                                                        <table className="w-full text-left text-xs border-collapse">
+                                                                            <thead>
+                                                                                <tr className="bg-slate-100/90 border-b border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider">
+                                                                                    <th className="py-2.5 px-4 w-[24%]">Date & Time</th>
+                                                                                    <th className="py-2.5 px-4 w-[22%]">Field Modified</th>
+                                                                                    <th className="py-2.5 px-4 w-[27%]">Previous Value</th>
+                                                                                    <th className="py-2.5 px-4 w-[27%]">Updated Value</th>
+                                                                                </tr>
+                                                                            </thead>
+                                                                            <tbody className="divide-y divide-slate-100">
+                                                                                {item.history.flatMap((hist, hIdx) => {
+                                                                                    const changes = hist.changes && hist.changes.length > 0
+                                                                                        ? hist.changes
+                                                                                        : [{ field: 'Record Updated', old_value: '—', new_value: '—' }];
+
+                                                                                    return changes.map((change, cIdx) => (
+                                                                                        <tr key={`${hIdx}-${cIdx}`} className="hover:bg-slate-50/80 transition-colors">
+                                                                                            {cIdx === 0 && (
+                                                                                                <td rowSpan={changes.length} className="py-2.5 px-4 font-mono text-[11px] font-medium text-slate-700 bg-slate-50/40 align-top border-r border-slate-100">
+                                                                                                    <div className="flex items-center gap-1.5 whitespace-nowrap">
+                                                                                                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
+                                                                                                        {formatHistoryDateTime(hist.edited_at)}
+                                                                                                    </div>
+                                                                                                </td>
+                                                                                            )}
+                                                                                            <td className="py-2.5 px-4 font-sans font-semibold text-slate-800 align-top">
+                                                                                                {change.field}
+                                                                                            </td>
+                                                                                            <td className="py-2.5 px-4 text-slate-500 bg-slate-50/20 align-top whitespace-normal break-words max-w-[240px]">
+                                                                                                {change.old_value !== null && change.old_value !== undefined && change.old_value !== '' ? (
+                                                                                                    <span className="inline-block font-mono text-[11px] text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200/60 whitespace-normal break-words">
+                                                                                                        {String(change.old_value)}
+                                                                                                    </span>
+                                                                                                ) : (
+                                                                                                    <span className="text-slate-400 italic font-sans">—</span>
+                                                                                                )}
+                                                                                            </td>
+                                                                                            <td className="py-2.5 px-4 font-semibold text-slate-900 bg-emerald-50/20 align-top whitespace-normal break-words max-w-[240px]">
+                                                                                                {change.new_value !== null && change.new_value !== undefined && change.new_value !== '' ? (
+                                                                                                    <span className="inline-block font-mono text-[11px] font-bold text-emerald-800 bg-emerald-100/70 px-2 py-0.5 rounded border border-emerald-200/60 whitespace-normal break-words">
+                                                                                                        {String(change.new_value)}
+                                                                                                    </span>
+                                                                                                ) : (
+                                                                                                    <span className="text-slate-400 italic font-sans">—</span>
+                                                                                                )}
+                                                                                            </td>
+                                                                                        </tr>
+                                                                                    ));
+                                                                                })}
+                                                                            </tbody>
+                                                                        </table>
+                                                                    </div>
+                                                                </div>
+                                                            ) : (
+                                                                <div className="text-xs text-slate-400 italic py-2 px-4 bg-slate-50 rounded-lg border border-slate-200">
+                                                                    No history logs recorded for this transaction.
+                                                                </div>
+                                                            )}
+                                                        </TableCell>
+                                                    </TableRow>
                                                 )}
-                                                {(editSelectedAddressInfo.saleguid || editSelectedAddressInfo.sale_guid) && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => openSkySlopePopup(editSelectedAddressInfo.saleguid || editSelectedAddressInfo.sale_guid)}
-                                                        className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 transition-all shadow-sm shrink-0"
-                                                    >
-                                                        <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                                        </svg>
-                                                        Details
-                                                    </button>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
+                                            </React.Fragment>
+                                        );
+                                    })
                                 )}
+                            </TableBody>
+                        </Table>
+                    </Card>
 
-                                {/* Amount & Dates — visibility depends on status */}
-                                {(() => {
-                                    const st = (editForm.status || '').toLowerCase();
-                                    const isGarnishment = st.includes('garnishment') || st.includes('garnish');
-                                    const isCancelledOrLeft = st === 'cancelled' || st === 'left roa';
-                                    const isPaid = st === 'paid';
-                                    const showAmount = !isGarnishment && !isCancelledOrLeft && !isPaid;
+                    {/* ── Edit Modal ─────────────────────────────────────────── */}
+                    {editItem && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backdropFilter: 'blur(4px)', backgroundColor: 'rgba(15,23,42,0.45)' }}>
+                            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl border border-slate-200/80 overflow-hidden">
+                                {/* Modal Header */}
+                                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+                                    <div>
+                                        <h3 className="text-base font-bold text-slate-900">Edit Advance Record</h3>
+                                        <p className="text-xs text-slate-400 mt-0.5">{editItem.address || 'Record #' + editItem.id}</p>
+                                    </div>
+                                    <button
+                                        onClick={closeEditModal}
+                                        className="h-8 w-8 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors"
+                                    >
+                                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                </div>
 
-                                    return (
-                                        <div className="space-y-4">
-                                            {showAmount && (
-                                                <div className="space-y-1">
-                                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Amount ($)</label>
-                                                    <Input
-                                                        name="amount"
-                                                        type="number"
-                                                        step="0.01"
-                                                        min="0"
-                                                        value={editForm.amount}
-                                                        onChange={handleEditFormChange}
-                                                        placeholder="e.g. 8775"
-                                                        className="w-full h-9 text-sm"
-                                                    />
+                                {/* Modal Body */}
+                                <form onSubmit={handleEditSubmit} className="p-6 space-y-4">
+                                    {/* Financial Summary Card */}
+                                    <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 grid grid-cols-3 gap-3">
+                                        <div>
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Original Amount</p>
+                                            <p className="text-sm font-bold text-slate-900 mt-0.5">
+                                                {formatCurrency(editItem.original_amount)}
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Paid Amount</p>
+                                            <p className="text-sm font-bold text-slate-700 mt-0.5">
+                                                {formatCurrency(Math.max(0, (editItem.original_amount || 0) - (editItem.outstanding_amount || 0)))}
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Outstanding Amount</p>
+                                            <p className={`text-sm font-bold mt-0.5 ${(editItem.outstanding_amount || 0) > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                                                {formatCurrency(editItem.outstanding_amount)}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* Status */}
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Status</label>
+                                        <select
+                                            name="status"
+                                            value={editForm.status}
+                                            onChange={handleEditFormChange}
+                                            className="flex w-full rounded-md border border-input bg-white px-3 h-9 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring text-slate-800"
+                                        >
+                                            <option value="">— Select status —</option>
+                                            {editStatusOptions.length > 0
+                                                ? editStatusOptions.map(s => (
+                                                    <option key={s} value={s}>{s}</option>
+                                                ))
+                                                : [
+                                                    <option key="Pending" value="Pending">Pending</option>,
+                                                    <option key="Paid" value="Paid">Paid</option>,
+                                                    <option key="Wage Garnishment" value="Wage Garnishment">Wage Garnishment</option>,
+                                                    <option key="Replacement" value="Replacement">Replacement</option>,
+                                                ]
+                                            }
+                                        </select>
+                                    </div>
+
+                                    {/* Property Address Search (visible when status is Replacement) */}
+                                    {(editForm.status || '').trim().toLowerCase() === 'replacement' && (
+                                        <div className="space-y-1 relative">
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block" htmlFor="edit-address">
+                                                Property Address <span className="text-red-500">*</span>
+                                            </label>
+                                            <Input
+                                                id="edit-address"
+                                                name="address"
+                                                value={editForm.address || ''}
+                                                onChange={(e) => {
+                                                    handleEditFormChange(e);
+                                                    setShowEditAddressSuggestions(false);
+                                                    setEditSelectedAddressInfo(null);
+                                                }}
+                                                onBlur={() => setTimeout(() => setShowEditAddressSuggestions(false), 150)}
+                                                placeholder="Type to search replacement address..."
+                                                autoComplete="off"
+                                                className="w-full h-9 text-sm"
+                                            />
+                                            {showEditAddressSuggestions && editAddressSuggestions.length > 0 && (
+                                                <div className="absolute z-30 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-56 overflow-y-auto py-1">
+                                                    {editAddressSuggestions.map((item, idx) => {
+                                                        const addrStr = typeof item === 'string' ? item : (item.address || item.property_address || item.name || JSON.stringify(item));
+                                                        const status = typeof item === 'object' ? (item.ss_status || '') : '';
+                                                        const statusColor = {
+                                                            closed: 'bg-emerald-100 text-emerald-700 [&>span]:bg-emerald-500',
+                                                            archived: 'bg-slate-100 text-slate-500 [&>span]:bg-slate-400',
+                                                            active: 'bg-blue-100 text-blue-700 [&>span]:bg-blue-500',
+                                                        }[status.toLowerCase()] || 'bg-amber-100 text-amber-700 [&>span]:bg-amber-500';
+                                                        return (
+                                                            <button
+                                                                key={idx}
+                                                                type="button"
+                                                                onMouseDown={(e) => {
+                                                                    e.preventDefault();
+                                                                    editAddressJustSelectedRef.current = true;
+                                                                    const addrValue = typeof item === 'string' ? item : (item.address || item.property_address || addrStr);
+                                                                    setEditForm(prev => ({ ...prev, address: addrValue }));
+                                                                    if (typeof item === 'object') {
+                                                                        setEditSelectedAddressInfo(item);
+                                                                    }
+                                                                    setShowEditAddressSuggestions(false);
+                                                                }}
+                                                                className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 text-slate-800 transition-colors flex items-center justify-between gap-2 border-b border-slate-50 last:border-0"
+                                                            >
+                                                                <span className="font-semibold text-slate-800">{addrStr}</span>
+                                                                {status && (
+                                                                    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider shrink-0 ${statusColor}`}>
+                                                                        <span className="w-1.5 h-1.5 rounded-full" />
+                                                                        {status}
+                                                                    </span>
+                                                                )}
+                                                            </button>
+                                                        );
+                                                    })}
                                                 </div>
                                             )}
-                                            <div className="grid grid-cols-2 gap-3">
-                                                <div className="space-y-1">
-                                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Approved Date</label>
-                                                    <Input
-                                                        name="approved_date"
-                                                        type="date"
-                                                        value={editForm.approved_date}
-                                                        onChange={handleEditFormChange}
-                                                        className="w-full h-9 text-sm bg-white"
-                                                    />
+                                            {/* Selected Address Info Card */}
+                                            {editSelectedAddressInfo && (
+                                                <div className="mt-2 rounded-lg border border-blue-100 bg-blue-50/60 px-3.5 py-3 flex items-center gap-4 flex-wrap">
+                                                    {editSelectedAddressInfo.ss_status && (() => {
+                                                        const s = (editSelectedAddressInfo.ss_status || '').toLowerCase();
+                                                        const cls = s === 'closed'
+                                                            ? 'bg-emerald-100 text-emerald-700'
+                                                            : s === 'archived'
+                                                                ? 'bg-slate-100 text-slate-500'
+                                                                : 'bg-amber-100 text-amber-700';
+                                                        const dot = s === 'closed'
+                                                            ? 'bg-emerald-500'
+                                                            : s === 'archived'
+                                                                ? 'bg-slate-400'
+                                                                : 'bg-amber-500';
+                                                        return (
+                                                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider shrink-0 ${cls}`}>
+                                                                <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />
+                                                                {editSelectedAddressInfo.ss_status}
+                                                            </span>
+                                                        );
+                                                    })()}
+                                                    {editSelectedAddressInfo.close_date && (
+                                                        <div>
+                                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Close Date</p>
+                                                            <p className="text-xs font-semibold text-slate-700">{formatDateUS(editSelectedAddressInfo.close_date)}</p>
+                                                        </div>
+                                                    )}
+                                                    {(editSelectedAddressInfo.saleguid || editSelectedAddressInfo.sale_guid) && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => openSkySlopePopup(editSelectedAddressInfo.saleguid || editSelectedAddressInfo.sale_guid)}
+                                                            className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 transition-all shadow-sm shrink-0"
+                                                        >
+                                                            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                                <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                            </svg>
+                                                            Details
+                                                        </button>
+                                                    )}
                                                 </div>
-                                                <div className="space-y-1">
-                                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Paid Date</label>
-                                                    <Input
-                                                        name="paid_date"
-                                                        type="date"
-                                                        value={editForm.paid_date}
-                                                        onChange={handleEditFormChange}
-                                                        className="w-full h-9 text-sm bg-white"
-                                                    />
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Amount & Dates — visibility depends on status */}
+                                    {(() => {
+                                        const st = (editForm.status || '').toLowerCase();
+                                        const isGarnishment = st.includes('garnishment') || st.includes('garnish');
+                                        const isCancelledOrLeft = st === 'cancelled' || st === 'left roa';
+                                        const isPaid = st === 'paid';
+                                        const showAmount = !isGarnishment && !isCancelledOrLeft && !isPaid;
+
+                                        return (
+                                            <div className="space-y-4">
+                                                {showAmount && (
+                                                    <div className="space-y-1.5">
+                                                        <div className="flex items-center justify-between">
+                                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Record a Payment ($)</label>
+                                                            <div className="inline-flex rounded-md bg-slate-100 p-0.5 border border-slate-200 shadow-inner">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setEditForm(prev => ({ ...prev, operation: 'add' }))}
+                                                                    className={`px-3 py-0.5 text-xs font-bold rounded transition-all ${(editForm.operation || 'add') === 'add'
+                                                                        ? 'bg-blue-600 text-white shadow-sm'
+                                                                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/70'
+                                                                        }`}
+                                                                >
+                                                                    +
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setEditForm(prev => ({ ...prev, operation: 'sub' }))}
+                                                                    className={`px-3 py-0.5 text-xs font-bold rounded transition-all ${editForm.operation === 'sub'
+                                                                        ? 'bg-blue-600 text-white shadow-sm'
+                                                                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/70'
+                                                                        }`}
+                                                                >
+                                                                    -
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setEditForm(prev => ({ ...prev, operation: 'set' }))}
+                                                                    className={`px-3 py-0.5 text-xs font-bold rounded transition-all ${editForm.operation === 'set'
+                                                                        ? 'bg-blue-600 text-white shadow-sm'
+                                                                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/70'
+                                                                        }`}
+                                                                >
+                                                                    set
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                        <Input
+                                                            name="amount"
+                                                            type="number"
+                                                            step="0.01"
+                                                            min="0"
+                                                            value={editForm.amount}
+                                                            onChange={handleEditFormChange}
+                                                            placeholder="e.g. 8775"
+                                                            className="w-full h-9 text-sm"
+                                                        />
+                                                    </div>
+                                                )}
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    <div className="space-y-1">
+                                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Approved Date</label>
+                                                        <Input
+                                                            name="approved_date"
+                                                            type="date"
+                                                            value={editForm.approved_date}
+                                                            onChange={handleEditFormChange}
+                                                            className="w-full h-9 text-sm bg-white"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Paid Date</label>
+                                                        <Input
+                                                            name="paid_date"
+                                                            type="date"
+                                                            value={editForm.paid_date}
+                                                            onChange={handleEditFormChange}
+                                                            className="w-full h-9 text-sm bg-white"
+                                                        />
+                                                    </div>
                                                 </div>
                                             </div>
+                                        );
+                                    })()}
+
+                                    {/* Notes */}
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Notes</label>
+                                        <textarea
+                                            name="notes"
+                                            value={editForm.notes}
+                                            onChange={handleEditFormChange}
+                                            rows={3}
+                                            placeholder="Optional notes..."
+                                            className="flex w-full rounded-md border border-input bg-white px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring text-slate-800 resize-none"
+                                        />
+                                    </div>
+
+                                    {/* Success */}
+                                    {editSuccess && (
+                                        <div className="flex items-center gap-3 px-4 py-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm font-semibold">
+                                            <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                            Record updated successfully.
                                         </div>
-                                    );
-                                })()}
+                                    )}
 
-                                {/* Notes */}
-                                <div className="space-y-1">
-                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Notes</label>
-                                    <textarea
-                                        name="notes"
-                                        value={editForm.notes}
-                                        onChange={handleEditFormChange}
-                                        rows={3}
-                                        placeholder="Optional notes..."
-                                        className="flex w-full rounded-md border border-input bg-white px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring text-slate-800 resize-none"
-                                    />
-                                </div>
+                                    {/* Error */}
+                                    {editError && (
+                                        <div className="flex items-start gap-3 px-4 py-2.5 rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm font-semibold">
+                                            <svg className="h-4 w-4 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                                            </svg>
+                                            {editError}
+                                        </div>
+                                    )}
 
-                                {/* Success */}
-                                {editSuccess && (
-                                    <div className="flex items-center gap-3 px-4 py-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm font-semibold">
-                                        <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
-                                        Record updated successfully.
+                                    {/* Actions */}
+                                    <div className="pt-1 flex items-center justify-end gap-3">
+                                        <button
+                                            type="button"
+                                            onClick={closeEditModal}
+                                            className="inline-flex items-center justify-center whitespace-nowrap rounded-md font-semibold transition-colors h-9 px-4 text-sm border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <Button
+                                            type="submit"
+                                            disabled={editSubmitting}
+                                            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-sm h-9 min-w-[110px]"
+                                        >
+                                            {editSubmitting ? (
+                                                <span className="flex items-center gap-2">
+                                                    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                                    </svg>
+                                                    Saving...
+                                                </span>
+                                            ) : 'Save Changes'}
+                                        </Button>
                                     </div>
-                                )}
-
-                                {/* Error */}
-                                {editError && (
-                                    <div className="flex items-start gap-3 px-4 py-2.5 rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm font-semibold">
-                                        <svg className="h-4 w-4 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-                                        </svg>
-                                        {editError}
-                                    </div>
-                                )}
-
-                                {/* Actions */}
-                                <div className="pt-1 flex items-center justify-end gap-3">
-                                    <button
-                                        type="button"
-                                        onClick={closeEditModal}
-                                        className="inline-flex items-center justify-center whitespace-nowrap rounded-md font-semibold transition-colors h-9 px-4 text-sm border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <Button
-                                        type="submit"
-                                        disabled={editSubmitting}
-                                        className="bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-sm h-9 min-w-[110px]"
-                                    >
-                                        {editSubmitting ? (
-                                            <span className="flex items-center gap-2">
-                                                <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                                                </svg>
-                                                Saving...
-                                            </span>
-                                        ) : 'Save Changes'}
-                                    </Button>
-                                </div>
-                            </form>
+                                </form>
+                            </div>
                         </div>
-                    </div>
-                )}
-            </div>
+                    )}
+                </div>
 
-            {renderSkySlopePopupModal()}
+                {renderSkySlopePopupModal()}
             </>
         );
     }
@@ -1876,178 +1963,178 @@ function CommissionAdvances() {
     return (
         <>
             <div className="p-8 max-w-7xl mx-auto w-full space-y-6">
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200/80 pb-5">
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-slate-900">Commission Advances</h1>
-                    <p className="text-sm text-slate-500 mt-1">
-                        Track and manage advance commission payments, statuses, and agent accounts.
-                    </p>
+                {/* Header */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200/80 pb-5">
+                    <div>
+                        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Commission Advances</h1>
+                        <p className="text-sm text-slate-500 mt-1">
+                            Track and manage advance commission payments, statuses, and agent accounts.
+                        </p>
+                    </div>
+                    <Button
+                        id="log-advance-btn"
+                        onClick={handleGoToLogAdvance}
+                        className="bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-sm transition-all gap-2 shrink-0"
+                    >
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                        </svg>
+                        Log Advance
+                    </Button>
                 </div>
-                <Button
-                    id="log-advance-btn"
-                    onClick={handleGoToLogAdvance}
-                    className="bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-sm transition-all gap-2 shrink-0"
-                >
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                    </svg>
-                    Log Advance
-                </Button>
-            </div>
 
-            {/* Metrics cards grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Metric 1 */}
-                <Card className="border-slate-200/60 shadow-sm overflow-hidden relative transition-all duration-300 hover:scale-[1.02] hover:shadow-md bg-white">
-                    <div className="absolute top-0 left-0 w-1.5 h-full bg-amber-500" />
-                    <CardContent className="p-6">
-                        <div className="flex justify-between items-start">
-                            <div className="space-y-1.5">
-                                <p className="text-xs font-bold tracking-wider uppercase text-slate-400">Pending Advances</p>
-                                <h3 className="text-3xl font-bold text-slate-900 tracking-tight">
-                                    {summaryLoading ? (
-                                        <span className="inline-block w-16 h-8 bg-slate-100 animate-pulse rounded" />
-                                    ) : summaryError ? (
-                                        <span className="text-sm text-red-500 font-medium">Err</span>
-                                    ) : (
-                                        summaryData?.pending_advances ?? 0
-                                    )}
-                                </h3>
+                {/* Metrics cards grid */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* Metric 1 */}
+                    <Card className="border-slate-200/60 shadow-sm overflow-hidden relative transition-all duration-300 hover:scale-[1.02] hover:shadow-md bg-white">
+                        <div className="absolute top-0 left-0 w-1.5 h-full bg-amber-500" />
+                        <CardContent className="p-6">
+                            <div className="flex justify-between items-start">
+                                <div className="space-y-1.5">
+                                    <p className="text-xs font-bold tracking-wider uppercase text-slate-400">Pending Advances</p>
+                                    <h3 className="text-3xl font-bold text-slate-900 tracking-tight">
+                                        {summaryLoading ? (
+                                            <span className="inline-block w-16 h-8 bg-slate-100 animate-pulse rounded" />
+                                        ) : summaryError ? (
+                                            <span className="text-sm text-red-500 font-medium">Err</span>
+                                        ) : (
+                                            summaryData?.pending_advances ?? 0
+                                        )}
+                                    </h3>
+                                </div>
                             </div>
-                        </div>
-                    </CardContent>
-                </Card>
+                        </CardContent>
+                    </Card>
 
-                {/* Metric 2 */}
-                <Card className="border-slate-200/60 shadow-sm overflow-hidden relative transition-all duration-300 hover:scale-[1.02] hover:shadow-md bg-white">
-                    <div className="absolute top-0 left-0 w-1.5 h-full bg-emerald-500" />
-                    <CardContent className="p-6">
-                        <div className="flex justify-between items-start">
-                            <div className="space-y-1.5">
-                                <p className="text-xs font-bold tracking-wider uppercase text-slate-400">Advances Received</p>
-                                <h3 className="text-3xl font-bold text-slate-900 tracking-tight">
-                                    {summaryLoading ? (
-                                        <span className="inline-block w-16 h-8 bg-slate-100 animate-pulse rounded" />
-                                    ) : summaryError ? (
-                                        <span className="text-sm text-red-500 font-medium">Err</span>
-                                    ) : (
-                                        summaryData?.commission_advance_received ?? 0
-                                    )}
-                                </h3>
+                    {/* Metric 2 */}
+                    <Card className="border-slate-200/60 shadow-sm overflow-hidden relative transition-all duration-300 hover:scale-[1.02] hover:shadow-md bg-white">
+                        <div className="absolute top-0 left-0 w-1.5 h-full bg-emerald-500" />
+                        <CardContent className="p-6">
+                            <div className="flex justify-between items-start">
+                                <div className="space-y-1.5">
+                                    <p className="text-xs font-bold tracking-wider uppercase text-slate-400">Advances Received</p>
+                                    <h3 className="text-3xl font-bold text-slate-900 tracking-tight">
+                                        {summaryLoading ? (
+                                            <span className="inline-block w-16 h-8 bg-slate-100 animate-pulse rounded" />
+                                        ) : summaryError ? (
+                                            <span className="text-sm text-red-500 font-medium">Err</span>
+                                        ) : (
+                                            summaryData?.commission_advance_received ?? 0
+                                        )}
+                                    </h3>
+                                </div>
                             </div>
-                        </div>
-                    </CardContent>
-                </Card>
+                        </CardContent>
+                    </Card>
 
-                {/* Metric 3 */}
-                <Card className="border-slate-200/60 shadow-sm overflow-hidden relative transition-all duration-300 hover:scale-[1.02] hover:shadow-md bg-white">
-                    <div className="absolute top-0 left-0 w-1.5 h-full bg-indigo-500" />
-                    <CardContent className="p-6">
-                        <div className="flex justify-between items-start">
-                            <div className="space-y-1.5">
-                                <p className="text-xs font-bold tracking-wider uppercase text-slate-400">Agents with Active Advances</p>
-                                <h3 className="text-3xl font-bold text-slate-900 tracking-tight">
-                                    {summaryLoading ? (
-                                        <span className="inline-block w-16 h-8 bg-slate-100 animate-pulse rounded" />
-                                    ) : summaryError ? (
-                                        <span className="text-sm text-red-500 font-medium">Err</span>
-                                    ) : (
-                                        summaryData?.agents_with_active_advances ?? 0
-                                    )}
-                                </h3>
+                    {/* Metric 3 */}
+                    <Card className="border-slate-200/60 shadow-sm overflow-hidden relative transition-all duration-300 hover:scale-[1.02] hover:shadow-md bg-white">
+                        <div className="absolute top-0 left-0 w-1.5 h-full bg-indigo-500" />
+                        <CardContent className="p-6">
+                            <div className="flex justify-between items-start">
+                                <div className="space-y-1.5">
+                                    <p className="text-xs font-bold tracking-wider uppercase text-slate-400">Agents with Active Advances</p>
+                                    <h3 className="text-3xl font-bold text-slate-900 tracking-tight">
+                                        {summaryLoading ? (
+                                            <span className="inline-block w-16 h-8 bg-slate-100 animate-pulse rounded" />
+                                        ) : summaryError ? (
+                                            <span className="text-sm text-red-500 font-medium">Err</span>
+                                        ) : (
+                                            summaryData?.agents_with_active_advances ?? 0
+                                        )}
+                                    </h3>
+                                </div>
                             </div>
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
+                        </CardContent>
+                    </Card>
+                </div>
 
-            {/* Table Card with Header & Filters Grid */}
-            <Card className="shadow-sm border-slate-200/80 overflow-hidden bg-white">
-                {/* Table Header Bar */}
-                <div className="p-5 border-b border-slate-100 bg-slate-50/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                        <h2 className="text-md font-bold text-slate-800">Agent Accounts</h2>
-                        {totalCount > 0 && (
-                            <Badge variant="secondary" className="px-2 py-0.5 font-bold text-[10px] rounded">
-                                {totalCount.toLocaleString()} agents
-                            </Badge>
+                {/* Table Card with Header & Filters Grid */}
+                <Card className="shadow-sm border-slate-200/80 overflow-hidden bg-white">
+                    {/* Table Header Bar */}
+                    <div className="p-5 border-b border-slate-100 bg-slate-50/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                            <h2 className="text-md font-bold text-slate-800">Agent Accounts</h2>
+                            {totalCount > 0 && (
+                                <Badge variant="secondary" className="px-2 py-0.5 font-bold text-[10px] rounded">
+                                    {totalCount.toLocaleString()} agents
+                                </Badge>
+                            )}
+                        </div>
+                        {totalPages > 0 && (
+                            <span className="text-xs font-semibold text-slate-500">
+                                Showing page {page} of {totalPages}
+                            </span>
                         )}
                     </div>
-                    {totalPages > 0 && (
-                        <span className="text-xs font-semibold text-slate-500">
-                            Showing page {page} of {totalPages}
-                        </span>
-                    )}
-                </div>
 
-                {/* Filters Row */}
-                <div className="p-5 border-b border-slate-100 bg-white flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3 flex-1">
-                        {/* Search Input */}
-                        <div className="space-y-1 flex-1 max-w-md">
-                            <label htmlFor="commission-search" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Search Agent</label>
-                            <div className="relative w-full">
-                                <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                </svg>
-                                <Input
-                                    id="commission-search"
-                                    type="text"
-                                    placeholder="Search by agent name…"
-                                    value={searchInput}
-                                    onChange={e => setSearchInput(e.target.value)}
-                                    className="pl-9 pr-8 w-full"
-                                />
-                                {searchInput && (
-                                    <button
-                                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold"
-                                        onClick={() => { setSearchInput(''); setDebouncedSearchQuery(''); setPage(1); }}
-                                    >
-                                        ✕
-                                    </button>
-                                )}
+                    {/* Filters Row */}
+                    <div className="p-5 border-b border-slate-100 bg-white flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3 flex-1">
+                            {/* Search Input */}
+                            <div className="space-y-1 flex-1 max-w-md">
+                                <label htmlFor="commission-search" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Search Agent</label>
+                                <div className="relative w-full">
+                                    <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                    </svg>
+                                    <Input
+                                        id="commission-search"
+                                        type="text"
+                                        placeholder="Search by agent name…"
+                                        value={searchInput}
+                                        onChange={e => setSearchInput(e.target.value)}
+                                        className="pl-9 pr-8 w-full"
+                                    />
+                                    {searchInput && (
+                                        <button
+                                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold"
+                                            onClick={() => { setSearchInput(''); setDebouncedSearchQuery(''); setPage(1); }}
+                                        >
+                                            ✕
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Status Filter */}
+                            <div className="space-y-1 min-w-[200px]">
+                                <label htmlFor="commission-status-filter" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Status</label>
+                                <select
+                                    id="commission-status-filter"
+                                    value={statusFilter}
+                                    onChange={e => { setStatusFilter(e.target.value); setPage(1); }}
+                                    className="flex w-full rounded-md border border-input bg-white px-3 h-9 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring text-slate-800 font-normal"
+                                >
+                                    <option value="" className="font-normal">All Statuses</option>
+                                    {statusOptions.map(st => (
+                                        <option key={st} value={st} className="font-normal">{st}</option>
+                                    ))}
+                                </select>
                             </div>
                         </div>
 
-                        {/* Status Filter */}
-                        <div className="space-y-1 min-w-[200px]">
-                            <label htmlFor="commission-status-filter" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Status</label>
-                            <select
-                                id="commission-status-filter"
-                                value={statusFilter}
-                                onChange={e => { setStatusFilter(e.target.value); setPage(1); }}
-                                className="flex w-full rounded-md border border-input bg-white px-3 h-9 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring text-slate-800 font-normal"
-                            >
-                                <option value="" className="font-normal">All Statuses</option>
-                                {statusOptions.map(st => (
-                                    <option key={st} value={st} className="font-normal">{st}</option>
-                                ))}
-                            </select>
-                        </div>
+                        {/* Clear Filters Row */}
+                        {(searchInput || debouncedSearchQuery || statusFilter) && (
+                            <div className="pt-1 sm:pt-0 shrink-0">
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                        setSearchInput('');
+                                        setDebouncedSearchQuery('');
+                                        setStatusFilter('');
+                                        setPage(1);
+                                    }}
+                                    className="h-9 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 font-bold"
+                                >
+                                    Clear All Filters
+                                </Button>
+                            </div>
+                        )}
                     </div>
 
-                    {/* Clear Filters Row */}
-                    {(searchInput || debouncedSearchQuery || statusFilter) && (
-                        <div className="pt-1 sm:pt-0 shrink-0">
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                    setSearchInput('');
-                                    setDebouncedSearchQuery('');
-                                    setStatusFilter('');
-                                    setPage(1);
-                                }}
-                                className="h-9 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 font-bold"
-                            >
-                                Clear All Filters
-                            </Button>
-                        </div>
-                    )}
-                </div>
-
-                <Table>
+                    <Table>
                         <TableHeader>
                             <TableRow>
                                 <TableHead className="w-1/4">Agent Name</TableHead>
