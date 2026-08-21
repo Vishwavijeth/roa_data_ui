@@ -135,48 +135,51 @@ function ReconciliationNew({ syncingData, syncProgress, syncResult, handleSyncDa
         setError(null);
         setMetricsLoading(true);
 
-        fetch(`${API_DOMAIN}/reconciliation/transactions?page=1`)
+        // ── Run filter metadata fetch and initial transactions fetch in parallel ──
+        const filterFetch = fetch(`${API_DOMAIN}/reconciliation/filter`)
             .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
             .then(json => {
-                // Discover available parameter filters (but do NOT pre-select any).
-                if (json.filters?.parameter?.length) {
-                    setAvailableParams(json.filters.parameter);
-                }
+                const summary = json.data?.summary;
+                const filters = json.data?.filters;
 
-                // Populate status filter options from transactions filters key
-                if (json.filters?.status?.length) {
-                    setAvailableStatuses(json.filters.status);
-                }
+                if (summary) setMetrics(summary);
 
-                if (json.filters?.specialist?.length) {
-                    setAvailableSpecialists(json.filters.specialist);
-                }
+                if (filters?.parameter?.length) setAvailableParams(filters.parameter);
+                if (filters?.status?.length) setAvailableStatuses(filters.status);
+                if (filters?.specialist?.length) setAvailableSpecialists(filters.specialist);
+                if (filters?.reviewer?.length) setAvailableReviewers(filters.reviewer);
 
-                if (json.filters?.reviewer?.length) {
-                    setAvailableReviewers(json.filters.reviewer);
-                }
-
-                // Set metrics summary from summary key
-                if (json.summary) {
-                    setMetrics(json.summary);
-                }
                 setMetricsLoading(false);
+            })
+            .catch(() => setMetricsLoading(false));
 
-                // Use this response as the initial data.
-                setTransactions(Array.isArray(json.data) ? json.data : []);
-                setTotalPages(json.pagination?.total_pages || 1);
-                setTotalCount(json.count || 0);
+        const txnFetch = fetch(`${API_DOMAIN}/reconciliation/transactions?page=1`)
+            .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+            .then(json => {
+                // Support both new format { data: { items, total_count } } and legacy { data: [] }
+                const items = Array.isArray(json.data?.items)
+                    ? json.data.items
+                    : (Array.isArray(json.data) ? json.data : []);
+                const count = json.data?.total_count ?? json.count ?? 0;
+                const pageSize = json.pagination?.page_size || json.pagination?.per_page || 50;
+                const derivedTotalPages = json.pagination?.total_pages
+                    || (pageSize > 0 ? Math.ceil(count / pageSize) : 1)
+                    || 1;
 
-                // Unlock the main effect for all future user-driven changes.
-                bootstrappedRef.current = true;
+                setTransactions(items);
+                setTotalPages(derivedTotalPages);
+                setTotalCount(count);
                 setLoading(false);
             })
             .catch(err => {
                 setError(err.message);
-                bootstrappedRef.current = true;
                 setLoading(false);
-                setMetricsLoading(false);
             });
+
+        // Unlock the main effect once the transactions page-1 data is ready
+        Promise.all([txnFetch]).finally(() => {
+            bootstrappedRef.current = true;
+        });
     }, []); // runs exactly once
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -226,25 +229,19 @@ function ReconciliationNew({ syncingData, syncProgress, syncResult, handleSyncDa
         fetch(`${API_DOMAIN}/reconciliation/transactions?${params}`)
             .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
             .then(json => {
-                // Populate status filter options from transactions filters key
-                if (json.filters?.status?.length) {
-                    setAvailableStatuses(json.filters.status);
-                }
-                if (json.filters?.specialist?.length) {
-                    setAvailableSpecialists(json.filters.specialist);
-                }
-                if (json.filters?.reviewer?.length) {
-                    setAvailableReviewers(json.filters.reviewer);
-                }
+                // Support both new format { data: { items, total_count } } and legacy { data: [] }
+                const items = Array.isArray(json.data?.items)
+                    ? json.data.items
+                    : (Array.isArray(json.data) ? json.data : []);
+                const count = json.data?.total_count ?? json.count ?? 0;
+                const pageSize = json.pagination?.page_size || json.pagination?.per_page || 50;
+                const derivedTotalPages = json.pagination?.total_pages
+                    || (pageSize > 0 ? Math.ceil(count / pageSize) : 1)
+                    || 1;
 
-                // Set metrics summary from summary key
-                if (json.summary) {
-                    setMetrics(json.summary);
-                }
-
-                setTransactions(Array.isArray(json.data) ? json.data : []);
-                setTotalPages(json.pagination?.total_pages || 1);
-                setTotalCount(json.count || 0);
+                setTransactions(items);
+                setTotalPages(derivedTotalPages);
+                setTotalCount(count);
                 setLoading(false);
             })
             .catch(err => {
@@ -986,6 +983,7 @@ function ReconciliationNew({ syncingData, syncProgress, syncResult, handleSyncDa
                                                             { value: 'in_review', label: 'In Review', active: 'bg-indigo-50 text-indigo-700 border-indigo-300 shadow-sm', dot: 'bg-indigo-500' },
                                                             { value: 'review_done', label: 'Review Done', active: 'bg-emerald-50 text-emerald-700 border-emerald-300 shadow-sm', dot: 'bg-emerald-500' },
                                                             { value: 'not_a_mismatch', label: 'Not a Mismatch', active: 'bg-slate-100 text-slate-700 border-slate-400 shadow-sm', dot: 'bg-slate-500' },
+                                                            { value: 'not_reviewed', label: 'Not Reviewed', active: 'bg-orange-50 text-orange-700 border-orange-300 shadow-sm', dot: 'bg-orange-400' },
                                                         ].map(opt => {
                                                             const isActive = selectedReviewStatuses.includes(opt.value);
                                                             return (
@@ -1075,7 +1073,7 @@ function ReconciliationNew({ syncingData, syncProgress, syncResult, handleSyncDa
                                                 </span>
                                             ))}
                                             {selectedReviewStatuses.map(s => {
-                                                const labels = { in_review: 'In Review', review_done: 'Review Done', not_a_mismatch: 'Not a Mismatch' };
+                                                const labels = { in_review: 'In Review', review_done: 'Review Done', not_a_mismatch: 'Not a Mismatch', not_reviewed: 'Not Reviewed' };
                                                 return (
                                                     <span key={s} className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
                                                         Review: {labels[s] || s}
