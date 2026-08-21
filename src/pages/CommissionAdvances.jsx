@@ -542,6 +542,7 @@ function CommissionAdvances() {
             status: item.status || '',
             amount: '',
             operation: 'add',
+            record_type: 'payment',
             paid_date: item.paid_date ? item.paid_date.slice(0, 10) : '',
             approved_date: item.approved_date ? item.approved_date.slice(0, 10) : '',
             notes: item.notes || '',
@@ -596,7 +597,7 @@ function CommissionAdvances() {
 
             if (!isPaid && editForm.amount !== '' && !isWageGarnishment && !isCancelledOrLeft) {
                 payload.amount = parseFloat(editForm.amount) || 0;
-                payload.operation = editForm.operation || 'add';
+                payload.operation = editForm.record_type === 'interest_fee' ? 'sub' : (editForm.operation || 'add');
             }
             if (editForm.paid_date) payload.paid_date = editForm.paid_date;
             if (editForm.approved_date) payload.approved_date = editForm.approved_date;
@@ -1816,52 +1817,89 @@ function CommissionAdvances() {
                                         return (
                                             <div className="space-y-4">
                                                 {showAmount && (
-                                                    <div className="space-y-1.5">
-                                                        <div className="flex items-center justify-between">
-                                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Record a Payment ($)</label>
-                                                            <div className="inline-flex rounded-md bg-slate-100 p-0.5 border border-slate-200 shadow-inner">
+                                                    <div className="space-y-3">
+                                                        {/* Option selector: Record a Payment vs Record Interest/Fee */}
+                                                        <div className="space-y-1">
+                                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Option</label>
+                                                            <div className="grid grid-cols-2 gap-2">
                                                                 <button
                                                                     type="button"
-                                                                    onClick={() => setEditForm(prev => ({ ...prev, operation: 'add' }))}
-                                                                    className={`px-3 py-0.5 text-xs font-bold rounded transition-all ${(editForm.operation || 'add') === 'add'
-                                                                        ? 'bg-blue-600 text-white shadow-sm'
-                                                                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/70'
-                                                                        }`}
+                                                                    onClick={() => setEditForm(prev => ({ ...prev, record_type: 'payment', operation: prev.operation === 'sub' && prev.record_type === 'interest_fee' ? 'add' : (prev.operation || 'add') }))}
+                                                                    className={`px-3 py-2 text-xs font-bold rounded-lg border transition-all ${
+                                                                        (editForm.record_type || 'payment') === 'payment'
+                                                                            ? 'bg-blue-50 text-blue-700 border-blue-300 shadow-xs'
+                                                                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                                                                    }`}
                                                                 >
-                                                                    +
+                                                                    Record a Payment
                                                                 </button>
                                                                 <button
                                                                     type="button"
-                                                                    onClick={() => setEditForm(prev => ({ ...prev, operation: 'sub' }))}
-                                                                    className={`px-3 py-0.5 text-xs font-bold rounded transition-all ${editForm.operation === 'sub'
-                                                                        ? 'bg-blue-600 text-white shadow-sm'
-                                                                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/70'
-                                                                        }`}
+                                                                    onClick={() => setEditForm(prev => ({ ...prev, record_type: 'interest_fee', operation: 'sub' }))}
+                                                                    className={`px-3 py-2 text-xs font-bold rounded-lg border transition-all ${
+                                                                        editForm.record_type === 'interest_fee'
+                                                                            ? 'bg-blue-50 text-blue-700 border-blue-300 shadow-xs'
+                                                                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                                                                    }`}
                                                                 >
-                                                                    -
-                                                                </button>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => setEditForm(prev => ({ ...prev, operation: 'set' }))}
-                                                                    className={`px-3 py-0.5 text-xs font-bold rounded transition-all ${editForm.operation === 'set'
-                                                                        ? 'bg-blue-600 text-white shadow-sm'
-                                                                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/70'
-                                                                        }`}
-                                                                >
-                                                                    set
+                                                                    Record Interest/Fee
                                                                 </button>
                                                             </div>
                                                         </div>
-                                                        <Input
-                                                            name="amount"
-                                                            type="number"
-                                                            step="0.01"
-                                                            min="0"
-                                                            value={editForm.amount}
-                                                            onChange={handleEditFormChange}
-                                                            placeholder="e.g. 8775"
-                                                            className="w-full h-9 text-sm"
-                                                        />
+
+                                                        {/* Amount Field */}
+                                                        <div className="space-y-1.5">
+                                                            <div className="flex items-center justify-between">
+                                                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                                                                    {editForm.record_type === 'interest_fee' ? 'Interest / Fee Amount ($)' : 'Record a Payment ($)'}
+                                                                </label>
+                                                                {/* Only show operation buttons for Record a Payment */}
+                                                                {editForm.record_type !== 'interest_fee' && (
+                                                                    <div className="inline-flex rounded-md bg-slate-100 p-0.5 border border-slate-200 shadow-inner">
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => setEditForm(prev => ({ ...prev, operation: 'add' }))}
+                                                                            className={`px-3 py-0.5 text-xs font-bold rounded transition-all ${(editForm.operation || 'add') === 'add'
+                                                                                ? 'bg-blue-600 text-white shadow-sm'
+                                                                                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/70'
+                                                                                }`}
+                                                                        >
+                                                                            +
+                                                                        </button>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => setEditForm(prev => ({ ...prev, operation: 'sub' }))}
+                                                                            className={`px-3 py-0.5 text-xs font-bold rounded transition-all ${editForm.operation === 'sub'
+                                                                                ? 'bg-blue-600 text-white shadow-sm'
+                                                                                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/70'
+                                                                                }`}
+                                                                        >
+                                                                            -
+                                                                        </button>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => setEditForm(prev => ({ ...prev, operation: 'set' }))}
+                                                                            className={`px-3 py-0.5 text-xs font-bold rounded transition-all ${editForm.operation === 'set'
+                                                                                ? 'bg-blue-600 text-white shadow-sm'
+                                                                                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/70'
+                                                                                }`}
+                                                                        >
+                                                                            set
+                                                                        </button>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                            <Input
+                                                                name="amount"
+                                                                type="number"
+                                                                step="0.01"
+                                                                min="0"
+                                                                value={editForm.amount}
+                                                                onChange={handleEditFormChange}
+                                                                placeholder={editForm.record_type === 'interest_fee' ? "e.g. 150" : "e.g. 8775"}
+                                                                className="w-full h-9 text-sm"
+                                                            />
+                                                        </div>
                                                     </div>
                                                 )}
                                                 <div className="grid grid-cols-2 gap-3">
