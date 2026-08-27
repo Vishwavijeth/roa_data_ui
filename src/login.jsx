@@ -55,7 +55,8 @@ function Login({ onLogin }) {
             const data = await response.json();
 
             if (response.ok) {
-                if (data.access_token) {
+                const accessToken = data.token?.access_token || data.access_token;
+                if (accessToken) {
                     onLogin(data);
                 } else {
                     setError('Invalid server response. Please try again.');

@@ -23,14 +23,24 @@ function App() {
   }, []);
 
   // ── Auth handler ─────────────────────────────────────────────────────────
-  const handleLogin = (tokens) => {
+  const handleLogin = (data) => {
     localStorage.setItem('roa_auth', 'true');
-    if (tokens && tokens.access_token) {
-      localStorage.setItem('access_token', tokens.access_token);
-      if (tokens.refresh_token) {
-        localStorage.setItem('refresh_token', tokens.refresh_token);
-      }
+    const accessToken = data?.token?.access_token || data?.access_token;
+    const refreshToken = data?.token?.refresh_token || data?.refresh_token;
+
+    if (accessToken) {
+      localStorage.setItem('access_token', accessToken);
     }
+    if (refreshToken) {
+      localStorage.setItem('refresh_token', refreshToken);
+    }
+    if (data?.role) {
+      localStorage.setItem('user_role', JSON.stringify(data.role));
+    }
+    if (data?.email) {
+      localStorage.setItem('user_email', data.email);
+    }
+
     setIsAuthenticated(true);
     setAuthChecked(true);
   };

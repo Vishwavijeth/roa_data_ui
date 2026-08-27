@@ -20,12 +20,16 @@ export function getRefreshToken() {
     return localStorage.getItem('refresh_token');
 }
 
-export function storeTokens({ access_token, refresh_token }) {
-    if (access_token) {
-        localStorage.setItem('access_token', access_token);
+export function storeTokens(data) {
+    if (!data) return;
+    const accessToken = data.token?.access_token || data.access_token;
+    const refreshToken = data.token?.refresh_token || data.refresh_token;
+
+    if (accessToken) {
+        localStorage.setItem('access_token', accessToken);
     }
-    if (refresh_token) {
-        localStorage.setItem('refresh_token', refresh_token);
+    if (refreshToken) {
+        localStorage.setItem('refresh_token', refreshToken);
     }
 }
 
@@ -117,7 +121,7 @@ export async function refreshAccessToken() {
 
         const data = await res.json();
         storeTokens(data);
-        return data.access_token;
+        return data.token?.access_token || data.access_token;
     })();
 
     try {
