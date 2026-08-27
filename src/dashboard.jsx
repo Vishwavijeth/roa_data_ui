@@ -18,7 +18,7 @@ import CommissionAdvances from './pages/CommissionAdvances';
 import CommissionAdvancesFlow from './pages/CommissionAdvancesFlow';
 
 // ── Dashboard Shell (layout + sidebar + lifted sync state) ───────────────────
-function Dashboard({ setIsAuthenticated }) {
+function Dashboard({ setIsAuthenticated, authChecked = true }) {
     // Restore the active page from the URL hash on refresh
     const validPages = ['dashboard', 'reconciliation_new', 'brokerage', 'skyslope', 'cda_sent', 'pre_cda', 'month_closing', 'txn_specialist', 'reviewer', 'txn_specialist_dash', 'reviewer_dash', 'checklist_type_mapping', 'commission_advances', 'commission_advances_flow'];
 
@@ -27,7 +27,9 @@ function Dashboard({ setIsAuthenticated }) {
     const normaliseHash = (raw) => raw.split('/')[0].split('?')[0];
 
     const hashPage = normaliseHash(window.location.hash.replace('#', '').split('?')[0]);
-    const [activePage, setActivePage] = useState(validPages.includes(hashPage) ? hashPage : 'dashboard');
+    const [activePage, setActivePage] = useState(
+        validPages.includes(hashPage) && hashPage !== '' ? hashPage : 'reconciliation_new'
+    );
 
     // Keep the URL hash in sync with the active page.
     // Only update the hash when the top-level page changes; sub-tab transitions
@@ -222,14 +224,24 @@ function Dashboard({ setIsAuthenticated }) {
         }
     };
 
+    // ── Logout state ─────────────────────────────────────────────────────────────
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
+
     // Called when user clicks logout – hits the /auth/logout API then clears session
     const handleLogout = useCallback(async () => {
-        await logoutUser();
+        setIsLoggingOut(true);
+        const logoutPromise = logoutUser();
+        const timerPromise = new Promise(resolve => setTimeout(resolve, 500));
+        await Promise.all([logoutPromise, timerPromise]);
         setIsAuthenticated(false);
     }, [setIsAuthenticated]);
 
     // Called automatically when a token refresh fails (session expired)
-    const forceLogout = useCallback(() => {
+    const forceLogout = useCallback(async () => {
+        setIsLoggingOut(true);
+        const logoutPromise = logoutUser();
+        const timerPromise = new Promise(resolve => setTimeout(resolve, 500));
+        await Promise.all([logoutPromise, timerPromise]);
         setIsAuthenticated(false);
     }, [setIsAuthenticated]);
 
@@ -278,15 +290,36 @@ function Dashboard({ setIsAuthenticated }) {
             case 'commission_advances_flow':
                 return <CommissionAdvancesFlow />;
             default:
-                return <ReconciliationView />;
+                return (
+                    <ReconciliationNew
+                        syncingData={syncingRecon}
+                        syncProgress={syncReconProgress}
+                        syncResult={syncReconResult}
+                        handleSyncData={handleSyncRecon}
+                        setSyncResult={setSyncReconResult}
+                        refreshTrigger={refreshReconTrigger}
+                    />
+                );
         }
     };
 
     return (
-        <div className="flex min-h-screen w-full bg-slate-50">
+        <div className="flex min-h-screen w-full bg-slate-50 relative">
+            {/* Full screen blur overlay on logout */}
+            {isLoggingOut && (
+                <div className="fixed inset-0 z-[9999] backdrop-blur-md bg-slate-900/30 transition-all duration-300 pointer-events-none" />
+            )}
             <Sidebar activePage={activePage} setActivePage={setActivePage} onLogout={handleLogout} />
             <main className="flex-1 min-w-0 overflow-y-auto bg-slate-50">
-                {renderPage()}
+                {authChecked ? (
+                    renderPage()
+                ) : (
+                    <div className="p-8 max-w-7xl mx-auto animate-pulse space-y-6">
+                        <div className="h-8 bg-slate-200 rounded-lg w-1/4"></div>
+                        <div className="h-4 bg-slate-200 rounded w-1/3"></div>
+                        <div className="h-64 bg-slate-200 rounded-xl"></div>
+                    </div>
+                )}
             </main>
         </div>
     );

@@ -20,17 +20,78 @@ export function getRefreshToken() {
     return localStorage.getItem('refresh_token');
 }
 
-function storeTokens({ access_token, refresh_token }) {
-    localStorage.setItem('access_token', access_token);
+export function storeTokens({ access_token, refresh_token }) {
+    if (access_token) {
+        localStorage.setItem('access_token', access_token);
+    }
     if (refresh_token) {
         localStorage.setItem('refresh_token', refresh_token);
     }
 }
 
-function clearSession() {
+export function clearSession() {
     localStorage.removeItem('roa_auth');
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
+}
+
+/**
+ * Verifies session on page reload:
+ * 1. Hits /auth/me using current access token.
+ * 2. If /auth/me fails or returns 401, attempts /auth/refresh using refresh token.
+ * 3. Stores new access & refresh tokens on success.
+ * 4. If refresh also fails or no refresh token is present, clears session.
+ */
+export async function verifyAuthSession() {
+    const accessToken = getAccessToken();
+    const refreshToken = getRefreshToken();
+
+    if (!accessToken && !refreshToken) {
+        clearSession();
+        return false;
+    }
+
+    // 1. Try /auth/me if access token exists
+    if (accessToken) {
+        try {
+            const meRes = await fetch(`${API_DOMAIN}/auth/me`, {
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json',
+                },
+            });
+            if (meRes.ok) {
+                localStorage.setItem('roa_auth', 'true');
+                return true;
+            }
+        } catch (err) {
+            console.warn('[Auth] /auth/me check failed:', err.message);
+        }
+    }
+
+    // 2. If /auth/me failed or access token was missing, try /auth/refresh
+    if (refreshToken) {
+        try {
+            const refreshRes = await fetch(`${API_DOMAIN}/auth/refresh`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ refresh_token: refreshToken }),
+            });
+
+            if (refreshRes.ok) {
+                const data = await refreshRes.json();
+                storeTokens(data);
+                localStorage.setItem('roa_auth', 'true');
+                return true;
+            }
+        } catch (err) {
+            console.warn('[Auth] /auth/refresh check failed:', err.message);
+        }
+    }
+
+    // 3. Both failed or tokens missing – clear session and return false
+    clearSession();
+    return false;
 }
 
 // ── Refresh access token ───────────────────────────────────────────────────────
