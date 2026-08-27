@@ -37,6 +37,21 @@ export function clearSession() {
     localStorage.removeItem('roa_auth');
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
+    localStorage.removeItem('user_role');
+    localStorage.removeItem('user_email');
+}
+
+export function getUserRole() {
+    try {
+        const raw = localStorage.getItem('user_role');
+        return raw ? JSON.parse(raw) : null;
+    } catch {
+        return null;
+    }
+}
+
+export function getUserEmail() {
+    return localStorage.getItem('user_email');
 }
 
 /**
@@ -65,7 +80,18 @@ export async function verifyAuthSession() {
                 },
             });
             if (meRes.ok) {
+                const meData = await meRes.json();
+                if (meData?.is_active === false) {
+                    clearSession();
+                    return false;
+                }
                 localStorage.setItem('roa_auth', 'true');
+                if (meData?.role) {
+                    localStorage.setItem('user_role', JSON.stringify(meData.role));
+                }
+                if (meData?.email) {
+                    localStorage.setItem('user_email', meData.email);
+                }
                 return true;
             }
         } catch (err) {
@@ -85,6 +111,31 @@ export async function verifyAuthSession() {
             if (refreshRes.ok) {
                 const data = await refreshRes.json();
                 storeTokens(data);
+
+                // Fetch latest user info with the refreshed access token
+                const newAccessToken = getAccessToken();
+                if (newAccessToken) {
+                    try {
+                        const newMeRes = await fetch(`${API_DOMAIN}/auth/me`, {
+                            headers: {
+                                'Authorization': `Bearer ${newAccessToken}`,
+                                'Content-Type': 'application/json',
+                            },
+                        });
+                        if (newMeRes.ok) {
+                            const newMeData = await newMeRes.json();
+                            if (newMeData?.is_active === false) {
+                                clearSession();
+                                return false;
+                            }
+                            if (newMeData?.role) localStorage.setItem('user_role', JSON.stringify(newMeData.role));
+                            if (newMeData?.email) localStorage.setItem('user_email', newMeData.email);
+                        }
+                    } catch {
+                        // ignore secondary me fetch error on refresh
+                    }
+                }
+
                 localStorage.setItem('roa_auth', 'true');
                 return true;
             }
