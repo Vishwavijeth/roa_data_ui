@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { logoutUser, setUnauthorizedHandler } from './utils/api';
+import { logoutUser, setUnauthorizedHandler, isAdminUser } from './utils/api';
 import { API_DOMAIN } from './constants';
 import Sidebar from './components/layout/Sidebar';
 import ReconciliationView from './pages/ReconciliationView';
@@ -16,11 +16,15 @@ import AccountHold from './pages/AccountHold';
 import ChecklistTypeMappingView from './pages/ChecklistTypeMappingView';
 import CommissionAdvances from './pages/CommissionAdvances';
 import CommissionAdvancesFlow from './pages/CommissionAdvancesFlow';
+import UserAccessView from './pages/UserAccessView';
 
 // ── Dashboard Shell (layout + sidebar + lifted sync state) ───────────────────
 function Dashboard({ setIsAuthenticated, authChecked = true }) {
-    // Restore the active page from the URL hash on refresh
-    const validPages = ['dashboard', 'reconciliation_new', 'brokerage', 'skyslope', 'cda_sent', 'pre_cda', 'month_closing', 'txn_specialist', 'reviewer', 'txn_specialist_dash', 'reviewer_dash', 'checklist_type_mapping', 'commission_advances', 'commission_advances_flow'];
+    const isAdmin = isAdminUser();
+
+    // Valid top-level pages allowed for the current user's role
+    const basePages = ['dashboard', 'reconciliation_new', 'brokerage', 'skyslope', 'cda_sent', 'pre_cda', 'month_closing', 'txn_specialist', 'reviewer', 'txn_specialist_dash', 'reviewer_dash', 'checklist_type_mapping', 'commission_advances', 'commission_advances_flow'];
+    const validPages = isAdmin ? [...basePages, 'user_access'] : basePages;
 
     // Normalise sub-tab hashes and query parameters to their top-level page id
     // e.g. 'reconciliation_new/analytics' → 'reconciliation_new', 'commission_advances?agent_name=X' → 'commission_advances'
@@ -32,8 +36,6 @@ function Dashboard({ setIsAuthenticated, authChecked = true }) {
     );
 
     // Keep the URL hash in sync with the active page.
-    // Only update the hash when the top-level page changes; sub-tab transitions
-    // inside ReconciliationNew manage their own hashes.
     useEffect(() => {
         const currentTop = normaliseHash(window.location.hash.replace('#', ''));
         if (currentTop !== activePage) {
@@ -41,18 +43,22 @@ function Dashboard({ setIsAuthenticated, authChecked = true }) {
         }
     }, [activePage]);
 
-    // Handle back button and external hash routing dynamically
+    // Handle back button and external hash routing dynamically with role protection
     useEffect(() => {
         const handleHashChange = () => {
             const raw = window.location.hash.replace('#', '').split('?')[0];
             const top = normaliseHash(raw);
             if (validPages.includes(top)) {
                 setActivePage(top);
+            } else if (top === 'user_access' && !isAdmin) {
+                // Non-admin attempting to access admin route → redirect to reconciliation_new
+                window.location.hash = 'reconciliation_new';
+                setActivePage('reconciliation_new');
             }
         };
         window.addEventListener('hashchange', handleHashChange);
         return () => window.removeEventListener('hashchange', handleHashChange);
-    }, []);
+    }, [isAdmin]);
 
     // ── Sync BE Data state (lifted here so it persists across page navigation) ──
     const [syncingBE, setSyncingBE] = useState(false);
@@ -289,6 +295,8 @@ function Dashboard({ setIsAuthenticated, authChecked = true }) {
                 return <CommissionAdvances />;
             case 'commission_advances_flow':
                 return <CommissionAdvancesFlow />;
+            case 'user_access':
+                return isAdmin ? <UserAccessView /> : null;
             default:
                 return (
                     <ReconciliationNew
@@ -305,21 +313,13 @@ function Dashboard({ setIsAuthenticated, authChecked = true }) {
 
     return (
         <div className="flex min-h-screen w-full bg-slate-50 relative">
-            {/* Full screen blur overlay on logout */}
-            {isLoggingOut && (
+            {/* Full screen blur overlay on logout or while session check is in flight */}
+            {(isLoggingOut || !authChecked) && (
                 <div className="fixed inset-0 z-[9999] backdrop-blur-md bg-slate-900/30 transition-all duration-300 pointer-events-none" />
             )}
             <Sidebar activePage={activePage} setActivePage={setActivePage} onLogout={handleLogout} />
             <main className="flex-1 min-w-0 overflow-y-auto bg-slate-50">
-                {authChecked ? (
-                    renderPage()
-                ) : (
-                    <div className="p-8 max-w-7xl mx-auto animate-pulse space-y-6">
-                        <div className="h-8 bg-slate-200 rounded-lg w-1/4"></div>
-                        <div className="h-4 bg-slate-200 rounded w-1/3"></div>
-                        <div className="h-64 bg-slate-200 rounded-xl"></div>
-                    </div>
-                )}
+                {renderPage()}
             </main>
         </div>
     );

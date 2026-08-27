@@ -5,7 +5,9 @@ import { verifyAuthSession } from './utils/api';
 import './App.css';
 
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    return localStorage.getItem('roa_auth') === 'true' && Boolean(localStorage.getItem('access_token'));
+  });
   const [authChecked, setAuthChecked] = useState(false);
 
   // ── Verify session BEFORE mounting page APIs ──────────────────────────────
@@ -41,28 +43,17 @@ function App() {
       localStorage.setItem('user_email', data.email);
     }
 
+    window.location.hash = 'reconciliation_new';
     setIsAuthenticated(true);
     setAuthChecked(true);
   };
 
-  // ── 1. Show loading screen while checking initial auth session ───────────
-  if (!authChecked) {
-    return (
-      <div className="flex min-h-screen w-full items-center justify-center bg-slate-900 text-white">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-slate-400 text-sm font-medium animate-pulse">Verifying session...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // ── 2. Render Login if unauthenticated ───────────────────────────────────
+  // ── Render Login if unauthenticated ──────────────────────────────────────
   if (!isAuthenticated) {
     return <Login onLogin={handleLogin} />;
   }
 
-  // ── 3. Render Dashboard once authenticated ───────────────────────────────
+  // ── Render Dashboard once authenticated ──────────────────────────────────
   return <Dashboard setIsAuthenticated={setIsAuthenticated} authChecked={authChecked} />;
 }
 

@@ -54,6 +54,17 @@ export function getUserEmail() {
     return localStorage.getItem('user_email');
 }
 
+export function isAdminUser() {
+    try {
+        const role = getUserRole();
+        if (!role) return false;
+        if (typeof role === 'string') return role.toLowerCase() === 'admin';
+        return role?.name?.toLowerCase() === 'admin';
+    } catch {
+        return false;
+    }
+}
+
 /**
  * Verifies session on page reload:
  * 1. Hits /auth/me using current access token.
