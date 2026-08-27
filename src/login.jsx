@@ -140,6 +140,9 @@ function Login({ onLogin }) {
     const clearResetUrlAndGoToLogin = () => {
         setResetToken(null);
         setForgotMode(false);
+        if (window.history && window.history.pushState) {
+            window.history.pushState('', document.title, window.location.pathname.replace(/\/reset-password.*/, '') || '/');
+        }
         window.location.hash = '';
     };
 
