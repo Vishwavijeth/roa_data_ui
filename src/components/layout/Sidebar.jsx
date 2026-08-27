@@ -2,10 +2,13 @@ import React from 'react';
 import {
     IconDashboard, IconBrokerage, IconSkySlope, IconChevron,
     IconLogout, IconSpecialist, IconReviewer, IconSpecialistDash, IconReviewerDash, IconCdaSent,
-    IconMonthClosing, IconPreCda, IconChecklist, IconCommission
+    IconMonthClosing, IconPreCda, IconChecklist, IconCommission, IconUserAccess
 } from '../shared/Icons';
+import { isAdminUser } from '../../utils/api';
 
 function Sidebar({ activePage, setActivePage, onLogout }) {
+    const isAdmin = isAdminUser();
+
     const navSections = [
         {
             label: 'RECONCILIATION',
@@ -52,6 +55,15 @@ function Sidebar({ activePage, setActivePage, onLogout }) {
             ],
         },
     ];
+
+    if (isAdmin) {
+        navSections.push({
+            label: 'ADMIN',
+            items: [
+                { id: 'user_access', label: 'User Access', icon: <IconUserAccess /> },
+            ],
+        });
+    }
 
     return (
         <aside className="w-64 bg-slate-900 text-slate-100 flex flex-col h-screen shrink-0 border-r border-slate-800 sticky top-0">
