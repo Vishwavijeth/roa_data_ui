@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import Login from './login';
 import Dashboard from './dashboard';
-import { verifyAuthSession } from './utils/api';
+import { verifyAuthSession, storeTokens, clearSession } from './utils/api';
+import { API_DOMAIN } from './constants';
 import './App.css';
 
 function App() {
@@ -19,28 +20,39 @@ function App() {
         setAuthChecked(true);
       }
     });
-    return () => {
-      isMounted = false;
-    };
+    return () => { isMounted = false; };
   }, []);
 
-  // ── Auth handler ─────────────────────────────────────────────────────────
-  const handleLogin = (data) => {
+  // ── Auth handler ──────────────────────────────────────────────────────────
+  const handleLogin = async (data) => {
+    // Store both tokens from the flat login response
+    storeTokens(data);
     localStorage.setItem('roa_auth', 'true');
-    const accessToken = data?.token?.access_token || data?.access_token;
-    const refreshToken = data?.token?.refresh_token || data?.refresh_token;
 
+    // Fetch user info (role, email) from /auth/me using the new access token
+    const accessToken = data.token?.access_token || data.access_token;
     if (accessToken) {
-      localStorage.setItem('access_token', accessToken);
-    }
-    if (refreshToken) {
-      localStorage.setItem('refresh_token', refreshToken);
-    }
-    if (data?.role) {
-      localStorage.setItem('user_role', JSON.stringify(data.role));
-    }
-    if (data?.email) {
-      localStorage.setItem('user_email', data.email);
+      try {
+        const meRes = await fetch(`${API_DOMAIN}/auth/me`, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        if (meRes.ok) {
+          const meData = await meRes.json();
+          if (meData?.is_active === false) {
+            // Account is inactive → reject login
+            clearSession();
+            return;
+          }
+          if (meData?.role)  localStorage.setItem('user_role',  JSON.stringify(meData.role));
+          if (meData?.email) localStorage.setItem('user_email', meData.email);
+        }
+      } catch (err) {
+        console.warn('[Auth] /auth/me after login failed:', err.message);
+        // Non-fatal – proceed with login; role info may be missing but tokens are stored
+      }
     }
 
     window.location.hash = 'reconciliation_new';

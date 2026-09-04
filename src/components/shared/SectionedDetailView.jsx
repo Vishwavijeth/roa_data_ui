@@ -58,9 +58,15 @@ const formatCurrencyValue = (val) => {
     }).format(num);
 };
 
+// Keys (exact or containing) that should never be rendered in the detail view
+const HIDDEN_KEYS = ['user', 'user_id', 'user_name', 'userid', 'username', 'created_by_user'];
+
 function SectionedDetailView({ data }) {
     if (!data || typeof data !== 'object') return null;
-    const entries = Object.entries(data);
+    const entries = Object.entries(data).filter(([key]) => {
+        const k = key.toLowerCase();
+        return !HIDDEN_KEYS.some(hk => k === hk || k === hk.replace(/_/g, ''));
+    });
     const assigned = new Set();
 
     const sections = DETAIL_SECTION_MAP.map(section => {
