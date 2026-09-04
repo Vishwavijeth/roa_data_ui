@@ -13,7 +13,7 @@ export const PARAMETERS = [
     { id: 'title_company', label: 'Title Company', endpoint: 'title_company', skyslopeKey: 'skyslope_title_company', beKey: 'be_title_company' }
 ];
 
-// ── API Domain (single source of truth) ───────────────────────────────────────
+// ── API Domain ───────────────────────────────────────
 export const API_DOMAIN = 'https://roa-data-backend.vercel.app';
 
 export const API_BASE = `${API_DOMAIN}/compare`;
@@ -30,12 +30,13 @@ export const CHECKLIST_TYPE_MAPPING_FILTERS_API = `${API_DOMAIN}/checklist-type-
 export const COMMISSION_ADVANCES_SUMMARY_API = `${API_DOMAIN}/commission-advances/summary`;
 export const COMMISSION_ADVANCES_LISTING_API = `${API_DOMAIN}/commission-advances/listing`;
 export const COMMISSION_ADVANCES_DETAIL_API = `${API_DOMAIN}/commission-advances/detail`;
+export const COMMISSION_ADVANCES_META_API = `${API_DOMAIN}/commission-advances/meta`;
 export const COMMISSION_ADVANCES_DROPDOWN_API = `${API_DOMAIN}/commission-advances/log-dropdown`;
 export const COMMISSION_ADVANCES_STATUS_DROPDOWN_API = `${API_DOMAIN}/commission-advances/status-dropdown`;
 export const COMMISSION_ADVANCES_SUGGESTIONS_API = `${API_DOMAIN}/commission-advances/agent-suggestions`;
 export const COMMISSION_ADVANCES_ADDRESS_SUGGESTIONS_API = `${API_DOMAIN}/commission-advances/address-suggestions`;
 export const COMMISSION_ADVANCES_LOG_API = `${API_DOMAIN}/commission-advances/log`;
-export const COMMISSION_ADVANCES_EDIT_API = `${API_DOMAIN}/commission-advances/transaction`;
+export const COMMISSION_ADVANCES_EDIT_API = `${API_DOMAIN}/commission-advance-transactions`;
 export const COMMISSION_ADVANCES_FLOW_LIST_API = `${API_DOMAIN}/commission-advances-flow/list`;
 
 export const ROWS_PER_PAGE = 50;

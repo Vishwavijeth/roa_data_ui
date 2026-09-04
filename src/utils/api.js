@@ -11,39 +11,46 @@ export function setUnauthorizedHandler(handler) {
     _unauthorizedHandler = handler;
 }
 
+// ── Token storage keys ────────────────────────────────────────────────────────
+const KEY_ACCESS  = 'access_token';
+const KEY_REFRESH = 'refresh_token';
+const KEY_AUTH    = 'roa_auth';
+const KEY_ROLE    = 'user_role';
+const KEY_EMAIL   = 'user_email';
+
 // ── Token helpers ──────────────────────────────────────────────────────────────
 export function getAccessToken() {
-    return localStorage.getItem('access_token');
+    return localStorage.getItem(KEY_ACCESS);
 }
 
 export function getRefreshToken() {
-    return localStorage.getItem('refresh_token');
+    return localStorage.getItem(KEY_REFRESH);
 }
 
+/**
+ * Stores access_token and refresh_token from the API response.
+ * Supports both flat  { access_token, refresh_token }
+ * and nested          { token: { access_token, refresh_token } } formats.
+ */
 export function storeTokens(data) {
     if (!data) return;
-    const accessToken = data.token?.access_token || data.access_token;
+    const accessToken  = data.token?.access_token  || data.access_token;
     const refreshToken = data.token?.refresh_token || data.refresh_token;
-
-    if (accessToken) {
-        localStorage.setItem('access_token', accessToken);
-    }
-    if (refreshToken) {
-        localStorage.setItem('refresh_token', refreshToken);
-    }
+    if (accessToken)  localStorage.setItem(KEY_ACCESS,  accessToken);
+    if (refreshToken) localStorage.setItem(KEY_REFRESH, refreshToken);
 }
 
 export function clearSession() {
-    localStorage.removeItem('roa_auth');
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    localStorage.removeItem('user_role');
-    localStorage.removeItem('user_email');
+    localStorage.removeItem(KEY_AUTH);
+    localStorage.removeItem(KEY_ACCESS);
+    localStorage.removeItem(KEY_REFRESH);
+    localStorage.removeItem(KEY_ROLE);
+    localStorage.removeItem(KEY_EMAIL);
 }
 
 export function getUserRole() {
     try {
-        const raw = localStorage.getItem('user_role');
+        const raw = localStorage.getItem(KEY_ROLE);
         return raw ? JSON.parse(raw) : null;
     } catch {
         return null;
@@ -51,7 +58,7 @@ export function getUserRole() {
 }
 
 export function getUserEmail() {
-    return localStorage.getItem('user_email');
+    return localStorage.getItem(KEY_EMAIL);
 }
 
 export function isAdminUser() {
@@ -65,105 +72,27 @@ export function isAdminUser() {
     }
 }
 
+// ── JWT expiry helper ─────────────────────────────────────────────────────────
 /**
- * Verifies session on page reload:
- * 1. Hits /auth/me using current access token.
- * 2. If /auth/me fails or returns 401, attempts /auth/refresh using refresh token.
- * 3. Stores new access & refresh tokens on success.
- * 4. If refresh also fails or no refresh token is present, clears session.
+ * Decodes a JWT payload and returns true if it has expired (or is within
+ * `bufferSeconds` of expiring). Returns false if the token is invalid/missing.
  */
-export async function verifyAuthSession() {
-    const accessToken = getAccessToken();
-    const refreshToken = getRefreshToken();
-
-    if (!accessToken && !refreshToken) {
-        clearSession();
-        return false;
+function isTokenExpired(token, bufferSeconds = 30) {
+    if (!token) return true;
+    try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        if (!payload.exp) return false; // no expiry claim → treat as valid
+        return Date.now() / 1000 >= payload.exp - bufferSeconds;
+    } catch {
+        return true; // malformed token → treat as expired
     }
-
-    // 1. Try /auth/me if access token exists
-    if (accessToken) {
-        try {
-            const meRes = await fetch(`${API_DOMAIN}/auth/me`, {
-                headers: {
-                    'Authorization': `Bearer ${accessToken}`,
-                    'Content-Type': 'application/json',
-                },
-            });
-            if (meRes.ok) {
-                const meData = await meRes.json();
-                if (meData?.is_active === false) {
-                    clearSession();
-                    return false;
-                }
-                localStorage.setItem('roa_auth', 'true');
-                if (meData?.role) {
-                    localStorage.setItem('user_role', JSON.stringify(meData.role));
-                }
-                if (meData?.email) {
-                    localStorage.setItem('user_email', meData.email);
-                }
-                return true;
-            }
-        } catch (err) {
-            console.warn('[Auth] /auth/me check failed:', err.message);
-        }
-    }
-
-    // 2. If /auth/me failed or access token was missing, try /auth/refresh
-    if (refreshToken) {
-        try {
-            const refreshRes = await fetch(`${API_DOMAIN}/auth/refresh`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ refresh_token: refreshToken }),
-            });
-
-            if (refreshRes.ok) {
-                const data = await refreshRes.json();
-                storeTokens(data);
-
-                // Fetch latest user info with the refreshed access token
-                const newAccessToken = getAccessToken();
-                if (newAccessToken) {
-                    try {
-                        const newMeRes = await fetch(`${API_DOMAIN}/auth/me`, {
-                            headers: {
-                                'Authorization': `Bearer ${newAccessToken}`,
-                                'Content-Type': 'application/json',
-                            },
-                        });
-                        if (newMeRes.ok) {
-                            const newMeData = await newMeRes.json();
-                            if (newMeData?.is_active === false) {
-                                clearSession();
-                                return false;
-                            }
-                            if (newMeData?.role) localStorage.setItem('user_role', JSON.stringify(newMeData.role));
-                            if (newMeData?.email) localStorage.setItem('user_email', newMeData.email);
-                        }
-                    } catch {
-                        // ignore secondary me fetch error on refresh
-                    }
-                }
-
-                localStorage.setItem('roa_auth', 'true');
-                return true;
-            }
-        } catch (err) {
-            console.warn('[Auth] /auth/refresh check failed:', err.message);
-        }
-    }
-
-    // 3. Both failed or tokens missing – clear session and return false
-    clearSession();
-    return false;
 }
 
-// ── Refresh access token ───────────────────────────────────────────────────────
-let _refreshPromise = null; // deduplicate concurrent refresh calls
+// ── Refresh access token (deduplicated) ───────────────────────────────────────
+let _refreshPromise = null;
 
 export async function refreshAccessToken() {
+    // Deduplicate: if a refresh is already in flight, wait for it
     if (_refreshPromise) return _refreshPromise;
 
     _refreshPromise = (async () => {
@@ -178,11 +107,12 @@ export async function refreshAccessToken() {
 
         if (!res.ok) {
             const data = await res.json().catch(() => ({}));
-            throw new Error(data.detail || 'Token refresh failed');
+            throw new Error(data.detail || `Token refresh failed (${res.status})`);
         }
 
         const data = await res.json();
         storeTokens(data);
+        console.log('[Auth] Token refreshed successfully');
         return data.token?.access_token || data.access_token;
     })();
 
@@ -193,30 +123,59 @@ export async function refreshAccessToken() {
     }
 }
 
-// ── Authenticated fetch with automatic 401 retry ───────────────────────────────
+// ── Authenticated fetch with proactive expiry check + 401 retry ───────────────
 /**
  * Drop-in replacement for `fetch()` that:
- *  1. Attaches the Bearer access token to every request.
- *  2. On a 401, attempts one silent token refresh and retries the request.
- *  3. If the refresh also fails, clears the session and triggers the onUnauthorized callback.
+ *  1. Checks if the access token is expired/near-expiry BEFORE the request
+ *     and proactively refreshes it to avoid unnecessary 401s.
+ *  2. Attaches the Bearer access token to every request.
+ *  3. On a 401 response, attempts one silent token refresh and retries.
+ *  4. If the refresh also fails, clears the session and triggers logout.
  *
- * @param {string} url
+ * NOTE: Does NOT override Content-Type if the caller already set it,
+ *       and never sets Content-Type on FormData bodies.
+ *
+ * @param {string}      url
  * @param {RequestInit} options
- * @param {() => void} [onUnauthorized] – called when session is expired beyond recovery
+ * @param {() => void}  [onUnauthorized]
  */
 export async function authFetch(url, options = {}, onUnauthorized = null) {
+    // Build request headers without clobbering caller-supplied Content-Type
+    const buildHeaders = (token) => {
+        const callerHeaders = options.headers || {};
+        // If the body is FormData, let the browser set the Content-Type automatically
+        const isFormData = options.body instanceof FormData;
+        return {
+            ...callerHeaders,
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            // Only inject application/json if caller didn't specify and body is not FormData
+            ...(!callerHeaders['Content-Type'] && !callerHeaders['content-type'] && !isFormData
+                ? { 'Content-Type': 'application/json' }
+                : {}),
+        };
+    };
+
     const makeRequest = (token) =>
-        fetch(url, {
-            ...options,
-            headers: {
-                ...(options.headers || {}),
-                ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                'Content-Type': options.headers?.['Content-Type'] || 'application/json',
-            },
-        });
+        fetch(url, { ...options, headers: buildHeaders(token) });
 
-    let res = await makeRequest(getAccessToken());
+    // ── 1. Proactively refresh if access token is expired/near-expiry ─────────
+    let accessToken = getAccessToken();
+    if (isTokenExpired(accessToken)) {
+        try {
+            accessToken = await refreshAccessToken();
+        } catch (err) {
+            // Refresh failed even before making the request → log out
+            clearSession();
+            const handler = onUnauthorized || _unauthorizedHandler;
+            if (handler) handler();
+            throw new Error('Session expired. Please log in again.');
+        }
+    }
 
+    // ── 2. Make the actual request ────────────────────────────────────────────
+    let res = await makeRequest(accessToken);
+
+    // ── 3. On 401, attempt one refresh-and-retry ──────────────────────────────
     if (res.status === 401) {
         try {
             const newToken = await refreshAccessToken();
@@ -232,10 +191,66 @@ export async function authFetch(url, options = {}, onUnauthorized = null) {
     return res;
 }
 
+// ── Session verification on page reload ───────────────────────────────────────
+/**
+ * Verifies the session on page load:
+ * 1. If access token is still valid → confirm with /auth/me.
+ * 2. If access token is expired but refresh token exists → refresh first, then /auth/me.
+ * 3. If both fail or are missing → clear session and return false.
+ */
+export async function verifyAuthSession() {
+    const accessToken  = getAccessToken();
+    const refreshToken = getRefreshToken();
+
+    if (!accessToken && !refreshToken) {
+        clearSession();
+        return false;
+    }
+
+    // Helper: validate session against /auth/me with a given token
+    const checkMe = async (token) => {
+        const meRes = await fetch(`${API_DOMAIN}/auth/me`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+            },
+        });
+        if (!meRes.ok) return false;
+        const meData = await meRes.json();
+        if (meData?.is_active === false) return false;
+        localStorage.setItem(KEY_AUTH, 'true');
+        if (meData?.role)  localStorage.setItem(KEY_ROLE,  JSON.stringify(meData.role));
+        if (meData?.email) localStorage.setItem(KEY_EMAIL, meData.email);
+        return true;
+    };
+
+    // 1. If access token is still valid, verify with /auth/me directly
+    if (!isTokenExpired(accessToken)) {
+        try {
+            if (await checkMe(accessToken)) return true;
+        } catch (err) {
+            console.warn('[Auth] /auth/me check failed:', err.message);
+        }
+    }
+
+    // 2. Access token is expired or /auth/me failed → try refresh
+    if (refreshToken) {
+        try {
+            const newAccessToken = await refreshAccessToken();
+            if (await checkMe(newAccessToken)) return true;
+        } catch (err) {
+            console.warn('[Auth] Token refresh during session verify failed:', err.message);
+        }
+    }
+
+    // 3. Everything failed → clear and return false
+    clearSession();
+    return false;
+}
+
 // ── Logout ─────────────────────────────────────────────────────────────────────
 /**
- * Calls the logout API with the current access token, then clears the session.
- * If the API call fails, we still clear the local session to avoid a stuck state.
+ * Calls the logout API then clears the local session regardless of API success.
  */
 export async function logoutUser() {
     const token = getAccessToken();
@@ -248,8 +263,7 @@ export async function logoutUser() {
             },
         });
     } catch (err) {
-        // Silently ignore network errors – we still clear the local session below
-        console.warn('[Auth] Logout API call failed:', err.message);
+        console.warn('[Auth] Logout API call failed (ignored):', err.message);
     } finally {
         clearSession();
     }
